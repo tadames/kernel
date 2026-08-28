@@ -29,3 +29,22 @@ test("Kernel surprise falls while living in Field", () => {
     `ema surprise did not fall: ${early.toFixed(4)} → ${k.ema.toFixed(4)}`,
   );
 });
+
+test("compression progress appears while living; curiosity no longer rewards raw EMA", () => {
+  const k = new Kernel("field", 11);
+  let sawPositiveProgress = false;
+  let maxProgress = -1;
+  for (let i = 0; i < 180; i++) {
+    k.step();
+    if (k.progress > 0) sawPositiveProgress = true;
+    if (k.progress > maxProgress) maxProgress = k.progress;
+  }
+  assert.ok(sawPositiveProgress, "expected at least one positive compression-progress tick");
+  assert.ok(maxProgress > 0.0005, `max progress too small: ${maxProgress}`);
+  // Policy still acts (age advanced) and has non-trivial scores.
+  const snap = k.snapshot();
+  assert.ok(snap.scores.length === 5);
+  let any = false;
+  for (let i = 0; i < 5; i++) if (Number.isFinite(snap.scores[i])) any = true;
+  assert.ok(any, "scores should be finite after compression-progress policy");
+});

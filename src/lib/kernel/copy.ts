@@ -17,7 +17,7 @@ export const LAWS = [
   {
     id: "04",
     title: "Curiosity is compression progress",
-    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. In this lab, novelty (unvisited scent) stands in for expected learning, and a falling surprise curve is the visible proof. A scientist is an agent whose goal is to improve the model.",
+    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The policy now scores actions by novelty, expected residual (how much the model thinks the view will change), and recent compression progress (falling EMA surprise). Absolute surprise is no longer a reward. A scientist is an agent whose goal is to improve the model.",
   },
   {
     id: "05",
@@ -58,47 +58,17 @@ export const PHASES = [
   },
   {
     id: "4",
-    title: "Commons",
+    title: "Multi-agent",
     now: false,
-    body: "The seed runs on a phone. Anyone can fork the loop. No gatekeepers on the means of mind.",
+    body: "Two kernels in one world. Communication only through the shared environment at first, then through a thin channel of symbols they invent.",
   },
 ] as const;
 
-export const STAGES = [
-  {
-    id: "observe",
-    code: "x ← sense(world)",
-    name: "Observe",
-    note: "A 5×5 window: walls, food, and a decaying scent of where the body has been. No coordinates. No map. Only what is here.",
-  },
-  {
-    id: "predict",
-    code: "x̂ ← M(x₋, a₋)",
-    name: "Predict",
-    note: "A two-layer network, a few thousand weights, guesses the next window from the last window and the last move.",
-  },
-  {
-    id: "surprise",
-    code: "δ ← ‖x − x̂‖²",
-    name: "Surprise",
-    note: "The only loss. When this number falls, the model is compressing the world. When it spikes, the world changed or the model was wrong.",
-  },
-  {
-    id: "compress",
-    code: "M ← M − η ∇δ",
-    name: "Compress",
-    note: "Gradient descent on that error, plus a short replay of recent experience. Learning is just making the next guess cheaper to write.",
-  },
-  {
-    id: "progress",
-    code: "ρ ← δ̄ − δ",
-    name: "Progress",
-    note: "Not surprise itself — the improvement. This is curiosity’s true signal. Noise does not pay. Structure does.",
-  },
-  {
-    id: "act",
-    code: "a ← π(curiosity, goal, M)",
-    name: "Act",
-    note: "Imagine five moves. Avoid predicted walls. Seek food when hungry. Otherwise walk toward low scent. Sample, do not freeze.",
-  },
+export const LOOP_STEPS = [
+  { id: "observe", label: "Observe", detail: "5×5 local view · wall / food / scent" },
+  { id: "predict", label: "Predict", detail: "MLP imagines the next view for each action" },
+  { id: "surprise", label: "Surprise", detail: "MSE(pred, actual) is the training signal" },
+  { id: "compress", label: "Compress", detail: "Online SGD + small replay · weights move" },
+  { id: "progress", label: "Progress", detail: "Falling EMA surprise · the derivative" },
+  { id: "act", label: "Act", detail: "Curiosity + goal − walls · energy body" },
 ] as const;
