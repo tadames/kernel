@@ -213,11 +213,12 @@ export class Kernel {
 
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
-    const predBuf = new Float32Array(OBS);
+    // Recent compression progress (falling EMA surprise). Positive when the
+    // model just got better — Schmidhuber’s intrinsic reward signal.
+    const progressGain = Math.max(0, this.progress);
     for (let a = 0; a < ACTS; a++) {
       const input = this.encode(obs, a);
       const pred = this.model.forward(input, this.imagined[a]);
-      predBuf.set(pred);
 
       const wallAhead = pred[CENTER];
       const foodHere = pred[CENTER + 1];
@@ -229,8 +230,9 @@ export class Kernel {
       const foodNow = a === 4 ? obs[CENTER + 1] : obs[ti + 1];
       const scentNow = a === 4 ? obs[CENTER + 2] : obs[ti + 2];
 
-      // Food visible anywhere in that half of the window.
-      let foodPull = foodNow + 0.55 * foodHere;
+      // Food visible in that half of the window (kept softer so curiosity
+      // is not drowned by reactive food-in-view).
+      let foodPull = foodNow + 0.4 * foodHere;
       if (a < 4) {
         for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
@@ -239,15 +241,29 @@ export class Kernel {
               (DIRS[a].y !== 0 && dy * DIRS[a].y > 0);
             if (!toward) continue;
             const fi = ((dy + R) * VIEW + (dx + R)) * CH + 1;
-            foodPull += 0.18 * obs[fi];
+            foodPull += 0.12 * obs[fi];
           }
         }
       }
 
+      // Expected learning opportunity: how much the model thinks this action
+      // will change the view. High residual ⇒ room to compress.
+      let expectedDelta = 0;
+      for (let i = 0; i < OBS; i++) {
+        const d = pred[i] - obs[i];
+        expectedDelta += d * d;
+      }
+      expectedDelta /= OBS;
+
       const novelty = 1 - scentNow;
       const wallCost = 6.5 * Math.max(wallAhead, wallNow);
       const stayTax = a === 4 ? 0.35 : 0;
-      const curious = this.params.curiosity * (0.85 * novelty + 0.35 * this.ema);
+      // True compression-progress intrinsic reward:
+      // novelty (unvisited) + expected residual (learnable) + recent gain.
+      // Raw EMA surprise is no longer rewarded — that was the noise trap.
+      const curious =
+        this.params.curiosity *
+        (0.55 * novelty + 0.30 * expectedDelta + 0.55 * progressGain * 18);
       const goal = this.params.goal * (0.45 + 1.4 * hunger) * foodPull;
 
       this.scores[a] = curious + goal - wallCost - stayTax;
