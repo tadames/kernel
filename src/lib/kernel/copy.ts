@@ -1,33 +1,33 @@
 export const LAWS = [
   {
     id: "01",
-    title: "A mind is a loop",
-    body: "Intelligence is not a pile of parameters. It is a process that gets less wrong. The oldest useful statement of that process is older than computers: guess what happens next, notice the error, change so the next guess is better, and move toward the places where the error still teaches you something.",
+    title: "A mind is a loop, not a creature",
+    body: "Intelligence is a process that gets less wrong. The kernel is six operations on a stream: observe, predict, measure surprise, compress, record whether compression improved, act. A grid forager is one body for that loop. A bit stream is another. If the loop cannot leave the body it was born in, it was never a kernel.",
   },
   {
     id: "02",
     title: "Prediction is compression",
-    body: "To predict a stream you must find its regularities. Finding regularities is exactly data compression. Hutter’s AIXI makes this precise: the optimal agent is the one whose world-model is the shortest program that would have produced the observations so far, then acts to maximise reward in that model. It is incomputable. It is still the ceiling. Every working mind is an approximation of that ceiling.",
+    body: "To predict a stream you must find its regularities. Finding regularities is data compression. Hutter’s AIXI makes the ceiling precise: the optimal agent’s world-model is the shortest program that would have produced the observations so far. It is incomputable. Every working mind is an approximation of that ceiling. This one uses gradient descent on a tiny network because that is a compressor you can watch.",
   },
   {
     id: "03",
-    title: "Surprise is the training signal",
-    body: "Friston’s free-energy principle and predictive coding say the same thing in the language of brains: keep a generative model of the world, and update it when the world disagrees. Surprise is not a mood. It is the gradient. This kernel trains a tiny network on one quantity — the squared difference between the next local view and what the model expected.",
+    title: "Surprise is the training signal — measured before the update",
+    body: "Friston’s free-energy principle and predictive coding: keep a generative model, update it when the world disagrees. Surprise is not a mood. It is the residual of the current model. This kernel records δ before the gradient step. Training after that is compression. A demo that reports post-update error is flattering itself.",
   },
   {
     id: "04",
-    title: "Curiosity is compression progress",
-    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The policy now scores actions by novelty, expected residual (how much the model thinks the view will change), and recent compression progress (falling EMA surprise). Absolute surprise is no longer a reward. A scientist is an agent whose goal is to improve the model.",
+    title: "Curiosity is compression progress, not novelty",
+    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. Novelty (a visit trace) is only a stand-in for expected learning, and it is scaled by recent progress so an incompressible region goes stale. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
   },
   {
     id: "05",
-    title: "Action closes the loop",
-    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The kernel imagines each move, discounts walls it has learned to see, walks toward food when energy is scarce, and otherwise seeks the less familiar edge. Sutton’s bitter lesson still holds: search plus learning, scaled, beats hand-built knowledge. Here the search is five imagined steps. The learning is every tick.",
+    title: "Action is imagined, not scripted",
+    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel also imagines each move and reads the predicted observation. Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
   },
   {
     id: "06",
-    title: "It must be public",
-    body: "A kernel that only runs behind an API is a product, not a commons. This one lives in the browser. No account. No key. You can watch every weight move. The point of the work is not a smarter assistant. It is to put the means of intelligence — the loop itself — where writing already is: with everyone.",
+    title: "It must be public, and it must be falsifiable",
+    body: "A kernel that only runs behind an API is a product. One that cannot fail a test is a story. The claims live in the Bench: surprise falls on structure, not on noise; wall bumps fall as the model forms; the same Loop object drives two worlds. If a claim fails, the journal records it. Intelligence should be a commons. The means of mind are the loop, the tests, and the right to see them break.",
   },
 ] as const;
 
@@ -36,13 +36,13 @@ export const PHASES = [
     id: "0",
     title: "Seed",
     now: true,
-    body: "A local world model, online gradient compression, curiosity, a body with energy. Everything inspectable. This lab.",
+    body: "A domain-general loop, a compressor, one-step imagination, two testbeds (grid + next-bit stream), falsifiable claims. This repository.",
   },
   {
     id: "1",
     title: "Hierarchy",
     now: false,
-    body: "Predict in a latent space, not in cells. A second kernel whose observations are the first kernel’s hidden state — the JEPA move, and what cortex already does.",
+    body: "Predict in a latent space, not in cells. A second kernel whose observations are the first kernel’s hidden state — the JEPA move, and what cortex already does. Also: a model of learning, so curiosity can be action-conditional ρ̂ rather than novelty × recent ρ.",
   },
   {
     id: "2",
@@ -58,17 +58,47 @@ export const PHASES = [
   },
   {
     id: "4",
-    title: "Multi-agent",
+    title: "Commons",
     now: false,
-    body: "Two kernels in one world. Communication only through the shared environment at first, then through a thin channel of symbols they invent.",
+    body: "The seed runs on a phone. Anyone can fork the loop. No gatekeepers on the means of mind.",
   },
 ] as const;
 
-export const LOOP_STEPS = [
-  { id: "observe", label: "Observe", detail: "5×5 local view · wall / food / scent" },
-  { id: "predict", label: "Predict", detail: "MLP imagines the next view for each action" },
-  { id: "surprise", label: "Surprise", detail: "MSE(pred, actual) is the training signal" },
-  { id: "compress", label: "Compress", detail: "Online SGD + small replay · weights move" },
-  { id: "progress", label: "Progress", detail: "Falling EMA surprise · the derivative" },
-  { id: "act", label: "Act", detail: "Curiosity + goal − walls · energy body" },
+export const STAGES = [
+  {
+    id: "observe",
+    code: "x ← sense(world)",
+    name: "Observe",
+    note: "Whatever the testbed provides. On the grid: a 5×5 window of walls, food, visit-scent. On the stream: the last eight bits. No coordinates. No map. The kernel does not know which world it is in.",
+  },
+  {
+    id: "predict",
+    code: "x̂ ← M(x₋, a₋)",
+    name: "Predict",
+    note: "The compressor guesses the next observation from the last observation and the last action. Same object on every testbed. Only the sizes change.",
+  },
+  {
+    id: "surprise",
+    code: "δ ← ‖x − x̂‖²",
+    name: "Surprise",
+    note: "The residual of the current model, before the update. When this number falls, the model is compressing the world. When it stays high, the world is incompressible or the model is too small.",
+  },
+  {
+    id: "compress",
+    code: "M ← M − η ∇δ",
+    name: "Compress",
+    note: "Gradient descent on that error, plus a short replay of recent experience. Learning is making the next guess cheaper to write.",
+  },
+  {
+    id: "progress",
+    code: "ρ ← δ̄ − δ",
+    name: "Progress",
+    note: "Not surprise itself — the improvement. This is curiosity’s true signal. Noise does not pay. Structure does. Action-conditional ρ̂ is still an open problem (Phase 1).",
+  },
+  {
+    id: "act",
+    code: "a ← π(M, ρ, goal)",
+    name: "Act",
+    note: "Imagine every legal move. Read the destination cell already in the window (whiskers) and the predicted window (the model). Sample. No half-plane scan for food.",
+  },
 ] as const;

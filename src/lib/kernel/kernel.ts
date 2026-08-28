@@ -1,4 +1,5 @@
-import { MLP, mse } from "./mlp.ts";
+import { Loop } from "./loop.ts";
+import { imagineScores, softmaxSample } from "./policy.ts";
 import {
   generateWorld,
   mulberry32,
@@ -26,8 +27,6 @@ export const DIRS = [
 ] as const;
 export const DIR_NAMES = ["north", "east", "south", "west", "wait"] as const;
 
-const REPLAY = 160;
-const EXTRA = 3;
 const HISTORY = 140;
 
 export type Params = {
@@ -66,46 +65,20 @@ export type Snapshot = {
   worldKind: WorldKind;
 };
 
-function softmaxSample(logits: Float32Array, temperature: number) {
-  const t = Math.max(0.05, temperature);
-  let max = -Infinity;
-  for (let i = 0; i < logits.length; i++) if (logits[i] > max) max = logits[i];
-  const ex = new Float32Array(logits.length);
-  let sum = 0;
-  for (let i = 0; i < logits.length; i++) {
-    const v = Math.exp((logits[i] - max) / t);
-    ex[i] = v;
-    sum += v;
-  }
-  let r = Math.random() * sum;
-  for (let i = 0; i < ex.length; i++) {
-    r -= ex[i];
-    if (r <= 0) return i;
-  }
-  return ex.length - 1;
-}
-
 export class Kernel {
   worldKind: WorldKind = "field";
   seed: number;
   cells: Uint8Array;
   scent: Float32Array;
-  model: MLP;
-  replay: { x: Float32Array; y: Float32Array }[] = [];
+  loop: Loop;
   x = 1;
   y = 1;
   energy = 100;
   age = 0;
   foods = 0;
   lives = 0;
-  ema = 0.35;
-  progress = 0;
-  surprise = 0.35;
   history: number[] = [];
-  prevInput: Float32Array | null = null;
-  prevObs: Float32Array | null = null;
   lastAction = 4;
-  lastPred: Float32Array = new Float32Array(OBS);
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
   imagined: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
@@ -122,9 +95,25 @@ export class Kernel {
     this.cells = generateWorld(kind, SIZE, seed);
     this.scent = new Float32Array(SIZE * SIZE);
     this.worldKind = kind;
-    this.model = new MLP(IN, HIDDEN, OUT);
+    this.loop = new Loop(IN, HIDDEN, OUT);
     this.placeAgent();
     this.lastObs = this.sense();
+  }
+
+  get model() {
+    return this.loop.model;
+  }
+  get surprise() {
+    return this.loop.surprise;
+  }
+  get ema() {
+    return this.loop.ema;
+  }
+  get progress() {
+    return this.loop.progress;
+  }
+  get lastPred() {
+    return this.loop.lastPred;
   }
 
   private placeAgent() {
@@ -142,23 +131,16 @@ export class Kernel {
     this.scent = new Float32Array(SIZE * SIZE);
     this.pulseClock = 0;
     this.placeAgent();
-    this.prevInput = null;
-    this.prevObs = null;
+    this.loop.prevInput = null;
     this.lastObs = this.sense();
   }
 
   resetBrain() {
-    this.model = new MLP(IN, HIDDEN, OUT);
-    this.replay = [];
-    this.ema = 0.35;
-    this.progress = 0;
-    this.surprise = 0.35;
+    this.loop.reset();
     this.history = [];
     this.age = 0;
     this.foods = 0;
     this.lives = 0;
-    this.prevInput = null;
-    this.prevObs = null;
     this.thoughts = [];
     this.thinkCooldown = 0;
     this.thought = "The model is new. I know nothing yet.";
@@ -211,64 +193,40 @@ export class Kernel {
     else this.cells[i] = this.cells[i] === 2 ? 0 : 2;
   }
 
+  /**
+   * Imagine each move. Scores come from (1) the destination cell already
+   * visible in the current window — whiskers, not a radar — and (2) the
+   * predicted window. There is no half-plane scan for food.
+   */
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
-    // Recent compression progress (falling EMA surprise). Positive when the
-    // model just got better — Schmidhuber’s intrinsic reward signal.
-    const progressGain = Math.max(0, this.progress);
-    for (let a = 0; a < ACTS; a++) {
-      const input = this.encode(obs, a);
-      const pred = this.model.forward(input, this.imagined[a]);
-
-      const wallAhead = pred[CENTER];
-      const foodHere = pred[CENTER + 1];
-      // Look at the current observation in the direction of travel.
-      const tx = R + DIRS[a].x;
-      const ty = R + DIRS[a].y;
-      const ti = (ty * VIEW + tx) * CH;
-      const wallNow = a === 4 ? 0 : obs[ti];
-      const foodNow = a === 4 ? obs[CENTER + 1] : obs[ti + 1];
-      const scentNow = a === 4 ? obs[CENTER + 2] : obs[ti + 2];
-
-      // Food visible in that half of the window (kept softer so curiosity
-      // is not drowned by reactive food-in-view).
-      let foodPull = foodNow + 0.4 * foodHere;
-      if (a < 4) {
-        for (let dy = -R; dy <= R; dy++) {
-          for (let dx = -R; dx <= R; dx++) {
-            const toward =
-              (DIRS[a].x !== 0 && dx * DIRS[a].x > 0) ||
-              (DIRS[a].y !== 0 && dy * DIRS[a].y > 0);
-            if (!toward) continue;
-            const fi = ((dy + R) * VIEW + (dx + R)) * CH + 1;
-            foodPull += 0.12 * obs[fi];
-          }
-        }
-      }
-
-      // Expected learning opportunity: how much the model thinks this action
-      // will change the view. High residual ⇒ room to compress.
-      let expectedDelta = 0;
-      for (let i = 0; i < OBS; i++) {
-        const d = pred[i] - obs[i];
-        expectedDelta += d * d;
-      }
-      expectedDelta /= OBS;
-
-      const novelty = 1 - scentNow;
-      const wallCost = 6.5 * Math.max(wallAhead, wallNow);
-      const stayTax = a === 4 ? 0.35 : 0;
-      // True compression-progress intrinsic reward:
-      // novelty (unvisited) + expected residual (learnable) + recent gain.
-      // Raw EMA surprise is no longer rewarded — that was the noise trap.
-      const curious =
-        this.params.curiosity *
-        (0.55 * novelty + 0.30 * expectedDelta + 0.55 * progressGain * 18);
-      const goal = this.params.goal * (0.45 + 1.4 * hunger) * foodPull;
-
-      this.scores[a] = curious + goal - wallCost - stayTax;
-    }
-    return softmaxSample(this.scores, this.params.temperature);
+    imagineScores({
+      acts: ACTS,
+      curiosity: this.params.curiosity,
+      goal: this.params.goal,
+      progressEma: this.loop.progressEma,
+      ema: this.loop.ema,
+      imagined: this.imagined,
+      scores: this.scores,
+      predict: (a, into) => this.loop.imagine(this.encode(obs, a), into),
+      read: (pred, a) => {
+        const tx = R + DIRS[a].x;
+        const ty = R + DIRS[a].y;
+        const ti = (ty * VIEW + tx) * CH;
+        // Whiskers: the destination cell is in the current window. Using it is
+        // sensing, not a radar. A radar would pool food over a half-plane.
+        const visWall = a === 4 ? 0 : obs[ti];
+        const visFood = a === 4 ? obs[CENTER + 1] : obs[ti + 1];
+        const visScent = a === 4 ? obs[CENTER + 2] : obs[ti + 2];
+        const stay = a === 4 ? 0.35 : 0;
+        return {
+          reward: (0.45 + 1.4 * hunger) * (visFood + 0.55 * pred[CENTER + 1]),
+          cost: 6.5 * visWall + 1.8 * pred[CENTER] + stay,
+          novelty: 1 - visScent,
+        };
+      },
+    });
+    return softmaxSample(this.scores, this.params.temperature, this.rand);
   }
 
   private maybeThink(action: number, ate: boolean, bumped: boolean, died: boolean) {
@@ -282,18 +240,18 @@ export class Kernel {
     }
     this.thinkCooldown--;
     if (this.thinkCooldown > 0) return;
-    this.thinkCooldown = 18 + ((Math.random() * 22) | 0);
+    this.thinkCooldown = 18 + ((this.rand() * 22) | 0);
 
     const hunger = this.energy < 40;
-    const confused = this.surprise > this.ema * 1.45;
-    const calm = this.ema < 0.08;
+    const confused = this.loop.surprise > this.loop.ema * 1.45;
+    const calm = this.loop.ema < 0.08;
     const name = DIR_NAMES[action];
 
     if (bumped) this.note("A wall. The prediction was cheap. I turn.");
     else if (confused) this.note("The world did not match. Updating the model.");
-    else if (hunger) this.note(`Energy is low. I value food over novelty, moving ${name}.`);
+    else if (hunger) this.note(`Energy is low. I value predicted food over novelty, moving ${name}.`);
     else if (calm) this.note("This region is well-modeled. Seeking a less familiar edge.");
-    else if (this.progress > 0.004) this.note("Compression is moving. The guess is tightening.");
+    else if (this.loop.progress > 0.004) this.note("Compression is moving. The guess is tightening.");
     else this.note(`Moving ${name}. Curiosity still pays.`);
   }
 
@@ -307,29 +265,8 @@ export class Kernel {
     const obs = this.sense();
     this.lastObs = obs;
 
-    if (this.prevInput) {
-      this.model.train(this.prevInput, obs, this.params.lr);
-      if (this.replay.length > 0) {
-        for (let k = 0; k < EXTRA; k++) {
-          const s = this.replay[(Math.random() * this.replay.length) | 0];
-          this.model.train(s.x, s.y, this.params.lr * 0.7);
-        }
-      }
-      this.replay.push({ x: this.prevInput, y: obs.slice() });
-      if (this.replay.length > REPLAY) this.replay.shift();
-    }
-
-    if (this.prevObs) {
-      const pred = this.model.forward(this.prevInput!, this.lastPred);
-      this.surprise = mse(pred, obs);
-    } else {
-      this.surprise = 0.35;
-    }
-
-    const prevEma = this.ema;
-    this.ema = 0.94 * this.ema + 0.06 * this.surprise;
-    this.progress = prevEma - this.ema;
-    this.history.push(this.surprise);
+    this.loop.assimilate(obs, this.params.lr);
+    this.history.push(this.loop.surprise);
     if (this.history.length > HISTORY) this.history.shift();
 
     const action = this.choose(obs);
@@ -375,8 +312,7 @@ export class Kernel {
     }
 
     this.age += 1;
-    this.prevObs = obs;
-    this.prevInput = this.encode(obs, action);
+    this.loop.commit(this.encode(obs, action));
     this.maybeThink(action, ate, blocked && action !== 4, died);
   }
 
@@ -392,13 +328,13 @@ export class Kernel {
       age: this.age,
       foods: this.foods,
       lives: this.lives,
-      surprise: this.surprise,
-      ema: this.ema,
-      progress: this.progress,
-      compression: 1 / (1 + this.ema * 8),
-      weightEnergy: this.model.weightEnergy(),
+      surprise: this.loop.surprise,
+      ema: this.loop.ema,
+      progress: this.loop.progress,
+      compression: this.loop.compression,
+      weightEnergy: this.loop.model.weightEnergy(),
       obs: this.lastObs.slice(),
-      pred: this.lastPred.slice(),
+      pred: this.loop.lastPred.slice(),
       scores: this.scores.slice(),
       imagined: this.imagined.map((p) => p.slice()),
       history: this.history.slice(),

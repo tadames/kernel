@@ -18,9 +18,9 @@ export function LoopView({ snap }: { snap: Snapshot | null }) {
         Six operations. Then again.
       </h1>
       <p className="mt-6 text-lg leading-relaxed text-muted">
-        This is the entire mind. A few thousand weights, a short memory of what just happened, and a body
-        that can move. No pretraining. No language. No one at the other end of an API. The numbers on the
-        right are live.
+        This is the entire mind. A compressor, a short memory of what just happened, and a body that can
+        move. No pretraining. No language. No one at the other end of an API. The numbers on the right are
+        live from the grid testbed. The same six lines run on the bit stream in the Bench.
       </p>
 
       <ol className="mt-12 divide-y divide-line border-y border-line">

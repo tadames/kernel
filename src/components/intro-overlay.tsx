@@ -15,8 +15,9 @@ export function IntroOverlay() {
           You are watching a mind with no prior knowledge.
         </h2>
         <p className="mt-4 text-base leading-relaxed text-muted">
-          It will be clumsy. Then it will not. The only thing it does is guess the next moment, measure the
-          error, rewrite itself, and move toward whatever still teaches it. That loop is the kernel.
+          It guesses the next moment, measures the error before it rewrites itself, and moves toward whatever
+          still teaches it. The grid is one body. Open Bench to see the same loop on a bit stream — and the
+          claims that are allowed to fail.
         </p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button variant="solid" size="md" onClick={dismiss}>

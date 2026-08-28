@@ -10,16 +10,20 @@ Hypothesis for next: the policy still cheats a little with reactive food-in-view
 
 ## 2026-08-27 — Compression-progress intrinsic reward
 
-Changed the policy’s curiosity term from “novelty + raw EMA surprise” to true compression-progress:
+Daily pass: curiosity became novelty + expected residual + recent EMA improvement, and raw surprise stopped being a positive term. Food-in-view weights were softened, not removed. That was still a forager.
 
-- **novelty** (unvisited scent) still drives spatial coverage
-- **expected residual** — mean squared difference between current obs and the model’s imagined next view for that action — rewards moves the model still cannot predict
-- **recent progress** — `max(0, prevEma − ema)` scaled into the score — rewards the derivative of surprise (Schmidhuber), not the level
-- Absolute EMA surprise is no longer a positive term (the noise trap)
-- Softened reactive food-in-view weights so curiosity is not drowned
+## 2026-08-27 — The toy was a forager
 
-Law 04 copy updated to match. New unit test asserts positive compression-progress ticks appear while living and that scores stay finite.
+The seed mixed the mind with the body. Policy scanned the current 5×5 for food (a radar). Curiosity was visit-scent. Surprise was measured *after* the gradient step, so the demo looked more certain than the model was. That is a creature that learns on the side, not a kernel.
 
-Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` → 3/3 pass; `npm run typecheck` clean; `npm run build` clean; browser-smoke on :8081 shows canvas, title “Kernel”, no console/page errors.
+Phase 0.1:
 
-Next hypothesis: with progress as reward, exploration should be less twitchy, but the world model is still pixel-local. A latent / hierarchical predictor (Phase 1) — predict in hidden space, not cells — should make walls feel like a map and multi-step imagination cheaper.
+- Extracted `Loop` (`assimilate` / `imagine` / `commit`). Surprise is the residual *before* the update.
+- Policy: destination cell already in the window (whiskers) plus imagination. No half-plane food radar. `pred[CENTER]` is the cell you stand on after a move, not the wall you hit — the first seed hid that by scanning current obs.
+- Second testbed: next-bit prediction on a stream (period-6 vs fair coin). A walking tape confounded the claim (visit-scent + window copy). The residual is the next bit only.
+- Claims G1, G2, S1, S2, S3 in `experiments.ts`, shown live in Bench, asserted in tests.
+- `RESEARCH.md` is the protocol. Laws now state what would falsify the work.
+
+Open: ρ is still a scalar that scales novelty, not action-conditional ρ̂. That is Phase 1, not a slider.
+
+Next hypothesis: if S2 ever fails (noise compresses), the replay buffer is memorising a moment — shrink it, or the net is large enough to overfit a short window of coin flips.

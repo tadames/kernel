@@ -8,9 +8,10 @@ export function LawsView() {
         The smallest mind that can grow
       </h1>
       <p className="mt-6 text-lg leading-relaxed text-muted">
-        A kernel of intelligence is not a larger model. It is the fewest operations from which learning,
-        curiosity, and action can arise without a teacher. This is that kernel, running here, with nothing
-        hidden and no one to ask permission.
+        A kernel of intelligence is not a larger model, and it is not a clever forager. It is the fewest
+        operations from which learning, curiosity, and action arise without a teacher — operations that still
+        work when you change the world. This is that kernel, with a body you can watch, a second world that
+        is not a grid, and tests that are allowed to fail.
       </p>
 
       <ol className="mt-14 space-y-12">
@@ -30,23 +31,45 @@ export function LawsView() {
         <pre className="mt-5 overflow-x-auto rounded-[var(--radius-lg)] bg-surface-2 px-5 py-5 font-mono text-sm leading-7 text-fg">
 {`observe     x  ← sense(world)
 predict     x̂  ← M(x₋, a₋)
-surprise    δ  ← ‖x − x̂‖²
+surprise    δ  ← ‖x − x̂‖²     before the update
 compress    M  ← M − η ∇δ
 progress    ρ  ← δ̄ − δ
-act         a  ← argmax  curiosity·ρ̂ + goal·r̂`}
+act         a  ← π(M, ρ, goal)`}
         </pre>
         <p className="mt-4 text-base leading-relaxed text-muted">
-          That is the whole agent. The network is a few thousand weights. The body is a point with energy.
-          The world is a grid you can edit. Everything else — foraging, avoiding walls, seeking the unknown —
-          is what the loop does when you let it run.
+          The network is a few thousand weights because a compressor you cannot hold in your head is not a kernel
+          you can fork. The grid, the energy, the food, the stream — those are environments. Everything else is
+          what the loop does when you let it run.
+        </p>
+      </section>
+
+      <section className="mt-16">
+        <h2 className="font-display text-2xl tracking-[-0.02em] text-fg">What this is not</h2>
+        <ul className="mt-4 space-y-3 text-base leading-relaxed text-muted">
+          <li>Not AIXI. AIXI is the incomputable ceiling. This is a gradient approximation you can run.</li>
+          <li>Not a language model, and not a claim that next-token prediction is enough.</li>
+          <li>Not an agent with a food radar. The first seed scanned the window. The body may use the adjacent cell it already sees. It may not pool food over a half-plane.</li>
+          <li>Not AGI. A 5k-weight net in a 15-cell window will not leave this page and write a novel.</li>
+        </ul>
+      </section>
+
+      <section className="mt-16">
+        <h2 className="font-display text-2xl tracking-[-0.02em] text-fg">What would falsify this</h2>
+        <ul className="mt-4 space-y-3 text-base leading-relaxed text-muted">
+          <li>Surprise falls on a fair coin as fast as on a repeating stream. Then we are not compressing — we are fitting a moment.</li>
+          <li>A hungry body ignores food in the adjacent cell. Then the sensors are not wired to action.</li>
+          <li>The stream requires a different learning rule than the grid. Then this is not a kernel, it is two toys.</li>
+        </ul>
+        <p className="mt-4 text-base leading-relaxed text-muted">
+          Those three claims run in the Bench, and in the repository tests. If they fail, the journal says so.
         </p>
       </section>
 
       <section className="mt-16">
         <h2 className="font-display text-2xl tracking-[-0.02em] text-fg">Research program</h2>
         <p className="mt-3 text-base leading-relaxed text-muted">
-          The work is to keep the kernel small enough to understand, then grow only what the loop itself
-          requires. Not a product. A public seed.
+          Keep the kernel small enough to understand. Grow only what the loop itself requires. Not a product.
+          A public seed.
         </p>
         <ol className="mt-8 space-y-6">
           {PHASES.map((p) => (
@@ -68,9 +91,9 @@ act         a  ← argmax  curiosity·ρ̂ + goal·r̂`}
         <ul className="mt-4 space-y-3 text-base leading-relaxed text-muted">
           <li>Watch surprise fall. That curve is the mind writing a model of the world.</li>
           <li>Draw a wall in front of it. The error will spike. Then the guess will catch up.</li>
-          <li>Set curiosity to zero and goal high. It becomes a hungry animal.</li>
-          <li>Set goal to zero. It becomes a scientist — it only wants a better model.</li>
-          <li>Open Pulse. The meal teleports. Intelligence here is the recovery, not the first success.</li>
+          <li>Open Bench. One stream is a rhythm. The other is a coin. Only one should get cheaper to predict.</li>
+          <li>Set curiosity to zero and goal high. It becomes a hungry animal — once the model can see food.</li>
+          <li>Set goal to zero. It becomes a scientist. It only wants a better model.</li>
         </ul>
       </section>
     </article>

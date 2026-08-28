@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Kernel, type Snapshot, type Params } from "@/lib/kernel/kernel";
 import { WORLD_META, type WorldKind } from "@/lib/kernel/presets";
 
-export type ViewId = "lab" | "laws" | "loop";
+export type ViewId = "lab" | "laws" | "loop" | "bench";
 export type PaintMode = "none" | "wall" | "food" | "erase";
 
 type LabState = {
