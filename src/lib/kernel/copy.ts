@@ -36,11 +36,11 @@ export const PHASES = [
     id: "0",
     title: "Seed",
     now: true,
-    body: "A tiny world-model, online compression, curiosity from progress, a body that can starve. Two testbeds. Five claims. Watch it be wrong.",
+    body: "A domain-general loop, a compressor, one-step imagination, two testbeds (grid + next-bit stream), falsifiable claims. This repository.",
   },
   {
     id: "1",
-    title: "Latent & ρ̂",
+    title: "Hierarchy",
     now: false,
     body: "Predict in a latent space, not in cells. A second kernel whose observations are the first kernel’s hidden state — the JEPA move, and what cortex already does. Also: a model of learning, so curiosity can be action-conditional ρ̂ rather than novelty × recent ρ.",
   },
