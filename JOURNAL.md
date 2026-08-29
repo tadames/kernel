@@ -27,3 +27,15 @@ Phase 0.1:
 Open: ρ is still a scalar that scales novelty, not action-conditional ρ̂. That is Phase 1, not a slider.
 
 Next hypothesis: if S2 ever fails (noise compresses), the replay buffer is memorising a moment — shrink it, or the net is large enough to overfit a short window of coin flips.
+
+## 2026-08-28 — Horizon 2 imagination
+
+One change: the policy looks one step further.
+
+`imagineScores` now accepts an optional second tick. For each first action it still scores whiskers + one-step prediction as before. Then it treats the predicted window as a new observation, imagines every follow-up, takes the best second-step value, and adds `discount × confidence × best2` (discount 0.65). Step 2 is pure model — no true whiskers — and is gated by the same confidence that already mutes uncalibrated predictions. Scratch buffers `imagined2` live on the Kernel so the Lab can still inspect the first-step windows.
+
+Laws 05 and the Act stage note say horizon 2. G1–G3 / S1–S3 still pass. Kernel tests (7) pass. Typecheck clean. Production build clean. Browser loads Lab with live surprise/compression.
+
+Evidence: `adjacentFood` / G2 still takes the east food under temperature 0.04; field ema still falls; structured stream compresses, noise does not.
+
+Next hypothesis: two ticks is still myopic. Either (a) a short rollout with a value head on the latent (true multi-step credit), or (b) action-conditional ρ̂ via a second Loop on hidden activations — Phase 1. If horizon 2 makes the agent freeze near walls once the model is confident, confidence gating is too strong or wall cost in `readPred` is wrong; log it.
