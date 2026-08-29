@@ -67,3 +67,10 @@ test("Falsifiable claims: evaluateClaims", () => {
     failed.map((c) => `${c.id} ${c.detail}`).join("; "),
   );
 });
+
+test("Policy horizon 2: adjacent food still taken", () => {
+  // G2 fixture is the contract. Horizon 2 must not override true whiskers.
+  const claims = evaluateClaims();
+  const g2 = claims.find((c) => c.id === "G2");
+  assert.ok(g2 && g2.pass, g2?.detail ?? "G2 missing");
+});
