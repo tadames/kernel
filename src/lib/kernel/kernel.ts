@@ -1,5 +1,5 @@
 import { Loop } from "./loop.ts";
-import { imagineScores, softmaxSample } from "./policy.ts";
+import { chooseHorizon2 } from "./horizon.ts";
 import {
   generateWorld,
   mulberry32,
@@ -82,6 +82,7 @@ export class Kernel {
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
   imagined: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
+  imagined2: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   thoughts: Thought[] = [];
   thought = "I begin with no model of this place.";
   params: Params = { lr: 0.035, curiosity: 1, goal: 1, temperature: 0.45 };
@@ -199,34 +200,28 @@ export class Kernel {
    * predicted window. There is no half-plane scan for food.
    */
   private choose(obs: Float32Array): number {
-    const hunger = Math.max(0, 1 - this.energy / 100);
-    imagineScores({
-      acts: ACTS,
+    return chooseHorizon2({
+      obs,
+      energy: this.energy,
       curiosity: this.params.curiosity,
       goal: this.params.goal,
+      temperature: this.params.temperature,
       progressEma: this.loop.progressEma,
       ema: this.loop.ema,
+      acts: ACTS,
+      center: CENTER,
+      ch: CH,
+      r: R,
+      view: VIEW,
+      dirs: DIRS,
       imagined: this.imagined,
+      imagined2: this.imagined2,
       scores: this.scores,
       predict: (a, into) => this.loop.imagine(this.encode(obs, a), into),
-      read: (pred, a) => {
-        const tx = R + DIRS[a].x;
-        const ty = R + DIRS[a].y;
-        const ti = (ty * VIEW + tx) * CH;
-        // Whiskers: the destination cell is in the current window. Using it is
-        // sensing, not a radar. A radar would pool food over a half-plane.
-        const visWall = a === 4 ? 0 : obs[ti];
-        const visFood = a === 4 ? obs[CENTER + 1] : obs[ti + 1];
-        const visScent = a === 4 ? obs[CENTER + 2] : obs[ti + 2];
-        const stay = a === 4 ? 0.35 : 0;
-        return {
-          reward: (0.45 + 1.4 * hunger) * (visFood + 0.55 * pred[CENTER + 1]),
-          cost: 6.5 * visWall + 1.8 * pred[CENTER] + stay,
-          novelty: 1 - visScent,
-        };
-      },
+      predictFrom: (pred, a1, into) =>
+        this.loop.imagine(this.encode(pred, a1, this.energy - 1), into),
+      rng: this.rand,
     });
-    return softmaxSample(this.scores, this.params.temperature, this.rand);
   }
 
   private maybeThink(action: number, ate: boolean, bumped: boolean, died: boolean) {
