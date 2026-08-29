@@ -22,7 +22,7 @@ export const LAWS = [
   {
     id: "05",
     title: "Action is imagined, not scripted",
-    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel also imagines each move and reads the predicted observation. Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
+    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel imagines each move, then a second step from the predicted window (horizon 2, discounted, confidence-gated). Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
   },
   {
     id: "06",
@@ -36,11 +36,11 @@ export const PHASES = [
     id: "0",
     title: "Seed",
     now: true,
-    body: "A domain-general loop, a compressor, one-step imagination, two testbeds (grid + next-bit stream), falsifiable claims. This repository.",
+    body: "A tiny world-model, online compression, curiosity from progress, a body that can starve. Two testbeds. Five claims. Watch it be wrong.",
   },
   {
     id: "1",
-    title: "Hierarchy",
+    title: "Latent & ρ̂",
     now: false,
     body: "Predict in a latent space, not in cells. A second kernel whose observations are the first kernel’s hidden state — the JEPA move, and what cortex already does. Also: a model of learning, so curiosity can be action-conditional ρ̂ rather than novelty × recent ρ.",
   },
@@ -99,6 +99,6 @@ export const STAGES = [
     id: "act",
     code: "a ← π(M, ρ, goal)",
     name: "Act",
-    note: "Imagine every legal move. Read the destination cell already in the window (whiskers) and the predicted window (the model). Sample. No half-plane scan for food.",
+    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Sample. No half-plane scan for food.",
   },
 ] as const;
