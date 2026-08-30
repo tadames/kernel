@@ -9,10 +9,17 @@
  * predicted window (pure model, no true whiskers). Discounted. Early on the
  * model is uncalibrated so confidence still gates the imagined terms.
  *
- * Compression progress ρ is not action-conditional yet — that needs a model
- * of learning (Phase 1). Here ρ scales how much novelty is worth: if the
- * compressor has stopped improving, novelty is probably noise.
+ * Curiosity is closer to true compression-progress: the intrinsic term is
+ * primarily the model's own expected residual (Bernoulli variance of the
+ * predicted window — high when outputs sit near ½). Visit-scent novelty is a
+ * light prior so the body still leaves a well-modeled patch early in life.
+ * Recent progress ρ scales both: when the compressor has stopped improving,
+ * uncertain regions are probably noise and curiosity collapses.
+ *
+ * Fully action-conditional ρ̂ (a second loop on hidden activations) remains
+ * Phase 1.
  */
+
 export function softmaxSample(
   logits: Float32Array,
   temperature: number,
@@ -39,18 +46,39 @@ export function softmaxSample(
 export type PredRead = {
   reward: number;
   cost: number;
+  /** Visit-scent novelty in [0,1]. Light prior only. */
   novelty: number;
 };
 
+/**
+ * Expected residual under a Bernoulli reading of sigmoid outputs.
+ * Peaks when the model is uncertain (p ≈ 0.5). This is the model-based
+ * stand-in for "how much could I still learn here" before a true ρ̂.
+ */
+export function expectedResidual(pred: Float32Array): number {
+  let s = 0;
+  for (let i = 0; i < pred.length; i++) {
+    const p = pred[i];
+    s += p * (1 - p);
+  }
+  // p(1-p) max is 0.25; normalise to ~[0,1]
+  return (s / pred.length) * 4;
+}
+
 function valueOf(
   v: PredRead,
+  pred: Float32Array,
   curiosity: number,
   goal: number,
   learning: number,
   confidence: number,
 ): number {
+  // Model-based expected residual dominates; visit-scent is a weak prior.
+  const residual = expectedResidual(pred);
+  const explore = 0.7 * residual + 0.3 * v.novelty;
+  // Progress ρ scales exploration: stalled compressor → curiosity collapses.
   const curious =
-    curiosity * (0.75 * v.novelty * (0.35 + 12 * learning) + 0.2 * v.novelty);
+    curiosity * (0.75 * explore * (0.35 + 12 * learning) + 0.2 * explore);
   const g = goal * v.reward * (0.2 + 0.8 * confidence);
   const cost = v.cost * (0.15 + 0.85 * confidence);
   return curious + g - cost;
@@ -91,7 +119,7 @@ export function imagineScores(opts: {
   for (let a = 0; a < opts.acts; a++) {
     const pred = opts.predict(a, opts.imagined[a]);
     const v = opts.read(pred, a);
-    let score = valueOf(v, opts.curiosity, opts.goal, learning, confidence);
+    let score = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence);
 
     if (twoStep) {
       // Best follow-up from the imagined window (greedy, pure model).
@@ -100,7 +128,7 @@ export function imagineScores(opts: {
       for (let a1 = 0; a1 < opts.acts; a1++) {
         const pred2 = opts.predictFrom!(pred, a1, into2);
         const v2 = opts.readPred!(pred2, a1);
-        const s2 = valueOf(v2, opts.curiosity, opts.goal, learning, confidence);
+        const s2 = valueOf(v2, pred2, opts.curiosity, opts.goal, learning, confidence);
         if (s2 > best2) best2 = s2;
       }
       // Gate the second step harder: uncalibrated models should not plan deep.
