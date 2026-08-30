@@ -39,6 +39,21 @@ export function MindPanel({ snap }: { snap: Snapshot }) {
         <Stat label="Energy" value={Math.max(0, snap.energy).toFixed(0)} hint="body" />
         <Stat label="Food" value={String(snap.foods)} hint="meals found" />
         <Stat label="Lives" value={String(snap.lives)} hint="the model kept" />
+        <Stat
+          label="Commit"
+          value={fmt(snap.commitment, 2)}
+          hint="predictions left ½"
+        />
+        <Stat
+          label="Entropy"
+          value={fmt(snap.policyEntropy, 2)}
+          hint="0 freeze · 1 coin"
+        />
+        <Stat
+          label="Branch"
+          value={snap.branching.toFixed(0)}
+          hint={`edge ${fmt(snap.edge, 2)}`}
+        />
       </div>
 
       <div>

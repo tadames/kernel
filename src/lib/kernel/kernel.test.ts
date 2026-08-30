@@ -5,6 +5,8 @@ import { Loop } from "./loop.ts";
 import { Kernel } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
 import { evaluateClaims } from "./experiments.ts";
+import { expectedResidual } from "./policy.ts";
+import { branching, edgeIndex, entropyNorm, participation } from "./complexity.ts";
 
 test("MLP compresses a repeating map: loss falls", () => {
   const net = new MLP(8, 16, 8);
@@ -73,4 +75,37 @@ test("Policy horizon 2: adjacent food still taken", () => {
   const claims = evaluateClaims();
   const g2 = claims.find((c) => c.id === "G2");
   assert.ok(g2 && g2.pass, g2?.detail ?? "G2 missing");
+});
+
+test("expectedResidual peaks near 0.5 and falls at extremes", () => {
+  const mid = new Float32Array(8).fill(0.5);
+  const sure = new Float32Array(8);
+  for (let i = 0; i < 8; i++) sure[i] = i % 2;
+  const rMid = expectedResidual(mid);
+  const rSure = expectedResidual(sure);
+  assert.ok(rMid > 0.9, `mid residual should be near 1, got ${rMid}`);
+  assert.ok(rSure < 0.05, `sure residual should be near 0, got ${rSure}`);
+  assert.ok(rMid > rSure * 10, "uncertain predictions should outrank confident ones");
+});
+
+test("entropyNorm is ~1 on ties and falls when one logit wins", () => {
+  const tie = new Float32Array([0, 0, 0, 0, 0]);
+  const peak = new Float32Array([8, 0, 0, 0, 0]);
+  const hTie = entropyNorm(tie, 0.45);
+  const hPeak = entropyNorm(peak, 0.45);
+  assert.ok(hTie > 0.99, `tied entropy ${hTie}`);
+  assert.ok(hPeak < 0.2, `peaked entropy ${hPeak}`);
+  assert.ok(edgeIndex(0.5) > 0.99);
+  assert.ok(edgeIndex(0) < 0.01 && edgeIndex(1) < 0.01);
+});
+
+test("participation is 1 for a one-hot hidden and n for a flat one", () => {
+  const one = new Float32Array(8);
+  one[3] = 1;
+  const flat = new Float32Array(8).fill(0.4);
+  assert.ok(Math.abs(participation(one) - 1) < 1e-6, `one-hot PR ${participation(one)}`);
+  assert.ok(Math.abs(participation(flat) - 8) < 1e-4, `flat PR ${participation(flat)}`);
+  const scores = new Float32Array([1, 0.95, 0.1, 0.05, 0]);
+  const b = branching(scores, 0.25);
+  assert.ok(b === 2, `near-tie branching ${b}`);
 });

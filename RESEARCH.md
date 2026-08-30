@@ -53,7 +53,8 @@ MLP             the compressor (online SGD, tanh → sigmoid)
 policy          one-step imagination; scores from predicted obs only
 Kernel            grid testbed (body, energy, food, walls)
 StreamKernel      next-bit testbed (period-6 vs fair coin)
-experiments       claims G1, G2, S1, S2, S3
+complexity      commitment, policy entropy, branching, 4H(1−H)
+experiments       claims G1, G2, S1, S2, S3, C1, C2
 ```
 
 The policy may not scan the current observation for food over a half-plane. It may use the destination cell already visible in the window (whiskers — that is sensing). It also reads predicted wall / food from `M(obs, action)`. Early in life the model is uncalibrated (sigmoid outputs near ½); predicted terms are gated by a confidence that rises as δ̄ falls.
@@ -69,6 +70,8 @@ Run `npm test` (the kernel file) or open **Bench**.
 | S1 | A repeating bit stream compresses | structured late not near 0 |
 | S2 | A fair coin does not compress | noise late collapses toward 0 |
 | S3 | Structure is much cheaper than noise | structured late ≥ 35% of noise late |
+| C1 | Effective complexity grows on structure | structured commitment does not rise, or noise polarizes |
+| C2 | Policy stays between freeze and a coin | mean branching after burn-in is 1 or 5 |
 
 S2 is the load-bearing test. Measuring surprise on a sliding window would cheat (7 of 8 bits are a copy). We predict the **next bit only**. A system that drives that residual to zero on a fair coin is overfitting a moment, not finding a regularity.
 
@@ -76,11 +79,12 @@ Seeds are fixed. If a claim flickers, that is a result: the kernel is too noisy,
 
 ## Open problems (ordered)
 
-1. **Action-conditional ρ̂.** Today ρ is a scalar that *scales* novelty. True compression-progress curiosity needs a model of how much the compressor would improve if action *a* were taken. That is a second kernel whose observations are the first kernel’s hidden state (Phase 1).
+1. **Action-conditional ρ̂.** ρ still scales exploration globally. Curiosity now uses model-expected residual (Bernoulli variance of the imagined window) mixed with visit-scent — action-conditional through imagination, not through a model of learning. True ρ̂ needs a second kernel whose observations are the first kernel’s hidden state (Phase 1).
 2. **Latent prediction.** Reconstructing cells is the wrong objective for anything richer than this grid (LeCun). Predict in a latent, discard incompressible bits.
 3. **Credit assignment longer than one step.** Imagination is one tick. A roll-out, or an option, is the next honest increase in search.
-4. **Self-revision.** Learning rate, curiosity, even architecture as part of the world the loop can model (Phase 3).
+4. **Self-revision.** Learning rate, curiosity, even architecture as part of the world the loop can model (Phase 3). That is when complexity is allowed to grow in the *shape* of the mind, not only in commitment of its predictions.
 5. **Grounded language.** Tokens as a compression of *this* agent’s stream, not a scrape of the web (Phase 2).
+6. **Self-tuned criticality.** C2 is a band-check, not a controller. Temperature and learning rate are still knobs. A true edge-of-chaos kernel would move η and T so branching stays interior without a human.
 
 ## How to work on this
 

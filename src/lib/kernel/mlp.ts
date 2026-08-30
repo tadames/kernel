@@ -95,6 +95,10 @@ export class MLP {
     }
   }
 
+  lastHidden(): Float32Array {
+    return this.ha;
+  }
+
   /** Mean |w| of the first layer — a crude "how much has the mind written". */
   weightEnergy() {
     let s = 0;

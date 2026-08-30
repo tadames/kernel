@@ -55,3 +55,33 @@ G1–S3 still pass. Kernel tests (7) pass, including the G2 regression that adja
 Evidence: `adjacentFood` still goes east; field ema still falls; structured stream compresses, noise does not. Horizon 2 no longer a paper claim.
 
 Next hypothesis: two ticks is still myopic. Either (a) a short rollout with a value head on the latent (true multi-step credit), or (b) action-conditional ρ̂ via a second Loop on hidden activations — Phase 1. If the agent freezes near walls once confidence is high, confidence gating or wall cost in `readPred` is wrong; log it.
+
+## 2026-08-29 — Expected residual as compression-progress curiosity
+
+One change: curiosity is no longer mostly visit-scent. The intrinsic term is primarily the model's own expected residual — Bernoulli variance of the predicted window (`p(1-p)`, high when sigmoid outputs sit near ½) — mixed lightly with scent (0.7 / 0.3) and still scaled by recent progress ρ. When the compressor has stalled, uncertain regions are treated as noise and curiosity collapses.
+
+Why: Law 04 and Schmidhuber both say reward the derivative, not raw novelty. Visit-scent was a stand-in. Expected residual is action-conditional through the imagined window (horizon 1 and 2), without a second Loop yet. Fully action-conditional ρ̂ on hidden activations remains Phase 1.
+
+- `expectedResidual` exported from `policy.ts`; used inside `valueOf`.
+- Laws 04 copy updated.
+- Unit test: residual peaks at 0.5, falls at 0/1.
+- G1–S3 still pass. Kernel tests (8) pass. Horizon-2 G2 still takes adjacent food under temperature 0.04.
+
+Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 8/8. Claims G1–S3 green. Field ema still falls; structured stream compresses, noise does not.
+
+Next hypothesis: if the agent now loiters in regions the model is merely unconfident about (early life, every cell near 0.5), confidence gating or the residual weight is too strong relative to whiskers. Or: expected residual is still not ρ̂ — a second Loop on hidden state would predict *how much* δ falls after the update. That is the real Phase 1 move.
+
+## 2026-08-29 — Complexity trace (commitment + edge band)
+
+One change: the kernel now *measures* growth of effective complexity and whether action sits between freeze and noise. It still does not grow its own architecture (Phase 3) and it does not self-tune temperature (open problem 6). The numbers are allowed to fail.
+
+- `complexity.ts`: policy entropy H (normalised), branching of imagined scores, hidden participation, edge index 4H(1−H).
+- Loop `commitment` = 1 − expectedResidual(lastPred). Polarization of the guess.
+- Kernel records H, branching, edge on every choose. Snapshot / Lab / Loop / Bench show them.
+- Law 07. Claims C1 (commitment rises on the period-6 stream and not on a coin) and C2 (Field branching stays interior, not 1 and not 5).
+- `rebuildWorld` alias so the Lab store matches Kernel.setWorld.
+
+Evidence: probe on Field seeds 1,3,7,11,22 — late branching ~3.2–3.5, H ~0.73–0.93. Stream commitment structured 0.15 → 0.78; noise stays ~0.06–0.11.
+
+Next hypothesis: if C2 ever fails by freeze, temperature 0.45 is too low once the model is confident, or wall cost in `readPred` dominates. If C1 flickers, the 60-step late window is too short. A controller that moves T to keep branching interior would be the first honest criticality loop — not this commit.
+

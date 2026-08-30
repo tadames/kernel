@@ -6,9 +6,13 @@ export function LoopView({ snap }: { snap: Snapshot | null }) {
     observe: snap ? `window ${snap.size}² · body at ${snap.ax},${snap.ay}` : "waiting",
     predict: snap ? `${IN} → ${HIDDEN} → ${OUT} weights` : "waiting",
     surprise: snap ? snap.surprise.toFixed(4) : "—",
-    compress: snap ? `η = learning rate · |w̄| ${snap.weightEnergy.toFixed(4)}` : "—",
+    compress: snap
+      ? `|w̄| ${snap.weightEnergy.toFixed(4)} · commit ${snap.commitment.toFixed(2)}`
+      : "—",
     progress: snap ? (snap.progress >= 0 ? "+" : "") + snap.progress.toFixed(4) : "—",
-    act: snap ? `energy ${snap.energy.toFixed(0)} · ${snap.foods} meals` : "—",
+    act: snap
+      ? `H ${snap.policyEntropy.toFixed(2)} · branch ${snap.branching} · edge ${snap.edge.toFixed(2)}`
+      : "—",
   };
 
   return (

@@ -32,6 +32,7 @@ export type StreamSnapshot = {
   compression: number;
   history: number[];
   age: number;
+  commitment: number;
 };
 
 export class StreamKernel {
@@ -105,6 +106,7 @@ export class StreamKernel {
       compression: this.loop.compression,
       history: this.history.slice(),
       age: this.age,
+      commitment: this.loop.commitment,
     };
   }
 }

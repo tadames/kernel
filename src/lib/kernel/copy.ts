@@ -17,7 +17,7 @@ export const LAWS = [
   {
     id: "04",
     title: "Curiosity is compression progress, not novelty",
-    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. Novelty (a visit trace) is only a stand-in for expected learning, and it is scaled by recent progress so an incompressible region goes stale. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
+    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, and scaled by recent progress ρ so an incompressible region goes stale. Fully action-conditional ρ̂ is Phase 1. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
   },
   {
     id: "05",
@@ -28,6 +28,11 @@ export const LAWS = [
     id: "06",
     title: "It must be public, and it must be falsifiable",
     body: "A kernel that only runs behind an API is a product. One that cannot fail a test is a story. The claims live in the Bench: surprise falls on structure, not on noise; wall bumps fall as the model forms; the same Loop object drives two worlds. If a claim fails, the journal records it. Intelligence should be a commons. The means of mind are the loop, the tests, and the right to see them break.",
+  },
+  {
+    id: "07",
+    title: "Complexity grows where the stream compresses; action lives between freeze and noise",
+    body: "A mind that cannot grow is a fit, not a life. We do not grow the net yet (Phase 3). We track effective complexity: commitment — how far predictions have left ½ — must rise on a regularity and stay low on a coin. That is Crutchfield’s peak between order and randomness, written as a number. Action is the same strip: branching of imagined moves must not collapse to 1 (frozen) or 5 (a coin). The useful band is the edge of chaos, where a small observation can still flip the next act. Law 04 is the scalar (ρ). This is the spectrum. If either claim fails, we are not growing, we are wandering or stuck.",
   },
 ] as const;
 
@@ -54,7 +59,7 @@ export const PHASES = [
     id: "3",
     title: "Self-revision",
     now: false,
-    body: "The learning rules become part of the world the kernel can model. It may change its own rate, curiosity, even shape, under the same pressure: reduce surprise, keep energy, keep going.",
+    body: "The learning rules become part of the world the kernel can model. It may change its own rate, curiosity, even shape, under the same pressure: reduce surprise, keep energy, keep going. That is when complexity is allowed to grow in the architecture, not only in the predictions.",
   },
   {
     id: "4",
@@ -99,6 +104,6 @@ export const STAGES = [
     id: "act",
     code: "a ← π(M, ρ, goal)",
     name: "Act",
-    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Sample. No half-plane scan for food.",
+    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Sample. No half-plane scan for food. Branching of those scores is the cheap edge-of-chaos trace: not 1, not 5.",
   },
 ] as const;

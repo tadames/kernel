@@ -6,3 +6,4 @@ export * from "./kernel.ts";
 export * from "./stream.ts";
 export * from "./experiments.ts";
 export * from "./copy.ts";
+export * from "./complexity.ts";

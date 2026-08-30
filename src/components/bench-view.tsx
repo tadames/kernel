@@ -44,6 +44,7 @@ function StreamCard({
       <div className="mt-4">{snap ? <BitStrip snap={snap} /> : <div className="h-10 rounded bg-surface-2" />}</div>
       <div className="mt-3 flex justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
         <span>guess {snap ? snap.pred.toFixed(2) : "—"}</span>
+        <span>commit {snap ? snap.commitment.toFixed(2) : "—"}</span>
         <span>bit {snap ? snap.actual : "—"}</span>
       </div>
       <div className="mt-3">{snap ? <Sparkline values={snap.history} /> : <div className="h-12 rounded bg-surface-2" />}</div>
@@ -97,7 +98,9 @@ export function BenchView() {
       <p className="mt-6 text-lg leading-relaxed text-muted">
         The grid in the Lab is a body. This is the compressor under test: guess the next bit from the last
         eight. A period-6 rhythm is a regularity. A fair coin is not. If surprise falls on both, we are
-        overfitting a moment, not compressing.
+        overfitting a moment, not compressing. Commitment — how far the guess has left ½ — should rise only
+        on the rhythm. That is growth of effective complexity. On the grid, branching of imagined moves
+        should sit between 1 (frozen) and 5 (a coin).
       </p>
 
       <div className="mt-10 grid gap-4">

@@ -1,5 +1,6 @@
 import { Loop } from "./loop.ts";
 import { imagineScores, softmaxSample } from "./policy.ts";
+import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
   generateWorld,
   mulberry32,
@@ -63,6 +64,11 @@ export type Snapshot = {
   thoughts: Thought[];
   lastAction: number;
   worldKind: WorldKind;
+  participation: number;
+  policyEntropy: number;
+  branching: number;
+  edge: number;
+  commitment: number;
 };
 
 export class Kernel {
@@ -81,6 +87,9 @@ export class Kernel {
   lastAction = 4;
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
+  policyEntropy = 1;
+  branching = ACTS;
+  edge = 0;
   imagined: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   /** Scratch for second-step imagined windows (horizon 2). Lab inspects step 1 via `imagined`. */
   imagined2: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
@@ -117,6 +126,9 @@ export class Kernel {
   get compression() {
     return this.loop.compression;
   }
+  get participation() {
+    return this.loop.participation;
+  }
 
   private placeAgent() {
     const p = randomEmpty(this.cells, SIZE, this.rand);
@@ -136,6 +148,11 @@ export class Kernel {
     this.lastObs = this.sense();
   }
 
+  /** Lab store name. Same as setWorld. */
+  rebuildWorld(kind: WorldKind, seed?: number) {
+    this.setWorld(kind, seed);
+  }
+
   resetBrain() {
     this.loop.reset();
     this.history = [];
@@ -146,6 +163,9 @@ export class Kernel {
     this.thinkCooldown = 0;
     this.thought = "The model is new. I know nothing yet.";
     this.energy = 100;
+    this.policyEntropy = 1;
+    this.branching = ACTS;
+    this.edge = 0;
   }
 
   sense(into: Float32Array = new Float32Array(OBS), ox = this.x, oy = this.y): Float32Array {
@@ -198,7 +218,9 @@ export class Kernel {
    * Imagine each move (horizon 2). Scores come from (1) the destination cell
    * already visible in the current window — whiskers, not a radar — (2) the
    * one-step predicted window, and (3) the best follow-up from that window
-   * (pure model, discounted, confidence-gated). No half-plane scan for food.
+   * (pure model, discounted, confidence-gated). Curiosity prefers high
+   * expected residual in the predicted window (model uncertainty), gated by
+   * recent compression progress. No half-plane scan for food.
    */
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
@@ -247,6 +269,9 @@ export class Kernel {
       },
       imagined2: this.imagined2,
     });
+    this.policyEntropy = entropyNorm(this.scores, this.params.temperature);
+    this.branching = branching(this.scores);
+    this.edge = edgeIndex(this.policyEntropy);
     return softmaxSample(this.scores, this.params.temperature, this.rand);
   }
 
@@ -363,6 +388,11 @@ export class Kernel {
       thoughts: this.thoughts.slice(),
       lastAction: this.lastAction,
       worldKind: this.worldKind,
+      participation: this.loop.participation,
+      policyEntropy: this.policyEntropy,
+      branching: this.branching,
+      edge: this.edge,
+      commitment: this.loop.commitment,
     };
   }
 }

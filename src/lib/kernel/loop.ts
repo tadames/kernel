@@ -16,6 +16,8 @@
  * not a product failure.
  */
 import { MLP, mse } from "./mlp.ts";
+import { participation } from "./complexity.ts";
+import { expectedResidual } from "./policy.ts";
 
 export class Loop {
   model: MLP;
@@ -26,6 +28,8 @@ export class Loop {
   ema = 0.35;
   progress = 0;
   progressEma = 0;
+  /** Hidden participation ratio after the last assimilate. 0 until first forward. */
+  participation = 0;
 
   inDim: number;
   hidden: number;
@@ -52,6 +56,7 @@ export class Loop {
     this.ema = 0.35;
     this.progress = 0;
     this.progressEma = 0;
+    this.participation = 0;
   }
 
   /**
@@ -62,6 +67,7 @@ export class Loop {
     if (this.prevInput) {
       this.model.forward(this.prevInput, this.lastPred);
       this.surprise = mse(this.lastPred, obs);
+      this.participation = participation(this.model.lastHidden());
       this.model.train(this.prevInput, obs, lr);
       if (this.replay.length > 0) {
         for (let k = 0; k < this.extraReplay; k++) {
@@ -91,5 +97,10 @@ export class Loop {
 
   get compression() {
     return 1 / (1 + this.ema * 8);
+  }
+
+  /** How polarized the last prediction is. 0 = all ½, 1 = all 0/1. */
+  get commitment() {
+    return 1 - expectedResidual(this.lastPred);
   }
 }

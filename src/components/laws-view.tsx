@@ -59,6 +59,8 @@ act         a  ← π(M, ρ, goal)`}
           <li>Surprise falls on a fair coin as fast as on a repeating stream. Then we are not compressing — we are fitting a moment.</li>
           <li>A hungry body ignores food in the adjacent cell. Then the sensors are not wired to action.</li>
           <li>The stream requires a different learning rule than the grid. Then this is not a kernel, it is two toys.</li>
+          <li>Predictions never leave ½ on a repeating stream, or they polarize on a coin. Then effective complexity is not growing where it should.</li>
+          <li>Imagined actions collapse to one move, or all five stay tied. Then the body is frozen or a coin — not at the edge where a small input can still matter.</li>
         </ul>
         <p className="mt-4 text-base leading-relaxed text-muted">
           Those three claims run in the Bench, and in the repository tests. If they fail, the journal says so.
