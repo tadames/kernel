@@ -105,6 +105,41 @@ export class MLP {
     for (let i = 0; i < this.w1.length; i++) s += Math.abs(this.w1[i]);
     return s / this.w1.length;
   }
+
+  /**
+   * Snapshot the compressor as plain arrays. Small enough (~5k floats) to
+   * JSON-stringify for Lab save / load / inspect. No architecture metadata —
+   * the caller already knows in/h/out.
+   */
+  exportWeights(): { w1: number[]; b1: number[]; w2: number[]; b2: number[] } {
+    return {
+      w1: Array.from(this.w1),
+      b1: Array.from(this.b1),
+      w2: Array.from(this.w2),
+      b2: Array.from(this.b2),
+    };
+  }
+
+  /**
+   * Restore weights. Dimensions must match; otherwise the net is left unchanged
+   * and false is returned. Used by Kernel/StreamKernel brain load so a saved
+   * mind can resume without a teacher.
+   */
+  importWeights(w: { w1: number[]; b1: number[]; w2: number[]; b2: number[] }): boolean {
+    if (
+      w.w1.length !== this.w1.length ||
+      w.b1.length !== this.b1.length ||
+      w.w2.length !== this.w2.length ||
+      w.b2.length !== this.b2.length
+    ) {
+      return false;
+    }
+    this.w1.set(w.w1);
+    this.b1.set(w.b1);
+    this.w2.set(w.w2);
+    this.b2.set(w.b2);
+    return true;
+  }
 }
 
 export function mse(a: Float32Array, b: Float32Array) {
