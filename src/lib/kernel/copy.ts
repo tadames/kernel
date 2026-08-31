@@ -17,7 +17,7 @@ export const LAWS = [
   {
     id: "04",
     title: "Curiosity is compression progress, not novelty",
-    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, and scaled by recent progress ρ so an incompressible region goes stale. Fully action-conditional ρ̂ is Phase 1. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
+    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, scaled by recent progress ρ, and further by an action-conditional residual drop across horizon-2 imagination (ρ̂). A second loop on hidden activations remains Phase 1. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
   },
   {
     id: "05",
@@ -104,6 +104,6 @@ export const STAGES = [
     id: "act",
     code: "a ← π(M, ρ, goal)",
     name: "Act",
-    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Sample. No half-plane scan for food. Branching of those scores is the cheap edge-of-chaos trace: not 1, not 5.",
+    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Residual drop step-1→step-2 is action-conditional ρ̂ for curiosity. Sample. No half-plane scan for food. Branching of those scores is the cheap edge-of-chaos trace: not 1, not 5.",
   },
 ] as const;

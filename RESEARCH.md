@@ -79,7 +79,7 @@ Seeds are fixed. If a claim flickers, that is a result: the kernel is too noisy,
 
 ## Open problems (ordered)
 
-1. **Action-conditional ρ̂.** ρ still scales exploration globally. Curiosity now uses model-expected residual (Bernoulli variance of the imagined window) mixed with visit-scent — action-conditional through imagination, not through a model of learning. True ρ̂ needs a second kernel whose observations are the first kernel’s hidden state (Phase 1).
+1. **Action-conditional ρ̂.** Curiosity uses expected residual plus the residual *drop* across horizon-2 imagination (prefer moves the model expects to make more certain). Global ρ still scales. A true model-of-learning — a second kernel whose observations are the first kernel’s hidden state — remains Phase 1.
 2. **Latent prediction.** Reconstructing cells is the wrong objective for anything richer than this grid (LeCun). Predict in a latent, discard incompressible bits.
 3. **Credit assignment longer than one step.** Imagination is one tick. A roll-out, or an option, is the next honest increase in search.
 4. **Self-revision.** Learning rate, curiosity, even architecture as part of the world the loop can model (Phase 3). That is when complexity is allowed to grow in the *shape* of the mind, not only in commitment of its predictions.

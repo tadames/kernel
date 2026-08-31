@@ -85,3 +85,16 @@ Evidence: probe on Field seeds 1,3,7,11,22 — late branching ~3.2–3.5, H ~0.7
 
 Next hypothesis: if C2 ever fails by freeze, temperature 0.45 is too low once the model is confident, or wall cost in `readPred` dominates. If C1 flickers, the 60-step late window is too short. A controller that moves T to keep branching interior would be the first honest criticality loop — not this commit.
 
+## 2026-08-30 — Action-conditional residual-drop ρ̂ (horizon 2)
+
+One change: curiosity now uses a cheap action-conditional compression-progress signal extracted from the existing horizon-2 imagination.
+
+For each first action the policy already predicts a window, then the best follow-up window. Expected residual (Bernoulli variance) on those two windows yields ρ̂ = max(0, res₁ − res₂). Moves the model itself expects to make more certain get a higher explore scale, mixed with the global progress EMA. Visit-scent remains a light prior. No second Loop, no extra weights — the signal is free from the planner that was already there.
+
+- `valueOf` accepts `rhoHat`; `imagineScores` computes residual drop on the best second-step path.
+- Laws 04 and Act stage note updated. RESEARCH open problem 1 narrowed.
+- G1–S3 / C1–C2 still pass. Kernel tests (10) pass.
+
+Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 10/10. Claims green. Adjacent food still taken under temperature 0.04; field ema falls; structured stream compresses, noise does not.
+
+Next hypothesis: residual drop can be near zero while the model is still uncalibrated (both windows near ½), so early life may still lean on global ρ and scent. Or: a true model-of-learning (second Loop on hidden activations) would predict *how much* δ falls after the real update, not only the imaginary residual drop. That is still Phase 1. If C2 freezes, the extra prog term may be sharpening scores too hard — log branching.
