@@ -103,4 +103,14 @@ export class Loop {
   get commitment() {
     return 1 - expectedResidual(this.lastPred);
   }
+
+  /** Export the compressor weights for save / resume / inspect. */
+  exportBrain() {
+    return this.model.exportWeights();
+  }
+
+  /** Restore compressor weights. Returns false on dimension mismatch. */
+  importBrain(w: { w1: number[]; b1: number[]; w2: number[]; b2: number[] }): boolean {
+    return this.model.importWeights(w);
+  }
 }
