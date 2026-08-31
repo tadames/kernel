@@ -109,3 +109,37 @@ test("participation is 1 for a one-hot hidden and n for a flat one", () => {
   const b = branching(scores, 0.25);
   assert.ok(b === 2, `near-tie branching ${b}`);
 });
+
+test("saveBrain / loadBrain round-trips and preserves compression", () => {
+  const a = new Kernel("field", 11);
+  for (let i = 0; i < 80; i++) a.step();
+  const brain = a.saveBrain();
+  assert.ok(brain.w1.length > 1000, "brain has weights");
+  const lossBefore = a.loop.ema;
+
+  const b = new Kernel("field", 99);
+  // Fresh brain starts higher; load the trained one.
+  assert.ok(b.loadBrain(brain), "load succeeds");
+  // Same weights → same forward residual on a held observation pattern.
+  const obs = a.lastObs!;
+  const predA = new Float32Array(a.loop.outDim);
+  const predB = new Float32Array(b.loop.outDim);
+  a.loop.imagine(a.loop.prevInput ?? new Float32Array(a.loop.inDim), predA);
+  b.loop.imagine(a.loop.prevInput ?? new Float32Array(a.loop.inDim), predB);
+  let maxDiff = 0;
+  for (let i = 0; i < predA.length; i++) {
+    maxDiff = Math.max(maxDiff, Math.abs(predA[i] - predB[i]));
+  }
+  assert.ok(maxDiff < 1e-5, `predictions diverge after load: maxDiff ${maxDiff}`);
+
+  // Continuing from the loaded mind keeps ema low (does not forget).
+  for (let i = 0; i < 40; i++) b.step();
+  assert.ok(
+    b.loop.ema < lossBefore * 1.35 || b.loop.ema < 0.18,
+    `loaded mind forgot: ema ${lossBefore.toFixed(4)} → ${b.loop.ema.toFixed(4)}`,
+  );
+
+  // Dimension mismatch is rejected.
+  const bad = { ...brain, w1: brain.w1.slice(0, 10) };
+  assert.equal(b.loadBrain(bad), false);
+});
