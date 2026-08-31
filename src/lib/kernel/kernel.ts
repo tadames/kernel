@@ -219,8 +219,9 @@ export class Kernel {
    * already visible in the current window — whiskers, not a radar — (2) the
    * one-step predicted window, and (3) the best follow-up from that window
    * (pure model, discounted, confidence-gated). Curiosity prefers high
-   * expected residual in the predicted window (model uncertainty), gated by
-   * recent compression progress. No half-plane scan for food.
+   * expected residual and the residual *drop* into the second window
+   * (action-conditional ρ̂), still gated by recent global progress. No
+   * half-plane scan for food.
    */
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
