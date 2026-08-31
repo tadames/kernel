@@ -9,15 +9,13 @@
  * predicted window (pure model, no true whiskers). Discounted. Early on the
  * model is uncalibrated so confidence still gates the imagined terms.
  *
- * Curiosity is closer to true compression-progress: the intrinsic term is
- * primarily the model's own expected residual (Bernoulli variance of the
- * predicted window — high when outputs sit near ½). Visit-scent novelty is a
- * light prior so the body still leaves a well-modeled patch early in life.
- * Recent progress ρ scales both: when the compressor has stopped improving,
- * uncertain regions are probably noise and curiosity collapses.
- *
- * Fully action-conditional ρ̂ (a second loop on hidden activations) remains
- * Phase 1.
+ * Curiosity is compression-progress. The intrinsic term is primarily the
+ * model's own expected residual (Bernoulli variance of the predicted window).
+ * Visit-scent is a light prior. Global recent progress ρ still scales, but
+ * when horizon 2 is on we also use an action-conditional ρ̂: the drop in
+ * expected residual from step-1 window to the best step-2 window. Prefer
+ * moves the model itself expects to make more certain. A second loop on
+ * hidden activations (true model-of-learning) remains Phase 1.
  */
 
 export function softmaxSample(
@@ -72,13 +70,16 @@ function valueOf(
   goal: number,
   learning: number,
   confidence: number,
+  /** Action-conditional compression progress from residual drop (horizon 2). */
+  rhoHat = 0,
 ): number {
   // Model-based expected residual dominates; visit-scent is a weak prior.
   const residual = expectedResidual(pred);
   const explore = 0.7 * residual + 0.3 * v.novelty;
-  // Progress ρ scales exploration: stalled compressor → curiosity collapses.
+  // Mix global ρ with action-conditional residual drop when available.
+  const prog = Math.max(0, learning) + 0.55 * Math.max(0, rhoHat);
   const curious =
-    curiosity * (0.75 * explore * (0.35 + 12 * learning) + 0.2 * explore);
+    curiosity * (0.75 * explore * (0.35 + 12 * prog) + 0.2 * explore);
   const g = goal * v.reward * (0.2 + 0.8 * confidence);
   const cost = v.cost * (0.15 + 0.85 * confidence);
   return curious + g - cost;
@@ -119,23 +120,34 @@ export function imagineScores(opts: {
   for (let a = 0; a < opts.acts; a++) {
     const pred = opts.predict(a, opts.imagined[a]);
     const v = opts.read(pred, a);
-    let score = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence);
+    const res1 = expectedResidual(pred);
+    // Default: no action-conditional ρ̂ until horizon 2 supplies a residual drop.
+    let rhoHat = 0;
 
     if (twoStep) {
       // Best follow-up from the imagined window (greedy, pure model).
+      // Also track the residual of that best second window for ρ̂.
       let best2 = -Infinity;
+      let bestRes2 = res1;
       const into2 = opts.imagined2![a];
       for (let a1 = 0; a1 < opts.acts; a1++) {
         const pred2 = opts.predictFrom!(pred, a1, into2);
         const v2 = opts.readPred!(pred2, a1);
-        const s2 = valueOf(v2, pred2, opts.curiosity, opts.goal, learning, confidence);
-        if (s2 > best2) best2 = s2;
+        const s2 = valueOf(v2, pred2, opts.curiosity, opts.goal, learning, confidence, 0);
+        if (s2 > best2) {
+          best2 = s2;
+          bestRes2 = expectedResidual(pred2);
+        }
       }
+      // Compression-progress signal: how much more certain the model becomes
+      // after one more imagined step. Prefer paths that tighten the guess.
+      rhoHat = Math.max(0, res1 - bestRes2);
+      const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat);
       // Gate the second step harder: uncalibrated models should not plan deep.
-      score += disc * confidence * best2;
+      opts.scores[a] = score1 + disc * confidence * best2;
+    } else {
+      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, 0);
     }
-
-    opts.scores[a] = score;
   }
   return opts.scores;
 }
