@@ -1,25 +1,19 @@
 /**
  * Second testbed. Same loop, no body, no grid.
- *
- * A bit stream. The compressor sees the last 8 bits and must guess the next.
- *   structured — period-6 pattern 001011 (compressible)
- *   noise      — a fresh fair bit every step (incompressible)
- *
- * Measuring surprise on the whole sliding window would cheat: 7 of 8 bits
- * are a copy. We predict the next bit only. That is the claim.
+ * Next-bit prediction on a period-6 pattern vs fair coin.
  */
 import { Loop } from "./loop.ts";
 import { mulberry32 } from "./presets.ts";
 
-export const STREAM_W = 8;
-export const STREAM_IN = STREAM_W + 1;
-export const STREAM_HIDDEN = 24;
-export const STREAM_OUT = 1;
-export const STREAM_SHOW = 40;
-const PATTERN = [0, 0, 1, 0, 1, 1];
-const HISTORY = 140;
-
 export type StreamKind = "structured" | "noise";
+
+const STREAM_W = 8;
+const STREAM_IN = STREAM_W + 1;
+const STREAM_HIDDEN = 16;
+const STREAM_OUT = 1;
+const STREAM_SHOW = 48;
+const HISTORY = 120;
+const PATTERN = [1, 0, 1, 1, 0, 0];
 
 export type StreamSnapshot = {
   kind: StreamKind;
@@ -108,6 +102,16 @@ export class StreamKernel {
       age: this.age,
       commitment: this.loop.commitment,
     };
+  }
+
+  /** Persist the compressor for resume / inspect. Same shape as Kernel.saveBrain. */
+  saveBrain() {
+    return this.loop.exportBrain();
+  }
+
+  /** Resume a saved compressor. Returns false on dimension mismatch. */
+  loadBrain(w: { w1: number[]; b1: number[]; w2: number[]; b2: number[] }): boolean {
+    return this.loop.importBrain(w);
   }
 }
 
