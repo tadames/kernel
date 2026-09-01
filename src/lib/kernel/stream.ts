@@ -104,13 +104,13 @@ export class StreamKernel {
     };
   }
 
-  /** Persist the compressor for resume / inspect. Same shape as Kernel.saveBrain. */
+  /** Persist the compressor + learning state. Same shape as Kernel.saveBrain. */
   saveBrain() {
     return this.loop.exportBrain();
   }
 
-  /** Resume a saved compressor. Returns false on dimension mismatch. */
-  loadBrain(w: { w1: number[]; b1: number[]; w2: number[]; b2: number[] }): boolean {
+  /** Resume a saved mind. Returns false on dimension mismatch. */
+  loadBrain(w: Parameters<Loop["importBrain"]>[0]): boolean {
     return this.loop.importBrain(w);
   }
 }
