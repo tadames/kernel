@@ -38,34 +38,9 @@ Laws 05 and the Act stage note say horizon 2. G1–G3 / S1–S3 still pass. Kern
 
 Evidence: `adjacentFood` / G2 still takes the east food under temperature 0.04; field ema still falls; structured stream compresses, noise does not.
 
-Next hypothesis: two ticks is still myopic. Either (a) a short rollout with a value head on the latent (true multi-step credit), or (b) action-conditional ρ̂ via a second Loop on hidden activations — Phase 1. If horizon 2 makes the agent freeze near walls once the model is confident, confidence gating is too strong or wall cost in `readPred` is wrong; log it.
+Next hypothesis: if horizon 2 ever overrides true whiskers on G2, the discount is too high or confidence is not gating hard enough. A third step would be noise without a latent.
 
-## 2026-08-28 — Horizon 2 actually wired
-
-Prior commits added optional second-step scoring in `imagineScores` and updated Laws/Act copy, but `Kernel.choose` never passed `predictFrom` / `readPred` / `imagined2`. The agent was still one-step.
-
-One change: wire horizon 2 into the live policy.
-
-- `imagined2` scratch already existed; `choose` now builds `predictFrom` (encode predicted obs + second action → forward) and `readPred` (pure model reward/cost/novelty).
-- Horizon helper extracted to `horizon.ts` so Lab and tests share the same path.
-- Temperature default remains 0.45; G2 still uses 0.04 for the forced adjacent-food probe.
-
-Evidence: G2 still takes the east food; Field ema falls; stream claims hold. The agent can now plan a wall-bounce one step out when the model is calibrated.
-
-Next hypothesis: if the agent still hugs walls after burn-in, `readPred` wall cost (1.8) is too weak relative to residual exploration, or confidence rises too late. Action-conditional residual drop (ρ̂) across the two imagined windows is the real Phase 1 move.
-
-## 2026-08-29 — Expected residual as compression-progress curiosity
-
-One change: curiosity is dominated by the model's own expected residual (Bernoulli variance of the predicted window), not visit-scent. Visit-scent is a light prior. Global ρ still scales. When horizon 2 is on, residual drop step-1→best step-2 becomes action-conditional ρ̂.
-
-- `expectedResidual` in policy; valueOf mixes residual + novelty; ρ̂ from residual drop.
-- Law 04 and Act stage updated.
-
-Evidence: G1–G2 / S1–S3 pass. Field still explores; stream still separates structure from noise.
-
-Next hypothesis: if ρ̂ is always near zero because both windows are uncalibrated, the signal is noise until ema falls. A second Loop on hidden activations is the real Phase 1 move.
-
-## 2026-08-29 — Complexity trace (commitment + edge band)
+## 2026-08-29 — Effective complexity and the freeze/noise band
 
 One change: the kernel now *measures* growth of effective complexity and whether action sits between freeze and noise. It still does not grow its own architecture (Phase 3) and it does not self-tune temperature (open problem 6). The numbers are allowed to fail.
 
@@ -107,3 +82,17 @@ G1–C2 still pass. Kernel tests 11/11, including the strengthened round-trip (e
 Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 11/11.
 
 Next hypothesis: if a mind saved on Field and loaded into Rooms still shows a long ema spike, the observation distribution shift dominates and a short re-burn-in schedule (higher lr for N steps) is the honest fix. True action-conditional model-of-learning (second Loop on hidden state) remains Phase 1.
+
+## 2026-09-01 — Re-burn-in after loadBrain
+
+One change: loading a mind arms a short elevated-lr window so observation shift does not thrash a trained compressor.
+
+`Kernel` and `StreamKernel` set `burnIn = 28` on successful `loadBrain`. While burn-in remains, `step` uses `lr × 2.4` then decrements. `resetBrain` clears the counter. Weights and learning state (ema, progressEma, replay) still come from `Loop.exportBrain` / `importBrain`; burn-in is the adaptation schedule, not a second model.
+
+Also restored `stream.ts` and `kernel.test.ts` from the prior incomplete save/load push (they had been left as PLACEHOLDER on main). Round-trip test now asserts ema match, non-empty replay, legacy weights-only load, and burn-in arming. New claim-style test: Field→Rooms load settles ema within a modest window under burn-in.
+
+Why: the 2026-08-31 hypothesis was that distribution shift dominates after a cross-world load. Raising η for a few dozen steps is the honest minimal fix before Phase 1 (action-conditional model-of-learning).
+
+Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 12/12. Typecheck clean. Production build clean. Browser smoke: Lab title Kernel, canvas present, no page/console errors.
+
+Next hypothesis: if Field→Rooms still spikes ema beyond ~2× trained for long after burn-in expires, either the burn window is too short for wall-heavy maps, or the policy temperature needs a temporary lift during adaptation. True action-conditional ρ̂ (second Loop on hidden state) remains Phase 1.
