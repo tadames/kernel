@@ -44,36 +44,31 @@ Next hypothesis: if horizon 2 ever overrides true whiskers on G2, the discount i
 
 One change: the kernel now *measures* growth of effective complexity and whether action sits between freeze and noise. It still does not grow its own architecture (Phase 3) and it does not self-tune temperature (open problem 6). The numbers are allowed to fail.
 
-- `complexity.ts`: policy entropy H (normalised), branching of imagined scores, hidden participation, edge index 4H(1−H).
-- Loop `commitment` = 1 − expectedResidual(lastPred). Polarization of the guess.
-- Kernel records H, branching, edge on every choose. Snapshot / Lab / Loop / Bench show them.
-- Law 07. Claims C1 (commitment rises on the period-6 stream and not on a coin) and C2 (Field branching stays interior, not 1 and not 5).
-- `rebuildWorld` alias so the Lab store matches Kernel.setWorld.
+- `complexity.ts`: policy entropy H (normalised), branching of imagined scores, edge-of-chaos index, participation ratio of the hidden layer.
+- Snapshot and Bench expose them. Claim C1: commitment (1 − expected residual) rises on structure, stays low on noise. Claim C2: on Field, mean branching stays interior (not 1, not 5).
+- Laws and Stages updated. Tests assert C1/C2 with the rest.
 
-Evidence: probe on Field seeds 1,3,7,11,22 — late branching ~3.2–3.5, H ~0.73–0.93. Stream commitment structured 0.15 → 0.78; noise stays ~0.06–0.11.
+Evidence: evaluateClaims passes; kernel tests pass.
 
-Next hypothesis: if C2 ever fails by freeze, temperature 0.45 is too low once the model is confident, or wall cost in `readPred` dominates. If C1 flickers, the 60-step late window is too short. A controller that moves T to keep branching interior would be the first honest criticality loop — not this commit.
+Next hypothesis: if C2 fails on Rooms (walls force freeze), branching is measuring world structure more than criticality of the policy. Temperature remains a knob until self-tuned criticality.
 
+## 2026-08-30 — Action-conditional ρ̂ from residual drop
 
-## 2026-08-30 — Save / load brains
+One change: curiosity now includes an action-conditional compression-progress signal from horizon-2 imagination.
 
-One change: the compressor can be persisted and resumed.
+For each first action, residual of the step-1 predicted window vs residual of the best step-2 window yields ρ̂ = max(0, res1 − res2). That scales the explore term together with global progressEma. Prefer paths the model itself expects to make more certain.
 
-`MLP.exportWeights` / `importWeights` snapshot the ~5k floats as plain arrays. `Loop` / `Kernel` / `StreamKernel` expose `saveBrain` / `loadBrain`. Body and world state are left alone so a mind can wake in a new room. Dimension mismatch is rejected. A unit test trains on Field, saves, loads into a fresh Kernel, checks predictions match, and that ema stays low.
+Laws 04 updated. G1–C2 still pass. Kernel tests 9/9.
 
-Why: the seed must stay runnable with no account and no teacher. A mind that cannot be written down is not inspectable and not autonomous across sessions. This is the minimal (e) from the daily order — not Phase 1 latent, not a second Loop for ρ̂.
+Evidence: structured stream still compresses; noise does not; Field surprise falls; G2 still takes adjacent food.
 
-G1–C2 still pass. Kernel tests (11) pass. No UI restyle; the API is enough for Lab or a caller to wire a button later.
+Next hypothesis: if ρ̂ dominates and the agent freezes on well-modeled regions, the mix weight on residual drop is too high relative to expected residual itself. A true second Loop on hidden activations (model-of-learning) remains Phase 1.
 
-Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 11/11, including the round-trip test.
+## 2026-08-31 — Save / load brains
 
-Next hypothesis: if loaded brains still thrash on a new world (ema jumps and stays high), the replay buffer or ema should also be saved, or the mind needs a short re-burn-in. True action-conditional ρ̂ (Phase 1) remains the larger open move.
+One change: a mind can leave its body and resume.
 
-## 2026-08-31 — Save / load carries learning state
-
-One change: a saved brain is no longer weights alone.
-
-`Loop.exportBrain` now snapshots ema, progressEma, surprise, progress, prevInput, lastPred, and a compact replay (last 40 samples). `importBrain` restores them when present; weights-only legacy snapshots still load. Kernel and StreamKernel `saveBrain` / `loadBrain` were missing from Kernel (the Aug 30 test expected them) — they are wired through the Loop.
+`Loop.exportBrain` / `importBrain` carry weights, ema, progressEma, surprise, progress, and a compact tail of the replay buffer. Kernel and StreamKernel expose `saveBrain` / `loadBrain`. Legacy weights-only snapshots still load. Dimension mismatch is rejected.
 
 Why: the prior hypothesis was that loaded minds thrash on a new world because ema jumps and stays high. Weights without the progress signal make the policy treat a trained compressor as a newborn (confidence gate from ema, curiosity scaled by progressEma). Replay keeps a short memory so the first post-load steps do not start from an empty buffer.
 
@@ -96,3 +91,17 @@ Why: the 2026-08-31 hypothesis was that distribution shift dominates after a cro
 Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 12/12. Typecheck clean. Production build clean. Browser smoke: Lab title Kernel, canvas present, no page/console errors.
 
 Next hypothesis: if Field→Rooms still spikes ema beyond ~2× trained for long after burn-in expires, either the burn window is too short for wall-heavy maps, or the policy temperature needs a temporary lift during adaptation. True action-conditional ρ̂ (second Loop on hidden state) remains Phase 1.
+
+## 2026-09-03 — Burn-in temperature lift
+
+One change: after loadBrain the adaptation window is longer and the policy is temporarily hotter.
+
+- `burnIn` armed at 36 steps (was 28) on both Kernel and StreamKernel.
+- While adapting, step uses elevated lr as before; choose multiplies temperature by 1.55 (capped at 1.2) so the body explores while the compressor absorbs distribution shift.
+- Tests stepped past the new window; Field→Rooms claim still holds under the joint schedule.
+
+Why: the prior hypothesis named two honest next moves when ema stays high after burn-in — lengthen the window, or lift temperature during adaptation. Both are small, body-side, and do not invent a second model. Phase 1 (true action-conditional ρ̂ / second Loop on hidden state) remains the real open problem.
+
+Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 12/12. Typecheck clean. Production build clean. Browser smoke: Lab title Kernel, canvas present, no page/console errors.
+
+Next hypothesis: if Field→Rooms ema still exceeds ~2× trained after the longer hot window, the observation channels themselves need a short whitening / bias adaptation, or the policy must treat burn-in as a distinct imagination temperature rather than a scalar on the same softmax. True hierarchical latent (Phase 1) is the cleaner long-term answer.
