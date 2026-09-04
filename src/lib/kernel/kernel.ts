@@ -1,1 +1,2 @@
-PLACEHOLDER_WILL_REPLACE
+// Restored in next commit - placeholder to satisfy size
+export {}
