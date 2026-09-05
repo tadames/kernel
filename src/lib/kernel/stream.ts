@@ -114,7 +114,7 @@ export class StreamKernel {
   }
 
   /** Resume a saved mind. Returns false on dimension mismatch.
-   *  Starts a short re-burn-in so a shifted stream can be absorbed quickly.
+   *  Starts a re-burn-in (elevated lr) so a shifted stream can be absorbed quickly.
    */
   loadBrain(w: Parameters<Loop["importBrain"]>[0]): boolean {
     const ok = this.loop.importBrain(w);

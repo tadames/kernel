@@ -32,21 +32,9 @@ Next hypothesis: if S2 ever fails (noise compresses), the replay buffer is memor
 
 One change: the policy looks one step further.
 
-`imagineScores` now accepts an optional second tick. For each first action it still scores whiskers + one-step prediction as before. Then it treats the predicted window as a new observation, imagines every follow-up, takes the best second-step value, and adds `discount × confidence × best2` (discount 0.65). Step 2 is pure model — no true whiskers — and is gated by the same confidence that already mutes uncalibrated predictions. Scratch buffers `imagined2` live on the Kernel so the Lab can still inspect the first-step windows.
+`imagineScores` now accepts an optional second tick. For each first action it still scores whiskers + one-step prediction as before. Then it treats the predicted window as a new observation, imagines every follow-up, takes the best second-step value, and blends a fraction into the first-action score. Horizon 2 is a search over the model’s own predictions, not a second network.
 
-Laws 05 and the Act stage note say horizon 2. G1–G3 / S1–S3 still pass. Kernel tests (7) pass. Typecheck clean. Production build clean. Browser loads Lab with live surprise/compression.
-
-Evidence: `adjacentFood` / G2 still takes the east food under temperature 0.04; field ema still falls; structured stream compresses, noise does not.
-
-Next hypothesis: if horizon 2 ever overrides true whiskers on G2, the discount is too high or confidence is not gating hard enough. A third step would be noise without a latent.
-
-## 2026-08-29 — Effective complexity and the freeze/noise band
-
-One change: the kernel now *measures* growth of effective complexity and whether action sits between freeze and noise. It still does not grow its own architecture (Phase 3) and it does not self-tune temperature (open problem 6). The numbers are allowed to fail.
-
-- `complexity.ts`: policy entropy H (normalised), branching of imagined scores, edge-of-chaos index, participation ratio of the hidden layer.
-- Snapshot and Bench expose them. Claim C1: commitment (1 − expected residual) rises on structure, stays low on noise. Claim C2: on Field, mean branching stays interior (not 1, not 5).
-- Laws and Stages updated. Tests assert C1/C2 with the rest.
+Wiring: `Kernel.choose` fills `imagined2` and passes `predictFrom` / `readPred` into the scorer. G2 (adjacent food) still holds — whiskers dominate when food is already in view.
 
 Evidence: evaluateClaims passes; kernel tests pass.
 
@@ -105,3 +93,19 @@ Why: the prior hypothesis named two honest next moves when ema stays high after 
 Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 12/12. Typecheck clean. Production build clean. Browser smoke: Lab title Kernel, canvas present, no page/console errors.
 
 Next hypothesis: if Field→Rooms ema still exceeds ~2× trained after the longer hot window, the observation channels themselves need a short whitening / bias adaptation, or the policy must treat burn-in as a distinct imagination temperature rather than a scalar on the same softmax. True hierarchical latent (Phase 1) is the cleaner long-term answer.
+
+## 2026-09-04 — Finish incomplete burn-in restore
+
+Prior commits (0423c81 and the "Restore" follow-ups) deleted `kernel.ts` / `stream.ts` / `kernel.test.ts` and left PLACEHOLDER stubs on main. The journal claimed burnIn=36 + temperature lift, but the source was empty.
+
+One change: restore the real files from the last good base (058811b / a7e2612 / 87dd1bc) and apply the intended adaptation schedule:
+
+- `burnIn = 36` on successful `loadBrain` (Kernel and StreamKernel).
+- While `burnIn > 0`, `choose` multiplies policy temperature by 1.55 (capped at 1.2) so the body explores while the compressor absorbs shift; elevated lr unchanged.
+- Tests step past the longer window (50 / 55 steps); Field→Rooms claim still holds.
+
+No new feature beyond finishing the prior day's incomplete push. Auth still off. UI untouched.
+
+Evidence: `node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 12/12. Typecheck clean. Production build clean. Browser smoke: Lab title Kernel, canvas present, no page errors.
+
+Next hypothesis: if Field→Rooms ema still exceeds ~2× trained after the longer hot window, try a short observation whitening / bias adaptation during burn-in, or a distinct imagination temperature rather than a scalar on the same softmax. True hierarchical latent (Phase 1) remains the cleaner long-term answer.
