@@ -150,6 +150,43 @@ test("saveBrain / loadBrain round-trips and preserves compression", () => {
   assert.equal(b.loadBrain(bad), false);
 });
 
+test("latent residual skip tracks observation mean", () => {
+  const loop = new Loop(4, 8, 4);
+  assert.equal(loop.residual, true);
+  const low = new Float32Array([0.1, 0.1, 0.1, 0.1]);
+  const high = new Float32Array([0.9, 0.9, 0.9, 0.9]);
+  loop.commit(low);
+  for (let i = 0; i < 80; i++) {
+    loop.assimilate(low, 0.08);
+    loop.commit(low);
+  }
+  const meanLow = loop.baseline.reduce((s, v) => s + v, 0) / 4;
+  assert.ok(meanLow < 0.35, `baseline did not follow low mean: ${meanLow.toFixed(3)}`);
+
+  loop.baselineRate = 0.12;
+  for (let i = 0; i < 40; i++) {
+    loop.assimilate(high, 0.08);
+    loop.commit(high);
+  }
+  const meanHigh = loop.baseline.reduce((s, v) => s + v, 0) / 4;
+  assert.ok(meanHigh > 0.55, `baseline did not follow high mean: ${meanHigh.toFixed(3)}`);
+
+  const brain = loop.exportBrain();
+  assert.equal(brain.residual, true);
+  assert.ok(brain.baseline && brain.baseline.length === 4);
+
+  const fresh = new Loop(4, 8, 4);
+  assert.ok(fresh.importBrain(brain));
+  assert.equal(fresh.residual, true);
+  assert.ok(Math.abs(fresh.baseline[0] - loop.baseline[0]) < 1e-6);
+
+  // Legacy snapshot disables residual so raw heads still reconstruct.
+  const legacy = { w1: brain.w1, b1: brain.b1, w2: brain.w2, b2: brain.b2 };
+  const old = new Loop(4, 8, 4);
+  assert.ok(old.importBrain(legacy));
+  assert.equal(old.residual, false);
+});
+
 test("re-burn-in absorbs Field→Rooms observation shift", () => {
   const field = new Kernel("field", 17);
   for (let i = 0; i < 100; i++) field.step();
