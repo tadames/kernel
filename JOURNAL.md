@@ -1,5 +1,24 @@
 # Journal
 
+## 2026-09-12 (America/New_York)
+
+### What changed
+Phase 1 latent skip inside `Loop`: a slow per-dimension `baseline` plus MLP residual.
+
+- Fresh loops train the MLP on `obs − baseline + 0.5` and reconstruct `ŷ + baseline − 0.5` for surprise and imagination.
+- Density (Field walls vs Rooms) is the skip's job. Geometry stays in the residual head.
+- After `loadBrain`, `baselineRate` rises to 0.12 for the 36-step burn-in, then returns to 0.02.
+- Brains now export `residual` + `baseline`. Legacy weights-only snapshots set `residual: false` so raw heads still reconstruct.
+- `rebuildWorld` is an alias of `setWorld` so the lab store typechecks.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 13/13 pass (new "latent residual skip tracks observation mean", Field drop, claims, save/load, Field→Rooms). `tsc --noEmit` clean. Production build succeeded. Preview on :8081, browser-smoke 200 / canvas / no page errors.
+
+### Next hypothesis
+The skip absorbs mean shift. A true latent would drop channels whose residual EMA stays high (incompressible scent/noise) from the progress signal, so curiosity chases structure. Measure Field→Rooms late ema with residual-only surprise vs full-window mse.
+
 ## 2026-09-11 (America/New_York)
 
 ### What changed
