@@ -113,6 +113,10 @@ export class Kernel {
     this.setWorld(kind, seed);
   }
 
+  rebuildWorld(kind: WorldKind = this.worldKind, seed = this.seed) {
+    this.setWorld(kind, seed);
+  }
+
   setWorld(kind: WorldKind, seed = this.seed) {
     this.worldKind = kind;
     this.seed = seed;
@@ -153,6 +157,7 @@ export class Kernel {
     this.edge = 0;
     this.burnIn = 0;
     this.obsMean.fill(0);
+    this.loop.baselineRate = 0.02;
   }
 
   get ema() {
@@ -179,6 +184,8 @@ export class Kernel {
     if (ok) {
       this.burnIn = 36;
       this.obsMean.fill(0);
+      // Fast skip adaptation: density shift is the latent's job, not the MLP's.
+      this.loop.baselineRate = 0.12;
     }
     return ok;
   }
@@ -334,7 +341,10 @@ export class Kernel {
     this.lastObs = raw;
     const obs = this.adaptObs(raw);
     const lr = this.burnIn > 0 ? this.params.lr * 2.4 : this.params.lr;
-    if (this.burnIn > 0) this.burnIn -= 1;
+    if (this.burnIn > 0) {
+      this.burnIn -= 1;
+      if (this.burnIn === 0) this.loop.baselineRate = 0.02;
+    }
     this.loop.assimilate(obs, lr);
     this.history.push(this.loop.surprise);
     if (this.history.length > HISTORY) this.history.shift();
