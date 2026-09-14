@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-09-13 (America/New_York)
+
+### What changed
+Latent channel gate on curiosity: `Loop` now keeps a per-dimension residual EMA and scores surprise as a *weighted* window MSE. Channels whose residual stays high (scent, coin-flips) lose weight in δ and therefore in ρ. Training still sees every channel. Brains export `residualEma` + `surpriseRaw` so the gate is inspectable and round-trips.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 14/14 pass (new "incompressible channels are downweighted in surprise", residual skip, Field→Rooms, claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+The gate is scalar per pixel-channel. A true latent would pool residual EMA by *channel family* (wall / food / scent) or drop those dims from the *input* of the progress-driven policy, not only from δ. Measure Field late ema vs a scent-ablated Field; if they match, the gate is doing the work.
+
+
 ## 2026-09-12 (America/New_York)
 
 ### What changed

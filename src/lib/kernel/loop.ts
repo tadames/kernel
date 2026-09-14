@@ -5,7 +5,9 @@
  *
  *   observe  x
  *   predict  x̂ = M(x₋, a₋)
- *   surprise δ = ‖x − x̂‖²          measured BEFORE the update
+ *   surprise δ = weighted ‖x − x̂‖²  measured BEFORE the update
+ *                (channels with high residual-EMA are downweighted —
+ *                incompressible scent/noise does not own curiosity)
  *   compress M ← M − η ∇δ
  *   progress ρ = δ̄ − δ             improvement, not surprise itself
  *   act      a ← π(M, ρ, goal)
@@ -39,6 +41,10 @@ export class Loop {
   participation = 0;
   /** How fast the skip tracks a new world's mean. */
   baselineRate = 0.02;
+  /** Per-dimension squared residual EMA. High = incompressible. */
+  residualEma: Float32Array;
+  /** Unweighted window MSE, kept for inspectability. */
+  surpriseRaw = 0.35;
 
   inDim: number;
   hidden: number;
@@ -56,6 +62,8 @@ export class Loop {
     this.lastPred = new Float32Array(outDim);
     this.baseline = new Float32Array(outDim);
     this.baseline.fill(0.5);
+    this.residualEma = new Float32Array(outDim);
+    this.residualEma.fill(0.08);
   }
 
   reset() {
@@ -64,8 +72,10 @@ export class Loop {
     this.prevInput = null;
     this.lastPred = new Float32Array(this.outDim);
     this.baseline.fill(0.5);
+    this.residualEma.fill(0.08);
     this.residual = true;
     this.surprise = 0.35;
+    this.surpriseRaw = 0.35;
     this.ema = 0.35;
     this.progress = 0;
     this.progressEma = 0;
@@ -101,13 +111,34 @@ export class Loop {
     }
   }
 
+  /**
+   * Curiosity scores structure. A channel whose residual EMA stays high is
+   * treated as incompressible (scent, coin-flips) and is downweighted so
+   * progress ρ is not a tax on noise. Training still sees every channel.
+   */
+  private scoreSurprise(pred: Float32Array, obs: Float32Array): number {
+    const n = this.outDim;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < n; i++) {
+      const e = pred[i] - obs[i];
+      const e2 = e * e;
+      this.residualEma[i] = 0.94 * this.residualEma[i] + 0.06 * e2;
+      const w = 1 / (1 + this.residualEma[i] * 14);
+      num += w * e2;
+      den += w;
+    }
+    return den > 1e-8 ? num / den : this.surpriseRaw;
+  }
+
   assimilate(obs: Float32Array, lr: number) {
     const target = new Float32Array(this.outDim);
     this.toTarget(obs, target);
     if (this.prevInput) {
       const raw = this.model.forward(this.prevInput, new Float32Array(this.outDim));
       this.fromResidual(raw, this.lastPred);
-      this.surprise = mse(this.lastPred, obs);
+      this.surpriseRaw = mse(this.lastPred, obs);
+      this.surprise = this.scoreSurprise(this.lastPred, obs);
       this.participation = participation(this.model.lastHidden());
       this.model.train(this.prevInput, target, lr);
       if (this.replay.length > 0) {
@@ -167,6 +198,8 @@ export class Loop {
       replay,
       residual: this.residual,
       baseline: Array.from(this.baseline),
+      residualEma: Array.from(this.residualEma),
+      surpriseRaw: this.surpriseRaw,
     };
   }
 
@@ -183,6 +216,10 @@ export class Loop {
     } else if (!this.residual) {
       this.baseline.fill(0.5);
     }
+    if ("residualEma" in w && Array.isArray(w.residualEma) && w.residualEma.length === this.outDim) {
+      this.residualEma.set(w.residualEma);
+    }
+    if ("surpriseRaw" in w && typeof w.surpriseRaw === "number") this.surpriseRaw = w.surpriseRaw;
     if ("replay" in w && Array.isArray(w.replay)) {
       this.replay = w.replay
         .filter((s) => s && Array.isArray(s.x) && Array.isArray(s.y))
@@ -211,4 +248,6 @@ export type Brain = {
   replay?: { x: number[]; y: number[] }[];
   residual?: boolean;
   baseline?: number[];
+  residualEma?: number[];
+  surpriseRaw?: number;
 };
