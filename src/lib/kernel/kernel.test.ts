@@ -71,7 +71,6 @@ test("Falsifiable claims: evaluateClaims", () => {
 });
 
 test("Policy horizon 2: adjacent food still taken", () => {
-  // G2 fixture is the contract. Horizon 2 must not override true whiskers.
   const claims = evaluateClaims();
   const g2 = claims.find((c) => c.id === "G2");
   assert.ok(g2 && g2.pass, g2?.detail ?? "G2 missing");
@@ -110,12 +109,10 @@ test("saveBrain / loadBrain round-trips and preserves compression", () => {
   const lossBefore = a.loop.ema;
 
   const b = new Kernel("field", 99);
-  // Fresh brain starts higher; load the trained one.
   assert.ok(b.loadBrain(brain), "load succeeds");
   assert.equal(b.loop.ema, brain.ema, "ema restored on load");
   assert.ok(b.loop.replay.length > 0, "replay restored on load");
   assert.ok(b.burnIn > 0, "re-burn-in armed after load");
-  // Same weights → same forward residual on a held observation pattern.
   const predA = new Float32Array(a.loop.outDim);
   const predB = new Float32Array(b.loop.outDim);
   a.loop.imagine(a.loop.prevInput ?? new Float32Array(a.loop.inDim), predA);
@@ -126,8 +123,6 @@ test("saveBrain / loadBrain round-trips and preserves compression", () => {
   }
   assert.ok(maxDiff < 1e-5, `predictions diverge after load: maxDiff ${maxDiff}`);
 
-  // Continuing from the loaded mind keeps ema low (does not forget).
-  // burnIn is 36; step past it.
   for (let i = 0; i < 50; i++) b.step();
   assert.ok(b.burnIn === 0, "burn-in expires");
   assert.ok(
@@ -135,7 +130,6 @@ test("saveBrain / loadBrain round-trips and preserves compression", () => {
     `loaded mind forgot: ema ${lossBefore.toFixed(4)} → ${b.loop.ema.toFixed(4)}`,
   );
 
-  // Legacy weights-only snapshots still load.
   const weightsOnly = {
     w1: brain.w1,
     b1: brain.b1,
@@ -145,7 +139,6 @@ test("saveBrain / loadBrain round-trips and preserves compression", () => {
   const c = new Kernel("field", 7);
   assert.ok(c.loadBrain(weightsOnly), "legacy weights-only load succeeds");
 
-  // Dimension mismatch is rejected.
   const bad = { ...brain, w1: brain.w1.slice(0, 10) };
   assert.equal(b.loadBrain(bad), false);
 });
@@ -174,20 +167,20 @@ test("latent residual skip tracks observation mean", () => {
   const brain = loop.exportBrain();
   assert.equal(brain.residual, true);
   assert.ok(brain.baseline && brain.baseline.length === 4);
+  assert.ok(brain.residualEma && brain.residualEma.length === 4);
 
   const fresh = new Loop(4, 8, 4);
   assert.ok(fresh.importBrain(brain));
   assert.equal(fresh.residual, true);
   assert.ok(Math.abs(fresh.baseline[0] - loop.baseline[0]) < 1e-6);
 
-  // Legacy snapshot disables residual so raw heads still reconstruct.
   const legacy = { w1: brain.w1, b1: brain.b1, w2: brain.w2, b2: brain.b2 };
   const old = new Loop(4, 8, 4);
   assert.ok(old.importBrain(legacy));
   assert.equal(old.residual, false);
 });
 
-test("re-burn-in absorbs Field→Rooms observation shift", () => {
+test("re-burn-in absorbs Field\u2192Rooms observation shift", () => {
   const field = new Kernel("field", 17);
   for (let i = 0; i < 100; i++) field.step();
   const brain = field.saveBrain();
@@ -197,13 +190,35 @@ test("re-burn-in absorbs Field→Rooms observation shift", () => {
   assert.ok(rooms.loadBrain(brain), "cross-world load succeeds");
   assert.ok(rooms.burnIn > 0, "burn-in armed for shift");
 
-  // Without burn-in the first steps on Rooms would leave ema high for longer.
-  // With elevated lr + hotter policy, ema should settle within a modest window.
-  // burnIn is 36; step past it.
   for (let i = 0; i < 55; i++) rooms.step();
   assert.equal(rooms.burnIn, 0, "burn-in finished");
   assert.ok(
     rooms.loop.ema < Math.max(trainedEma * 2.2, 0.22),
     `cross-world ema still high after burn-in: trained ${trainedEma.toFixed(4)} → ${rooms.loop.ema.toFixed(4)}`,
   );
+});
+
+test("incompressible channels are downweighted in surprise", () => {
+  const loop = new Loop(4, 12, 4);
+  for (let t = 0; t < 220; t++) {
+    const x = new Float32Array(4);
+    x[0] = t % 2;
+    x[1] = 1 - (t % 2);
+    x[2] = Math.random();
+    x[3] = Math.random();
+    loop.assimilate(x, 0.08);
+    loop.commit(x);
+  }
+  const struct = (loop.residualEma[0] + loop.residualEma[1]) / 2;
+  const noise = (loop.residualEma[2] + loop.residualEma[3]) / 2;
+  assert.ok(noise > struct * 1.6, `noise residual ${noise.toFixed(4)} vs structure ${struct.toFixed(4)}`);
+  assert.ok(
+    loop.surprise < loop.surpriseRaw || loop.surpriseRaw - loop.surprise > 0.01,
+    `weighted surprise ${loop.surprise.toFixed(4)} should undercut raw mse ${loop.surpriseRaw.toFixed(4)}`,
+  );
+
+  const brain = loop.exportBrain();
+  const copy = new Loop(4, 12, 4);
+  assert.ok(copy.importBrain(brain));
+  assert.ok(Math.abs(copy.residualEma[2] - loop.residualEma[2]) < 1e-6);
 });
