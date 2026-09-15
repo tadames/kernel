@@ -222,3 +222,38 @@ test("incompressible channels are downweighted in surprise", () => {
   assert.ok(copy.importBrain(brain));
   assert.ok(Math.abs(copy.residualEma[2] - loop.residualEma[2]) < 1e-6);
 });
+
+test("family-pooled residual downweights the noisy channel family", () => {
+  // Period-3 layout matches the grid: wall, food, scent.
+  const loop = new Loop(6, 16, 6);
+  assert.equal(loop.familyCount, 3);
+  for (let t = 0; t < 260; t++) {
+    const x = new Float32Array(6);
+    const bit = t % 2;
+    x[0] = bit;
+    x[1] = 1 - bit;
+    x[2] = Math.random();
+    x[3] = bit;
+    x[4] = 1 - bit;
+    x[5] = Math.random();
+    loop.assimilate(x, 0.08);
+    loop.commit(x);
+  }
+  const wall = loop.familyResidual[0];
+  const food = loop.familyResidual[1];
+  const scent = loop.familyResidual[2];
+  assert.ok(
+    scent > wall * 1.5 && scent > food * 1.5,
+    `scent family ${scent.toFixed(4)} should exceed wall ${wall.toFixed(4)} and food ${food.toFixed(4)}`,
+  );
+  assert.ok(
+    loop.surprise < loop.surpriseRaw,
+    `family-weighted surprise ${loop.surprise.toFixed(4)} should undercut raw ${loop.surpriseRaw.toFixed(4)}`,
+  );
+
+  const brain = loop.exportBrain();
+  assert.ok(brain.familyResidual && brain.familyResidual.length === 3);
+  const copy = new Loop(6, 16, 6);
+  assert.ok(copy.importBrain(brain));
+  assert.ok(Math.abs(copy.familyResidual[2] - loop.familyResidual[2]) < 1e-6);
+});
