@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-09-14 (America/New_York)
+
+### What changed
+Family-pooled residual gate: when `outDim` is a multiple of 3 (the grid's wall / food / scent interleave), `Loop` averages per-pixel residual EMA into `familyResidual` and weights δ by the *family*, not the pixel. Stream worlds (`outDim = 1`) and odd-sized heads keep the per-channel gate. Brains export `familyResidual`. Training still sees every channel.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 15/15 pass (new "family-pooled residual downweights the noisy channel family", plus prior gate / residual skip / Field→Rooms / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+The family gate still feeds the noisy family to the MLP. Drop the high-residual family from the *input* of imagination / policy scoring (zero those dims in `encode` or in `imagineScores` novelty), and measure whether Field late ema and food-taking (G2) stay intact while scent-heavy Pulse worlds stop taxing ρ.
+
 ## 2026-09-13 (America/New_York)
 
 ### What changed
