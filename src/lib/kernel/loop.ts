@@ -5,9 +5,9 @@
  *
  *   observe  x
  *   predict  x̂ = M(x₋, a₋)
- *   surprise δ = weighted ‖x − x̂‖²  measured BEFORE the update
- *                (channels with high residual-EMA are downweighted —
- *                incompressible scent/noise does not own curiosity)
+ *   surprise δ = family-weighted ‖x − x̂‖²  measured BEFORE the update
+ *                (wall/food/scent residual EMAs are pooled; a noisy
+ *                family loses weight so curiosity chases structure)
  *   compress M ← M − η ∇δ
  *   progress ρ = δ̄ − δ             improvement, not surprise itself
  *   act      a ← π(M, ρ, goal)
@@ -43,6 +43,12 @@ export class Loop {
   baselineRate = 0.02;
   /** Per-dimension squared residual EMA. High = incompressible. */
   residualEma: Float32Array;
+  /**
+   * Residual EMA pooled by channel family. Grid observations interleave
+   * wall / food / scent (period 3). Stream worlds have one family.
+   */
+  familyResidual: Float32Array;
+  familyCount: number;
   /** Unweighted window MSE, kept for inspectability. */
   surpriseRaw = 0.35;
 
@@ -64,6 +70,9 @@ export class Loop {
     this.baseline.fill(0.5);
     this.residualEma = new Float32Array(outDim);
     this.residualEma.fill(0.08);
+    this.familyCount = outDim % 3 === 0 && outDim >= 3 ? 3 : 1;
+    this.familyResidual = new Float32Array(this.familyCount);
+    this.familyResidual.fill(0.08);
   }
 
   reset() {
@@ -73,6 +82,7 @@ export class Loop {
     this.lastPred = new Float32Array(this.outDim);
     this.baseline.fill(0.5);
     this.residualEma.fill(0.08);
+    this.familyResidual.fill(0.08);
     this.residual = true;
     this.surprise = 0.35;
     this.surpriseRaw = 0.35;
@@ -112,19 +122,35 @@ export class Loop {
   }
 
   /**
-   * Curiosity scores structure. A channel whose residual EMA stays high is
-   * treated as incompressible (scent, coin-flips) and is downweighted so
-   * progress ρ is not a tax on noise. Training still sees every channel.
+   * Curiosity scores structure. Residual is tracked per pixel-channel, then
+   * pooled into families (wall / food / scent on the grid). A family whose
+   * residual stays high is treated as incompressible and is downweighted
+   * so progress ρ is not a tax on noise. Training still sees every channel.
    */
   private scoreSurprise(pred: Float32Array, obs: Float32Array): number {
     const n = this.outDim;
+    const f = this.familyCount;
+    const acc = new Float32Array(f);
+    const cnt = new Float32Array(f);
+    for (let i = 0; i < n; i++) {
+      const e = pred[i] - obs[i];
+      const e2 = e * e;
+      this.residualEma[i] = 0.94 * this.residualEma[i] + 0.06 * e2;
+      const fam = f === 1 ? 0 : i % f;
+      acc[fam] += this.residualEma[i];
+      cnt[fam] += 1;
+    }
+    for (let c = 0; c < f; c++) {
+      const mean = cnt[c] > 0 ? acc[c] / cnt[c] : this.familyResidual[c];
+      this.familyResidual[c] = 0.9 * this.familyResidual[c] + 0.1 * mean;
+    }
     let num = 0;
     let den = 0;
     for (let i = 0; i < n; i++) {
       const e = pred[i] - obs[i];
       const e2 = e * e;
-      this.residualEma[i] = 0.94 * this.residualEma[i] + 0.06 * e2;
-      const w = 1 / (1 + this.residualEma[i] * 14);
+      const src = f > 1 ? this.familyResidual[i % f] : this.residualEma[i];
+      const w = 1 / (1 + src * 14);
       num += w * e2;
       den += w;
     }
@@ -199,6 +225,7 @@ export class Loop {
       residual: this.residual,
       baseline: Array.from(this.baseline),
       residualEma: Array.from(this.residualEma),
+      familyResidual: Array.from(this.familyResidual),
       surpriseRaw: this.surpriseRaw,
     };
   }
@@ -218,6 +245,13 @@ export class Loop {
     }
     if ("residualEma" in w && Array.isArray(w.residualEma) && w.residualEma.length === this.outDim) {
       this.residualEma.set(w.residualEma);
+    }
+    if (
+      "familyResidual" in w &&
+      Array.isArray(w.familyResidual) &&
+      w.familyResidual.length === this.familyCount
+    ) {
+      this.familyResidual.set(w.familyResidual);
     }
     if ("surpriseRaw" in w && typeof w.surpriseRaw === "number") this.surpriseRaw = w.surpriseRaw;
     if ("replay" in w && Array.isArray(w.replay)) {
@@ -249,5 +283,6 @@ export type Brain = {
   residual?: boolean;
   baseline?: number[];
   residualEma?: number[];
+  familyResidual?: number[];
   surpriseRaw?: number;
 };
