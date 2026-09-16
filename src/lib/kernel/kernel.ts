@@ -233,9 +233,10 @@ export class Kernel {
     return into;
   }
 
-  private encode(obs: Float32Array, action = this.lastAction): Float32Array {
+  private encode(obs: Float32Array, action = this.lastAction, muteNoise = false): Float32Array {
     const x = new Float32Array(IN);
-    x.set(obs);
+    if (muteNoise) this.loop.muteFamilies(obs, x);
+    else x.set(obs);
     x[OBS + action] = 1;
     x[OBS + ACTS] = Math.min(1, this.energy / 100);
     return x;
@@ -271,7 +272,8 @@ export class Kernel {
       ema: this.loop.ema,
       imagined: this.imagined,
       scores: this.scores,
-      predict: (a, into) => this.loop.imagine(this.encode(obs, a), into),
+      predict: (a, into) => this.loop.imagine(this.encode(obs, a, true), into),
+      residualWeight: (i) => this.loop.familyWeight(i % CH),
       read: (pred, a) => {
         const tx = R + DIRS[a].x;
         const ty = R + DIRS[a].y;
@@ -280,13 +282,14 @@ export class Kernel {
         const visFood = a === 4 ? obs[CENTER + 1] : obs[ti + 1];
         const visScent = a === 4 ? obs[CENTER + 2] : obs[ti + 2];
         const stay = a === 4 ? 0.35 : 0;
+        const scentW = this.loop.familyWeight(2);
         return {
           reward: (0.45 + 1.4 * hunger) * (visFood + 0.55 * pred[CENTER + 1]),
           cost: 6.5 * visWall + 1.8 * pred[CENTER] + stay,
-          novelty: 1 - visScent,
+          novelty: (1 - visScent) * scentW,
         };
       },
-      predictFrom: (pred, a1, into) => this.loop.imagine(this.encode(pred, a1), into),
+      predictFrom: (pred, a1, into) => this.loop.imagine(this.encode(pred, a1, true), into),
       readPred: (pred, a) => {
         const tx = R + DIRS[a].x;
         const ty = R + DIRS[a].y;
@@ -295,16 +298,15 @@ export class Kernel {
         const destFood = a === 4 ? pred[CENTER + 1] : pred[ti + 1];
         const destScent = a === 4 ? pred[CENTER + 2] : pred[ti + 2];
         const stay = a === 4 ? 0.35 : 0;
+        const scentW = this.loop.familyWeight(2);
         return {
           reward: (0.45 + 1.4 * hunger) * destFood,
           cost: 6.5 * destWall + 1.8 * pred[CENTER] + stay,
-          novelty: 1 - destScent,
+          novelty: (1 - destScent) * scentW,
         };
       },
       imagined2: this.imagined2,
     });
-    // During post-load adaptation, explore hotter so the body does not freeze
-    // while the compressor absorbs distribution shift.
     let temp = this.params.temperature;
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
     this.policyEntropy = entropyNorm(this.scores, temp);
