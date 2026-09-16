@@ -224,7 +224,6 @@ test("incompressible channels are downweighted in surprise", () => {
 });
 
 test("family-pooled residual downweights the noisy channel family", () => {
-  // Period-3 layout matches the grid: wall, food, scent.
   const loop = new Loop(6, 16, 6);
   assert.equal(loop.familyCount, 3);
   for (let t = 0; t < 260; t++) {
@@ -256,4 +255,33 @@ test("family-pooled residual downweights the noisy channel family", () => {
   const copy = new Loop(6, 16, 6);
   assert.ok(copy.importBrain(brain));
   assert.ok(Math.abs(copy.familyResidual[2] - loop.familyResidual[2]) < 1e-6);
+});
+
+test("high-residual family is muted in imagination input and residual scoring", () => {
+  const loop = new Loop(6, 16, 6);
+  for (let t = 0; t < 260; t++) {
+    const x = new Float32Array(6);
+    const bit = t % 2;
+    x[0] = bit;
+    x[1] = 1 - bit;
+    x[2] = Math.random();
+    x[3] = bit;
+    x[4] = 1 - bit;
+    x[5] = Math.random();
+    loop.assimilate(x, 0.08);
+    loop.commit(x);
+  }
+  const wWall = loop.familyWeight(0);
+  const wScent = loop.familyWeight(2);
+  assert.ok(wScent < wWall * 0.7, `scent gate ${wScent.toFixed(3)} should be below wall ${wWall.toFixed(3)}`);
+
+  const obs = new Float32Array([1, 1, 1, 1, 1, 1]);
+  const muted = loop.muteFamilies(obs);
+  assert.ok(muted[2] < muted[0] * 0.7, `muted scent ${muted[2].toFixed(3)} vs wall ${muted[0].toFixed(3)}`);
+  assert.equal(obs[2], 1, "muteFamilies must not rewrite the live observation");
+
+  const mixed = new Float32Array([0.05, 0.05, 0.5, 0.05, 0.05, 0.5]);
+  const raw = expectedResidual(mixed);
+  const gated = expectedResidual(mixed, (i) => loop.familyWeight(i % 3));
+  assert.ok(gated < raw, `gated residual ${gated.toFixed(3)} should undercut raw ${raw.toFixed(3)}`);
 });
