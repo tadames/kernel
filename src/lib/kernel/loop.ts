@@ -5,12 +5,13 @@
  *
  *   observe  x
  *   predict  x̂ = M(x₋, a₋)
- *   surprise δ = family-weighted ‖x − x̂‖²  measured BEFORE the update
- *                (wall/food/scent residual EMAs are pooled; a noisy
- *                family loses weight so curiosity chases structure)
+ *   surprise δ = plan-family ‖x − x̂‖²  measured BEFORE the update
+ *                (wall/food are the plan head; scent is a side channel
+ *                the policy never scores over. Residual EMAs still pool
+ *                every family so the split is inspectable.)
  *   compress M ← M − η ∇δ
  *   progress ρ = δ̄ − δ             improvement, not surprise itself
- *   act      a ← π(M, ρ, goal)  (high-residual families muted in scoring)
+ *   act      a ← π(M, ρ, goal)  (side-channel families muted in scoring)
  *
  * Everything else in this repository — grids, streams, energy, a browser lab —
  * is a testbed. If a new world cannot be learned by this object, the kernel
@@ -149,8 +150,7 @@ export class Loop {
     for (let i = 0; i < n; i++) {
       const e = pred[i] - obs[i];
       const e2 = e * e;
-      const src = f > 1 ? this.familyResidual[i % f] : this.residualEma[i];
-      const w = 1 / (1 + src * 14);
+      const w = this.familyWeight(f > 1 ? i % f : i);
       num += w * e2;
       den += w;
     }
@@ -158,10 +158,23 @@ export class Loop {
   }
 
   /**
+   * Plan families are the hierarchical head: wall + food when the
+   * observation is the grid interleave. Scent (family 2) is a side
+   * channel — trained, inspected, never used for δ / ρ / imagination.
+   * Stream worlds (one family) plan over everything.
+   */
+  plansFamily(fam: number): boolean {
+    if (this.familyCount <= 1) return true;
+    return fam !== 2;
+  }
+
+  /**
    * How much a family still counts for curiosity and imagination input.
-   * Incompressible families (high pooled residual) collapse toward 0.
+   * Side-channel families are hard-zero. Incompressible plan families
+   * collapse toward 0 by residual.
    */
   familyWeight(fam: number): number {
+    if (!this.plansFamily(fam)) return 0;
     const src =
       this.familyCount > 1
         ? this.familyResidual[Math.max(0, Math.min(this.familyCount - 1, fam))]
