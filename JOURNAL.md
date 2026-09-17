@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-09-16 (America/New_York)
+
+### What changed
+Hierarchical split inside `Loop`: when the observation is the grid interleave (`familyCount === 3`), families 0–1 (wall, food) are the plan head and family 2 (scent) is a side channel. `plansFamily` / `familyWeight` hard-zero scent in δ, ρ, `muteFamilies`, and policy residual scoring. Training `assimilate` still sees every channel. Stream worlds (`familyCount === 1`) plan over the whole vector.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 17/17 pass (new "scent is a side channel: plan head ignores it in surprise and mute", plus mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` and production build follow in this run.
+
+### Next hypothesis
+The side channel is still in `OUT` and still trained. A smaller plan head would drop scent from the MLP target entirely (OUT = wall+food only) and keep scent as an unmodeled prior. Measure Pulse late ema vs Field after this split; if they already match, shrinking OUT is optional.
+
 ## 2026-09-15 (America/New_York)
 
 ### What changed
