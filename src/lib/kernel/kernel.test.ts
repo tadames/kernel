@@ -321,3 +321,31 @@ test("scent is a side channel: plan head ignores it in surprise and mute", () =>
   assert.equal(stream.plansFamily(0), true);
   assert.ok(stream.familyWeight(0) > 0);
 });
+
+test("plan head is smaller than the window: scent reconstruction is the baseline prior", () => {
+  const loop = new Loop(6, 16, 6);
+  assert.equal(loop.familyCount, 3);
+  assert.equal(loop.planDim, 4);
+  assert.equal(loop.model.out, 4);
+  assert.equal(loop.outDim, 6);
+
+  const structured = new Float32Array([1, 0, 0.2, 1, 0, 0.2]);
+  loop.commit(structured);
+  for (let t = 0; t < 90; t++) {
+    loop.assimilate(structured, 0.08);
+    loop.commit(structured);
+  }
+  const pred = loop.imagine(loop.prevInput ?? structured, new Float32Array(6));
+  assert.ok(Math.abs(pred[2] - loop.baseline[2]) < 1e-6, `scent pred ${pred[2]} vs baseline ${loop.baseline[2]}`);
+  assert.ok(Math.abs(pred[5] - loop.baseline[5]) < 1e-6);
+  assert.ok(pred[0] > 0.6, `wall should be learned, got ${pred[0]}`);
+
+  const brain = loop.exportBrain();
+  assert.equal(brain.planDim, 4);
+  assert.equal(brain.w2.length, 4 * 16);
+  assert.ok(brain.replay && brain.replay.every((s) => s.y.length === 4));
+
+  const stream = new Loop(4, 8, 4);
+  assert.equal(stream.planDim, 4);
+  assert.equal(stream.model.out, 4);
+});
