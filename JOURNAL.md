@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-09-18 (America/New_York)
+
+### What changed
+Restored `Loop` (main had been reduced to a placeholder) and shrank the plan-head MLP. When `familyCount === 3`, `planDim = outDim * 2/3`: wall and food are the only output units. Scent is spliced from the skip baseline in `fromResidual` and never occupies a weight row. Stream worlds stay `planDim === outDim`. Replay targets and save/load `w2` follow `planDim`. Baseline and family residual EMAs still cover the full window so the prior is inspectable.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 18/18 pass (new "plan head is smaller than the window: scent reconstruction is the baseline prior", plus side-channel / mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+The prior is a mean, not a model of scent dynamics. A tiny family-2 predictor (one output unit per cell, or a shared scalar) trained only when residual falls would test whether scent is compressible after all. Measure Field late ema and G2 with vs without that extra head; if they match, leave scent as a mean prior.
+
 ## 2026-09-17 (America/New_York)
 
 ### What changed
