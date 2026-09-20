@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-09-19 (America/New_York)
+
+### What changed
+A shared family-2 head on the plan hidden state: one sigmoid offset spliced onto every scent cell. Weights start at 0 (reconstruction = skip mean). A 96-step probe writes; after that the head trains only when scent residual is already low and still falling. Plan-head OUT stays wall+food. Stream worlds unchanged. Save/load carries `scentW` / `scentB`.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 19/19 pass (new "shared scent head trains only when family-2 residual falls", plus smaller plan head / side-channel / mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+The shared scalar cannot represent per-cell scent flow. If Field late ema and G2 do not move, either drop the head and keep the mean prior, or give family 2 one unit per cell (still outside the plan head) and measure again. Inspect `scentTrains` after a Field life: if it freezes at the probe cap, scent is not compressible in this body.
+
 ## 2026-09-18 (America/New_York)
 
 ### What changed
