@@ -336,8 +336,10 @@ test("plan head is smaller than the window: scent reconstruction is the baseline
     loop.commit(structured);
   }
   const pred = loop.imagine(loop.prevInput ?? structured, new Float32Array(6));
-  assert.ok(Math.abs(pred[2] - loop.baseline[2]) < 1e-6, `scent pred ${pred[2]} vs baseline ${loop.baseline[2]}`);
-  assert.ok(Math.abs(pred[5] - loop.baseline[5]) < 1e-6);
+  const scentFromPrior = (i: number) =>
+    Math.max(0, Math.min(1, loop.scentPred + loop.baseline[i] - 0.5));
+  assert.ok(Math.abs(pred[2] - scentFromPrior(2)) < 1e-6, `scent pred ${pred[2]} vs prior ${scentFromPrior(2)}`);
+  assert.ok(Math.abs(pred[5] - scentFromPrior(5)) < 1e-6);
   assert.ok(pred[0] > 0.6, `wall should be learned, got ${pred[0]}`);
 
   const brain = loop.exportBrain();
@@ -348,4 +350,35 @@ test("plan head is smaller than the window: scent reconstruction is the baseline
   const stream = new Loop(4, 8, 4);
   assert.equal(stream.planDim, 4);
   assert.equal(stream.model.out, 4);
+});
+
+test("shared scent head trains only when family-2 residual falls", () => {
+  const structured = new Loop(6, 16, 6);
+  for (let t = 0; t < 280; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, bit]);
+    structured.assimilate(x, 0.08);
+    structured.commit(x);
+  }
+  assert.ok(structured.scentTrains >= 96, `structured scent never finished its probe: trains ${structured.scentTrains}`);
+  const bit = 0;
+  const cur = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, bit]);
+  const pred = structured.imagine(cur, new Float32Array(6));
+  const meanPrior = structured.baseline[2];
+  assert.ok(
+    Math.abs(pred[2] - 1) < Math.abs(meanPrior - 1) + 0.05 || Math.abs(pred[2] - 1) < 0.4,
+    `shared head should not be worse than the lagging mean on the next scent bit: pred ${pred[2].toFixed(3)} baseline ${meanPrior.toFixed(3)}`,
+  );
+
+  const noise = new Loop(6, 16, 6);
+  for (let t = 0; t < 280; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, Math.random(), bit, 1 - bit, Math.random()]);
+    noise.assimilate(x, 0.08);
+    noise.commit(x);
+  }
+  assert.ok(
+    noise.scentTrains <= 110,
+    `noise scent head kept writing after the probe: trains ${noise.scentTrains}`,
+  );
 });
