@@ -14,11 +14,11 @@
  *   act      a ← π(M, ρ, goal)  (side-channel families muted in scoring)
  *
  * When the observation is the grid interleave (familyCount === 3), the
- * MLP output is wall+food only. Scent is a shared scalar on the same
- * hidden state: one offset spliced onto every family-2 cell. That head
- * trains only when family-2 residual falls (compression progress), so
- * noise does not write. Stream worlds (one family) still plan over the
- * whole vector.
+ * MLP output is wall+food only. Scent is a side head on the same hidden
+ * state: one sigmoid per cell, spliced onto family 2. That head trains
+ * only when family-2 residual falls (compression progress), so noise
+ * does not write. Stream worlds (one family) still plan over the whole
+ * vector.
  *
  * Everything else in this repository — grids, streams, energy, a browser lab —
  * is a testbed. If a new world cannot be learned by this object, the kernel
@@ -62,13 +62,14 @@ export class Loop {
   /** Scratch for the packed plan-head target / forward. */
   private planScratch: Float32Array;
   /**
-   * Shared scent head: hidden → one sigmoid. 0.5 means "no residual"
-   * on top of the skip baseline. Weights start at 0 so an untrained
-   * head reconstructs the mean prior.
+   * Per-cell scent head: hidden → one sigmoid per family-2 cell.
+   * 0.5 means "no residual" on top of the skip baseline. Weights
+   * start at 0 so an untrained head reconstructs the mean prior.
    */
   scentW: Float32Array;
-  scentB = 0;
-  scentPred = 0.5;
+  scentB: Float32Array;
+  scentPred: Float32Array;
+  scentCells: number;
   /** How often the scent head was allowed to write. Inspectable. */
   scentTrains = 0;
 
@@ -98,7 +99,11 @@ export class Loop {
     this.familyResidual = new Float32Array(this.familyCount);
     this.familyResidual.fill(0.08);
     this.planScratch = new Float32Array(this.planDim);
-    this.scentW = new Float32Array(hidden);
+    this.scentCells = this.familyCount === 3 ? outDim / 3 : 0;
+    this.scentW = new Float32Array(this.scentCells * hidden);
+    this.scentB = new Float32Array(this.scentCells);
+    this.scentPred = new Float32Array(this.scentCells);
+    this.scentPred.fill(0.5);
   }
 
   reset() {
@@ -118,8 +123,8 @@ export class Loop {
     this.participation = 0;
     this.baselineRate = 0.02;
     this.scentW.fill(0);
-    this.scentB = 0;
-    this.scentPred = 0.5;
+    this.scentB.fill(0);
+    this.scentPred.fill(0.5);
     this.scentTrains = 0;
   }
 
@@ -153,7 +158,7 @@ export class Loop {
 
   /**
    * Rebuild a full window from a plan-head vector. Scent (family 2) is
-   * the skip baseline plus the shared scent scalar — never a plan-head
+   * the skip baseline plus the per-cell scent head — never a plan-head
    * output unit.
    */
   private fromResidual(y: Float32Array, into: Float32Array): Float32Array {
@@ -170,9 +175,9 @@ export class Loop {
     for (let i = 0; i < this.outDim; i++) {
       const p = this.planIndex(i);
       if (p < 0) {
-        into[i] = this.residual
-          ? clamp01(this.scentPred + this.baseline[i] - 0.5)
-          : this.baseline[i];
+        const cell = (i / 3) | 0;
+        const off = cell < this.scentPred.length ? this.scentPred[cell] : 0.5;
+        into[i] = this.residual ? clamp01(off + this.baseline[i] - 0.5) : this.baseline[i];
         continue;
       }
       into[i] = this.residual ? clamp01(y[p] + this.baseline[i] - 0.5) : clamp01(y[p]);
@@ -180,36 +185,37 @@ export class Loop {
     return into;
   }
 
-  private forwardScent(ha: Float32Array): number {
-    let s = this.scentB;
+  private forwardScent(ha: Float32Array): Float32Array {
+    const cells = this.scentCells;
+    const h = ha.length;
     const w = this.scentW;
-    const n = Math.min(w.length, ha.length);
-    for (let i = 0; i < n; i++) s += w[i] * ha[i];
-    const y = 1 / (1 + Math.exp(-Math.max(-12, Math.min(12, s))));
-    this.scentPred = y;
-    return y;
-  }
-
-  private trainScent(ha: Float32Array, target: number, lr: number) {
-    const y = this.forwardScent(ha);
-    const err = (y - target) * 2;
-    const g = err * y * (1 - y);
-    this.scentB -= lr * g;
-    const w = this.scentW;
-    const n = Math.min(w.length, ha.length);
-    for (let i = 0; i < n; i++) w[i] -= lr * g * ha[i];
-    this.scentTrains += 1;
-  }
-
-  private scentTarget(obs: Float32Array): number {
-    let acc = 0;
-    let n = 0;
-    for (let i = 0; i < this.outDim; i++) {
-      if (i % 3 !== 2) continue;
-      acc += this.residual ? clamp01(obs[i] - this.baseline[i] + 0.5) : obs[i];
-      n += 1;
+    const b = this.scentB;
+    for (let c = 0; c < cells; c++) {
+      let s = b[c];
+      const row = c * h;
+      const n = Math.min(h, w.length - row);
+      for (let i = 0; i < n; i++) s += w[row + i] * ha[i];
+      this.scentPred[c] = 1 / (1 + Math.exp(-Math.max(-12, Math.min(12, s))));
     }
-    return n > 0 ? acc / n : 0.5;
+    return this.scentPred;
+  }
+
+  private trainScent(ha: Float32Array, obs: Float32Array, lr: number) {
+    this.forwardScent(ha);
+    const cells = this.scentCells;
+    const h = ha.length;
+    const w = this.scentW;
+    const scale = cells > 0 ? 2 / cells : 2;
+    for (let c = 0; c < cells; c++) {
+      const obsI = c * 3 + 2;
+      const target = this.residual ? clamp01(obs[obsI] - this.baseline[obsI] + 0.5) : obs[obsI];
+      const y = this.scentPred[c];
+      const g = (y - target) * scale * y * (1 - y);
+      this.scentB[c] -= lr * g;
+      const row = c * h;
+      for (let i = 0; i < h; i++) w[row + i] -= lr * g * ha[i];
+    }
+    this.scentTrains += 1;
   }
 
   private trackBaseline(obs: Float32Array, rate = this.baselineRate) {
@@ -313,7 +319,7 @@ export class Loop {
         (this.scentTrains < 96 ||
           (this.familyResidual[2] < 0.05 && this.familyResidual[2] < scentBefore - 1e-5))
       ) {
-        this.trainScent(ha, this.scentTarget(obs), lr);
+        this.trainScent(ha, obs, lr);
       }
       if (this.replay.length > 0) {
         for (let k = 0; k < this.extraReplay; k++) {
@@ -379,8 +385,8 @@ export class Loop {
       surpriseRaw: this.surpriseRaw,
       planDim: this.planDim,
       scentW: Array.from(this.scentW),
-      scentB: this.scentB,
-      scentPred: this.scentPred,
+      scentB: Array.from(this.scentB),
+      scentPred: Array.from(this.scentPred),
       scentTrains: this.scentTrains,
     };
   }
@@ -412,8 +418,12 @@ export class Loop {
     if ("scentW" in w && Array.isArray(w.scentW) && w.scentW.length === this.scentW.length) {
       this.scentW.set(w.scentW);
     }
-    if ("scentB" in w && typeof w.scentB === "number") this.scentB = w.scentB;
-    if ("scentPred" in w && typeof w.scentPred === "number") this.scentPred = w.scentPred;
+    if ("scentB" in w && Array.isArray(w.scentB) && w.scentB.length === this.scentB.length) {
+      this.scentB.set(w.scentB);
+    }
+    if ("scentPred" in w && Array.isArray(w.scentPred) && w.scentPred.length === this.scentPred.length) {
+      this.scentPred.set(w.scentPred);
+    }
     if ("scentTrains" in w && typeof w.scentTrains === "number") this.scentTrains = w.scentTrains;
     if ("replay" in w && Array.isArray(w.replay)) {
       this.replay = w.replay
@@ -448,7 +458,7 @@ export type Brain = {
   surpriseRaw?: number;
   planDim?: number;
   scentW?: number[];
-  scentB?: number;
-  scentPred?: number;
+  scentB?: number[];
+  scentPred?: number[];
   scentTrains?: number;
 };
