@@ -337,7 +337,7 @@ test("plan head is smaller than the window: scent reconstruction is the baseline
   }
   const pred = loop.imagine(loop.prevInput ?? structured, new Float32Array(6));
   const scentFromPrior = (i: number) =>
-    Math.max(0, Math.min(1, loop.scentPred + loop.baseline[i] - 0.5));
+    Math.max(0, Math.min(1, loop.scentPred[(i / 3) | 0] + loop.baseline[i] - 0.5));
   assert.ok(Math.abs(pred[2] - scentFromPrior(2)) < 1e-6, `scent pred ${pred[2]} vs prior ${scentFromPrior(2)}`);
   assert.ok(Math.abs(pred[5] - scentFromPrior(5)) < 1e-6);
   assert.ok(pred[0] > 0.6, `wall should be learned, got ${pred[0]}`);
@@ -352,23 +352,35 @@ test("plan head is smaller than the window: scent reconstruction is the baseline
   assert.equal(stream.model.out, 4);
 });
 
-test("shared scent head trains only when family-2 residual falls", () => {
+test("per-cell scent head trains only when family-2 residual falls", () => {
   const structured = new Loop(6, 16, 6);
+  assert.equal(structured.scentCells, 2);
+  assert.equal(structured.scentW.length, 2 * 16);
   for (let t = 0; t < 280; t++) {
     const bit = t % 2;
-    const x = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, bit]);
+    const x = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, 1 - bit]);
     structured.assimilate(x, 0.08);
     structured.commit(x);
   }
   assert.ok(structured.scentTrains >= 96, `structured scent never finished its probe: trains ${structured.scentTrains}`);
   const bit = 0;
-  const cur = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, bit]);
+  const cur = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, 1 - bit]);
   const pred = structured.imagine(cur, new Float32Array(6));
-  const meanPrior = structured.baseline[2];
   assert.ok(
-    Math.abs(pred[2] - 1) < Math.abs(meanPrior - 1) + 0.05 || Math.abs(pred[2] - 1) < 0.4,
-    `shared head should not be worse than the lagging mean on the next scent bit: pred ${pred[2].toFixed(3)} baseline ${meanPrior.toFixed(3)}`,
+    Math.abs(pred[2] - pred[5]) > 0.15,
+    `per-cell head should split the two scent cells: ${pred[2].toFixed(3)} vs ${pred[5].toFixed(3)}`,
   );
+  assert.ok(
+    Math.abs(pred[2] - 1) < 0.45 || Math.abs(pred[2] - structured.baseline[2]) < 0.35,
+    `cell-0 scent pred ${pred[2].toFixed(3)} baseline ${structured.baseline[2].toFixed(3)}`,
+  );
+
+  const brain = structured.exportBrain();
+  assert.ok(Array.isArray(brain.scentB) && brain.scentB.length === 2);
+  assert.ok(Array.isArray(brain.scentPred) && brain.scentPred.length === 2);
+  const copy = new Loop(6, 16, 6);
+  assert.ok(copy.importBrain(brain));
+  assert.ok(Math.abs(copy.scentPred[0] - structured.scentPred[0]) < 1e-6);
 
   const noise = new Loop(6, 16, 6);
   for (let t = 0; t < 280; t++) {
