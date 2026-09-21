@@ -1,53 +1,14 @@
 # Journal
 
-## 2026-09-19 (America/New_York)
+## 2026-09-20 (America/New_York)
 
 ### What changed
-A shared family-2 head on the plan hidden state: one sigmoid offset spliced onto every scent cell. Weights start at 0 (reconstruction = skip mean). A 96-step probe writes; after that the head trains only when scent residual is already low and still falling. Plan-head OUT stays wall+food. Stream worlds unchanged. Save/load carries `scentW` / `scentB`.
+Per-cell family-2 head: hidden → one sigmoid per scent cell, still outside the plan MLP. Reconstruction splices `scentPred[cell]` onto the skip baseline. The 96-step probe and residual-fall gate are unchanged, so noise still freezes. Save/load carries `scentW` / `scentB` / `scentPred` as arrays. Stream worlds still have `scentCells === 0`.
 
 Auth stays off. UI untouched.
 
 ### Evidence
-`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 19/19 pass (new "shared scent head trains only when family-2 residual falls", plus smaller plan head / side-channel / mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 19/19 pass (new "per-cell scent head trains only when family-2 residual falls", which now splits two opposite scent cells; plus smaller plan head / side-channel / mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
 
 ### Next hypothesis
-The shared scalar cannot represent per-cell scent flow. If Field late ema and G2 do not move, either drop the head and keep the mean prior, or give family 2 one unit per cell (still outside the plan head) and measure again. Inspect `scentTrains` after a Field life: if it freezes at the probe cap, scent is not compressible in this body.
-
-## 2026-09-18 (America/New_York)
-
-### What changed
-Restored `Loop` (main had been reduced to a placeholder) and shrank the plan-head MLP. When `familyCount === 3`, `planDim = outDim * 2/3`: wall and food are the only output units. Scent is spliced from the skip baseline in `fromResidual` and never occupies a weight row. Stream worlds stay `planDim === outDim`. Replay targets and save/load `w2` follow `planDim`. Baseline and family residual EMAs still cover the full window so the prior is inspectable.
-
-Auth stays off. UI untouched.
-
-### Evidence
-`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 18/18 pass (new "plan head is smaller than the window: scent reconstruction is the baseline prior", plus side-channel / mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
-
-### Next hypothesis
-The prior is a mean, not a model of scent dynamics. A tiny family-2 predictor (one output unit per cell, or a shared scalar) trained only when residual falls would test whether scent is compressible after all. Measure Field late ema and G2 with vs without that extra head; if they match, leave scent as a mean prior.
-
-## 2026-09-17 (America/New_York)
-
-### What changed
-Plan-head target shrink inside `Loop`: when `familyCount === 3`, family 2 (scent) is an unmodeled prior. `toTarget` asks the MLP for "no residual" on those dims; `fromResidual` reconstructs them from the skip baseline, never from the head. Wall and food stay the trained plan head. Stream worlds (`familyCount === 1`) are unchanged. Training of plan families, residual EMAs, and save/load dimensions are intact.
-
-Auth stays off. UI untouched.
-
-### Evidence
-`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 18/18 pass (new "plan head target drops scent: reconstruction is the baseline prior", plus side-channel / mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
-
-### Next hypothesis
-The head still *has* scent output units; they just are not in the target. A smaller MLP (`outDim` = wall+food only, reconstructed window splices the prior) would drop those weights. Measure Field late ema and G2 after this prior vs a true smaller OUT; if they match, shrinking the matrix is optional.
-
-## 2026-09-16 (America/New_York)
-
-### What changed
-Hierarchical split inside `Loop`: when the observation is the grid interleave (`familyCount === 3`), families 0–1 (wall, food) are the plan head and family 2 (scent) is a side channel. `plansFamily` / `familyWeight` hard-zero scent in δ, ρ, `muteFamilies`, and policy residual scoring. Training `assimilate` still sees every channel. Stream worlds (`familyCount === 1`) plan over the whole vector.
-
-Auth stays off. UI untouched.
-
-### Evidence
-`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 17/17 pass (new "scent is a side channel: plan head ignores it in surprise and mute", plus mute / family gate / residual skip / Field→Rooms / G2 / claims). `tsc --noEmit` and production build follow in this run.
-
-### Next hypothesis
-The side channel is still in `OUT` and still trained. A smaller plan head would drop scent from the MLP target entirely (OUT = wall+food only) and keep scent as an unmodeled prior. Measure Pulse late ema vs Field after this split; if they already match, shrinking OUT is optional.
+Per-cell units can represent local flow the shared scalar could not. Measure Field late ema, G2, and `scentTrains` after a Field life against the 09-19 shared-head numbers. If `scentTrains` still freezes at the probe cap, scent is not compressible in this body and the head should drop back to the mean prior. If it keeps writing and Field late ema moves, try feeding the per-cell residual into imagination novelty instead of the hard-zero family-2 gate.
