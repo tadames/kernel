@@ -25,3 +25,16 @@ Auth stays off. UI untouched.
 
 ### Next hypothesis
 Measure whether Field lives with an open scent gate change wait-vs-move mix or late ema versus 09-20. If novelty opens but policy entropy and foods stay flat, the 0.3 visit-scent mix is too weak and ρ̂ should include the per-cell scent residual drop. If the gate chatters on Field (residual hovering on 0.05), raise the freeze threshold or require a short falling streak.
+
+## 2026-09-22 (America/New_York)
+
+### What changed
+The 09-21 journal named `Loop.scentNovelty(cell)` but main still scored visit-scent with `familyWeight(2) === 0`. The gate is in the loop now: after the 96-step probe, family-2 residual ≥ 0.05 stays shut; otherwise destination-cell novelty is `1 / (1 + residualEma[cell*3+2] * 14)`. Kernel imagination reads that number. Plan surprise, mute, and ρ stay hard-zero on family 2. Law 04 copy names the split.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts` — 20/20 pass (new "scent novelty opens only when family-2 residual is compressible", plus side-channel mute / per-cell head / G2 / claims). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+Measure Field lives with the open gate: wait-vs-move mix, policy entropy, foods, late ema versus 09-20. If novelty opens but those stay flat, fold the per-cell scent residual drop into ρ̂. If familyResidual[2] chatters on 0.05, require a short falling streak before opening.
