@@ -17,7 +17,7 @@ export const LAWS = [
   {
     id: "04",
     title: "Curiosity is compression progress, not novelty",
-    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, scaled by recent progress ρ, and further by an action-conditional residual drop across horizon-2 imagination (ρ̂). A second loop on hidden activations remains Phase 1. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
+    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, scaled by recent progress ρ, and further by an action-conditional residual drop across horizon-2 imagination (ρ̂). Visit-scent is a side channel: plan surprise, mute, and ρ stay hard-zero on family 2; imagination novelty reads scentNovelty(cell) only after the family-2 residual has fallen (or during the 96-step probe). A second loop on hidden activations remains Phase 1. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
   },
   {
     id: "05",
@@ -72,38 +72,38 @@ export const PHASES = [
 export const STAGES = [
   {
     id: "observe",
-    code: "x ← sense(world)",
+    code: "x \u2190 sense(world)",
     name: "Observe",
-    note: "Whatever the testbed provides. On the grid: a 5×5 window of walls, food, visit-scent. On the stream: the last eight bits. No coordinates. No map. The kernel does not know which world it is in.",
+    note: "Whatever the testbed provides. On the grid: a 5\u00d75 window of walls, food, visit-scent. On the stream: the last eight bits. No coordinates. No map. The kernel does not know which world it is in.",
   },
   {
     id: "predict",
-    code: "x̂ ← M(x₋, a₋)",
+    code: "x\u0302 \u2190 M(x\u208b, a\u208b)",
     name: "Predict",
     note: "The compressor guesses the next observation from the last observation and the last action. Same object on every testbed. Only the sizes change.",
   },
   {
     id: "surprise",
-    code: "δ ← ‖x − x̂‖²",
+    code: "\u03b4 \u2190 \u2016x \u2212 x\u0302\u2016\u00b2",
     name: "Surprise",
     note: "The residual of the current model, before the update. When this number falls, the model is compressing the world. When it stays high, the world is incompressible or the model is too small.",
   },
   {
     id: "compress",
-    code: "M ← M − η ∇δ",
+    code: "M \u2190 M \u2212 \u03b7 \u2207\u03b4",
     name: "Compress",
     note: "Gradient descent on that error, plus a short replay of recent experience. Learning is making the next guess cheaper to write.",
   },
   {
     id: "progress",
-    code: "ρ ← δ̄ − δ",
+    code: "\u03c1 \u2190 \u03b4\u0304 \u2212 \u03b4",
     name: "Progress",
-    note: "Not surprise itself — the improvement. This is curiosity’s true signal. Noise does not pay. Structure does. Action-conditional ρ̂ is still an open problem (Phase 1).",
+    note: "Not surprise itself \u2014 the improvement. This is curiosity\u2019s true signal. Noise does not pay. Structure does. Action-conditional \u03c1\u0302 is still an open problem (Phase 1).",
   },
   {
     id: "act",
-    code: "a ← π(M, ρ, goal)",
+    code: "a \u2190 \u03c0(M, \u03c1, goal)",
     name: "Act",
-    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Residual drop step-1→step-2 is action-conditional ρ̂ for curiosity. Sample. No half-plane scan for food. Branching of those scores is the cheap edge-of-chaos trace: not 1, not 5.",
+    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). Read whiskers on step 1 and pure model on step 2. Residual drop step-1\u2192step-2 is action-conditional \u03c1\u0302 for curiosity. Sample. No half-plane scan for food. Branching of those scores is the cheap edge-of-chaos trace: not 1, not 5.",
   },
 ] as const;
