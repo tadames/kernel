@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Loop } from "./loop.ts";
+import "./scent-rho-hat.ts";
 
 test("scent novelty opens only when family-2 residual is compressible", () => {
   const structured = new Loop(6, 16, 6);

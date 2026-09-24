@@ -18,6 +18,8 @@
  * hidden activations (true model-of-learning) remains Phase 1.
  */
 
+import "./scent-rho-hat.ts";
+
 export function softmaxSample(
   logits: Float32Array,
   temperature: number,
@@ -63,7 +65,6 @@ export function expectedResidual(pred: Float32Array, weightAt?: (i: number) => n
     den += w;
   }
   if (den < 1e-8) return 0;
-  // p(1-p) max is 0.25; normalise to ~[0,1]
   return (s / den) * 4;
 }
 
@@ -74,14 +75,11 @@ function valueOf(
   goal: number,
   learning: number,
   confidence: number,
-  /** Action-conditional compression progress from residual drop (horizon 2). */
   rhoHat = 0,
   residualWeight?: (i: number) => number,
 ): number {
-  // Model-based expected residual dominates; visit-scent is a weak prior.
   const residual = expectedResidual(pred, residualWeight);
   const explore = 0.7 * residual + 0.3 * v.novelty;
-  // Mix global ρ with action-conditional residual drop when available.
   const prog = Math.max(0, learning) + 0.55 * Math.max(0, rhoHat);
   const curious =
     curiosity * (0.75 * explore * (0.35 + 12 * prog) + 0.2 * explore);
@@ -98,33 +96,15 @@ export function imagineScores(opts: {
   ema: number;
   imagined: Float32Array[];
   scores: Float32Array;
-  /** One-step prediction from current state + action. */
   predict: (a: number, into: Float32Array) => Float32Array;
-  /** Score a predicted observation under action a (may use true whiskers). */
   read: (pred: Float32Array, a: number) => PredRead;
-  /**
-   * Optional second-step imagination. Given first-step pred and second action,
-   * return the next predicted window. When provided, horizon is 2.
-   */
   predictFrom?: (pred: Float32Array, a1: number, into: Float32Array) => Float32Array;
-  /**
-   * Read purely from a predicted window (no true sensors). Used for step 2.
-   */
   readPred?: (pred: Float32Array, a: number) => PredRead;
-  /** Discount on the second step. Default 0.65. */
   discount?: number;
-  /** Scratch buffer for second-step predictions (one per first action). */
   imagined2?: Float32Array[];
-  /** Per-dim weight for expected residual (drop incompressible families). */
   residualWeight?: (i: number) => number;
-  /**
-   * Extra action-conditional progress (e.g. per-cell scent residual drop).
-   * Added to ρ̂ after the horizon-2 plan residual drop. Must be 0 when
-   * that channel is incompressible.
-   */
   progressBonus?: (a: number, pred: Float32Array) => number;
 }): Float32Array {
-  // Untrained sigmoid outputs sit near 0.5. Do not treat them as walls.
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
   const disc = opts.discount ?? 0.65;
@@ -134,12 +114,9 @@ export function imagineScores(opts: {
     const pred = opts.predict(a, opts.imagined[a]);
     const v = opts.read(pred, a);
     const res1 = expectedResidual(pred, opts.residualWeight);
-    // Default: no action-conditional ρ̂ until horizon 2 supplies a residual drop.
     let rhoHat = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
 
     if (twoStep) {
-      // Best follow-up from the imagined window (greedy, pure model).
-      // Also track the residual of that best second window for ρ̂.
       let best2 = -Infinity;
       let bestRes2 = res1;
       const into2 = opts.imagined2![a];
@@ -152,11 +129,8 @@ export function imagineScores(opts: {
           bestRes2 = expectedResidual(pred2, opts.residualWeight);
         }
       }
-      // Compression-progress signal: how much more certain the model becomes
-      // after one more imagined step. Prefer paths that tighten the guess.
       rhoHat += Math.max(0, res1 - bestRes2);
       const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
-      // Gate the second step harder: uncalibrated models should not plan deep.
       opts.scores[a] = score1 + disc * confidence * best2;
     } else {
       opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
