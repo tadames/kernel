@@ -38,3 +38,16 @@ Auth stays off. UI untouched.
 
 ### Next hypothesis
 Measure Field lives with the open gate: wait-vs-move mix, policy entropy, foods, late ema versus 09-20. If novelty opens but those stay flat, fold the per-cell scent residual drop into ρ̂. If familyResidual[2] chatters on 0.05, require a short falling streak before opening.
+
+## 2026-09-23 (America/New_York)
+
+### What changed
+Imagination ρ̂ now includes the per-cell family-2 residual drop from the current cell to the destination (`Loop.scentRhoHat`). The term is zero when `scentNovelty` is shut, so noise still does not pay. Plan surprise, mute, and ρ stay hard-zero on family 2. Law 04 copy names the extra term.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 3/3 pass (novelty gate plus new "scent ρ̂ is the per-cell residual drop and stays shut on noise"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+Measure Field lives: wait-vs-move mix, foods, late ema versus 09-22 with novelty-only. If scent ρ̂ is usually ~0 because residualEma is almost flat across cells, the signal is too weak and imagination should compare predicted scent residual (from the side head) instead of the live EMA. If familyResidual[2] still chatters on 0.05, require a short falling streak before opening the gate.
