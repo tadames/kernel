@@ -117,6 +117,12 @@ export function imagineScores(opts: {
   imagined2?: Float32Array[];
   /** Per-dim weight for expected residual (drop incompressible families). */
   residualWeight?: (i: number) => number;
+  /**
+   * Extra action-conditional progress (e.g. per-cell scent residual drop).
+   * Added to ρ̂ after the horizon-2 plan residual drop. Must be 0 when
+   * that channel is incompressible.
+   */
+  progressBonus?: (a: number, pred: Float32Array) => number;
 }): Float32Array {
   // Untrained sigmoid outputs sit near 0.5. Do not treat them as walls.
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
@@ -129,7 +135,7 @@ export function imagineScores(opts: {
     const v = opts.read(pred, a);
     const res1 = expectedResidual(pred, opts.residualWeight);
     // Default: no action-conditional ρ̂ until horizon 2 supplies a residual drop.
-    let rhoHat = 0;
+    let rhoHat = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
 
     if (twoStep) {
       // Best follow-up from the imagined window (greedy, pure model).
@@ -148,12 +154,12 @@ export function imagineScores(opts: {
       }
       // Compression-progress signal: how much more certain the model becomes
       // after one more imagined step. Prefer paths that tighten the guess.
-      rhoHat = Math.max(0, res1 - bestRes2);
+      rhoHat += Math.max(0, res1 - bestRes2);
       const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
       // Gate the second step harder: uncalibrated models should not plan deep.
       opts.scores[a] = score1 + disc * confidence * best2;
     } else {
-      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight);
+      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
     }
   }
   return opts.scores;

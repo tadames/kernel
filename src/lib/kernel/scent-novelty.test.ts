@@ -29,3 +29,30 @@ test("scent novelty opens only when family-2 residual is compressible", () => {
   assert.equal(noise.scentNovelty(0), 0);
   assert.equal(noise.scentNovelty(1), 0);
 });
+
+test("scent ρ̂ is the per-cell residual drop and stays shut on noise", () => {
+  const structured = new Loop(6, 16, 6);
+  for (let t = 0; t < 280; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, 1 - bit]);
+    structured.assimilate(x, 0.08);
+    structured.commit(x);
+  }
+  structured.residualEma[2] = 0.2;
+  structured.residualEma[5] = 0.04;
+  const drop = structured.scentRhoHat(0, 1);
+  assert.ok(drop > 0.1, `structured scent ρ̂ too small: ${drop}`);
+  assert.equal(structured.scentRhoHat(1, 0), 0, "negative drop must not pay");
+  assert.equal(structured.familyWeight(2), 0, "plan family-2 stays muted");
+
+  const noise = new Loop(6, 16, 6);
+  for (let t = 0; t < 280; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, Math.random(), bit, 1 - bit, Math.random()]);
+    noise.assimilate(x, 0.08);
+    noise.commit(x);
+  }
+  noise.residualEma[2] = 0.2;
+  noise.residualEma[5] = 0.01;
+  assert.equal(noise.scentRhoHat(0, 1), 0, "incompressible scent must not fund ρ̂");
+});
