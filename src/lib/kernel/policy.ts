@@ -18,8 +18,6 @@
  * hidden activations (true model-of-learning) remains Phase 1.
  */
 
-import "./scent-rho-hat.ts";
-
 export function softmaxSample(
   logits: Float32Array,
   temperature: number,
