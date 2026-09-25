@@ -51,3 +51,16 @@ Auth stays off. UI untouched.
 
 ### Next hypothesis
 Measure Field lives: wait-vs-move mix, foods, late ema versus 09-22 with novelty-only. If scent ρ̂ is usually ~0 because residualEma is almost flat across cells, the signal is too weak and imagination should compare predicted scent residual (from the side head) instead of the live EMA. If familyResidual[2] still chatters on 0.05, require a short falling streak before opening the gate.
+
+## 2026-09-24 (America/New_York)
+
+### What changed
+Imagination scent ρ̂ now compares the side head’s predicted residual `scentPred[c](1 − scentPred[c])` from the current cell to the destination, not the live per-cell EMA. The novelty gate is unchanged: after the 96-step probe, family-2 residual ≥ 0.05 still shuts the term, so noise does not pay. `progressBonus` in `Kernel.choose` actually calls `scentRhoHat`. Methods live on `Loop` (the prototype patch cyclic-imported through policy). Plan surprise, mute, and ρ stay hard-zero on family 2. Law 04 copy names the predicted-residual drop.
+
+Auth stays off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 3/3 pass (novelty gate plus “scent ρ̂ is the side-head predicted residual drop and stays shut on noise”). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+Measure Field lives: wait-vs-move mix, foods, late ema versus 09-23 EMA-drop ρ̂. If `scentPred` stays near 0.5 on every cell, the head is not committing and ρ̂ is still ~0 — then either train the head on predicted-window error during imagination, or drop the scent term. If familyResidual[2] chatters on 0.05, require a short falling streak before opening the gate.
