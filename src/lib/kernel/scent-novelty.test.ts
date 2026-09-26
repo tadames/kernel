@@ -61,3 +61,22 @@ test("scent ρ̂ is the side-head predicted residual drop and stays shut on nois
   noise.scentPred[1] = 0.99;
   assert.equal(noise.scentRhoHat(0, 1), 0, "incompressible scent must not fund ρ̂");
 });
+
+test("scent novelty stays shut until family-2 residual holds a falling streak", () => {
+  const loop = new Loop(6, 16, 6);
+  for (let t = 0; t < 280; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, 1 - bit]);
+    loop.assimilate(x, 0.08);
+    loop.commit(x);
+  }
+  assert.ok(loop.scentTrains >= 96, `probe incomplete: ${loop.scentTrains}`);
+  assert.ok(loop.scentFallStreak >= Loop.SCENT_FALL_STREAK, `streak ${loop.scentFallStreak}`);
+  loop.familyResidual[2] = 0.049;
+  loop.scentFallStreak = 1;
+  assert.equal(loop.scentNovelty(0), 0, "one dip under 0.05 must not open");
+  loop.scentFallStreak = Loop.SCENT_FALL_STREAK;
+  assert.ok(loop.scentNovelty(0) > 0.15, `streaked residual still shut: ${loop.scentNovelty(0)}`);
+  loop.familyResidual[2] = 0.06;
+  assert.equal(loop.scentNovelty(0), 0, "high residual must stay shut even with a streak");
+});
