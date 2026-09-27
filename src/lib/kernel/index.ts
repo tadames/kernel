@@ -1,5 +1,6 @@
 export * from "./mlp.ts";
 export * from "./loop.ts";
+import "./scent-rho-hat.ts";
 export * from "./policy.ts";
 export * from "./presets.ts";
 export * from "./kernel.ts";

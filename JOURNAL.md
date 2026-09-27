@@ -1,5 +1,20 @@
 # Journal
 
+## 2026-09-26 (America/New_York)
+
+### What changed
+Finished the aborted falling-streak commit: `loop.ts` was a PLACEHOLDER and the main test file had been truncated. Restored both, then made the gate real.
+
+Family-2 residual now counts a falling streak (`Loop.SCENT_FALL_STREAK = 4`). After the 96-step probe, `scentNovelty` and further scent-head writes open only when residual is under 0.05 *and* the streak holds. A single dip stays shut. Save/load carries `scentFallStreak`.
+
+Imagination now takes action-conditional scent ρ̂ as `progressBonus`: drop in the side-head predicted residual from the current cell to the destination, already zero when the novelty gate is shut. Plan family-2 stays muted. Auth off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 22/22 pass (restored MLP/Loop/Field/stream/claims/horizon/save-load/skip/burn-in/family/side-channel/plan-head/per-cell tests plus novelty, ρ̂, and falling-streak). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+Scent ρ̂ is now in the policy score, not only in a unit test. Measure whether Field late ema and G2 move versus 09-20, and whether `scentTrains` still pins at the probe cap on a Field life. If trains freeze, the head is not compressing visit-scent in this body — drop it back to the mean prior. If trains keep writing and G2 stays green, try a third imagined step so ρ̂ can look past a wall.
+
 ## 2026-09-20 (America/New_York)
 
 ### What changed
