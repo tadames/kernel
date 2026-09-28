@@ -5,17 +5,17 @@
  * radar", no hand-coded scan). It imagines each action, reads predicted
  * reward / cost / novelty from the predicted observation, and samples.
  *
- * Horizon 2: after the first imagined step, score the best follow-up from the
- * predicted window (pure model, no true whiskers). Discounted. Early on the
- * model is uncalibrated so confidence still gates the imagined terms.
+ * Horizon 3: after the first imagined step, score the best follow-up from the
+ * predicted window, then one more from that second window. Discounted.
+ * Early on the model is uncalibrated so confidence still gates the imagined terms.
  *
  * Curiosity is compression-progress. The intrinsic term is primarily the
  * model's own expected residual (Bernoulli variance of the predicted window).
  * Visit-scent is a light prior. Global recent progress ρ still scales, but
- * when horizon 2 is on we also use an action-conditional ρ̂: the drop in
- * expected residual from step-1 window to the best step-2 window. Prefer
- * moves the model itself expects to make more certain. A second loop on
- * hidden activations (true model-of-learning) remains Phase 1.
+ * when horizon ≥2 is on we also use an action-conditional ρ̂: the drop in
+ * expected residual from step-1 to the best later window. Prefer
+ * moves the model itself expects to make more certain. A third step lets
+ * ρ̂ look past a wall. A second loop on hidden activations remains Phase 1.
  */
 
 export function softmaxSample(
@@ -100,6 +100,7 @@ export function imagineScores(opts: {
   readPred?: (pred: Float32Array, a: number) => PredRead;
   discount?: number;
   imagined2?: Float32Array[];
+  imagined3?: Float32Array[];
   residualWeight?: (i: number) => number;
   progressBonus?: (a: number, pred: Float32Array) => number;
 }): Float32Array {
@@ -107,6 +108,7 @@ export function imagineScores(opts: {
   const learning = Math.max(0, opts.progressEma);
   const disc = opts.discount ?? 0.65;
   const twoStep = Boolean(opts.predictFrom && opts.readPred && opts.imagined2);
+  const threeStep = twoStep && Boolean(opts.imagined3);
 
   for (let a = 0; a < opts.acts; a++) {
     const pred = opts.predict(a, opts.imagined[a]);
@@ -117,6 +119,7 @@ export function imagineScores(opts: {
     if (twoStep) {
       let best2 = -Infinity;
       let bestRes2 = res1;
+      let bestPred2: Float32Array | null = null;
       const into2 = opts.imagined2![a];
       for (let a1 = 0; a1 < opts.acts; a1++) {
         const pred2 = opts.predictFrom!(pred, a1, into2);
@@ -125,11 +128,32 @@ export function imagineScores(opts: {
         if (s2 > best2) {
           best2 = s2;
           bestRes2 = expectedResidual(pred2, opts.residualWeight);
+          if (threeStep) {
+            if (!bestPred2 || bestPred2 === into2) bestPred2 = pred2.slice();
+            else bestPred2.set(pred2);
+          }
         }
       }
       rhoHat += Math.max(0, res1 - bestRes2);
+      let best3 = 0;
+      if (threeStep && bestPred2) {
+        let best3v = -Infinity;
+        let bestRes3 = bestRes2;
+        const into3 = opts.imagined3![a];
+        for (let a2 = 0; a2 < opts.acts; a2++) {
+          const pred3 = opts.predictFrom!(bestPred2, a2, into3);
+          const v3 = opts.readPred!(pred3, a2);
+          const s3 = valueOf(v3, pred3, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight);
+          if (s3 > best3v) {
+            best3v = s3;
+            bestRes3 = expectedResidual(pred3, opts.residualWeight);
+          }
+        }
+        best3 = best3v;
+        rhoHat += Math.max(0, bestRes2 - bestRes3);
+      }
       const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
-      opts.scores[a] = score1 + disc * confidence * best2;
+      opts.scores[a] = score1 + disc * confidence * best2 + disc * disc * confidence * best3;
     } else {
       opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
     }
