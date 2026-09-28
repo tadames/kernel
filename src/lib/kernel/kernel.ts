@@ -1,4 +1,5 @@
 import { Loop } from "./loop.ts";
+import "./scent-rho-hat.ts";
 import { imagineScores, softmaxSample } from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
@@ -308,6 +309,13 @@ export class Kernel {
         };
       },
       imagined2: this.imagined2,
+      progressBonus: (a) => {
+        const from = (VIEW * VIEW) >> 1;
+        const tx = R + DIRS[a].x;
+        const ty = R + DIRS[a].y;
+        const to = a === 4 ? from : ty * VIEW + tx;
+        return this.loop.scentRhoHat(from, to);
+      },
     });
     let temp = this.params.temperature;
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
