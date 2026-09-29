@@ -103,12 +103,15 @@ export function imagineScores(opts: {
   imagined3?: Float32Array[];
   residualWeight?: (i: number) => number;
   progressBonus?: (a: number, pred: Float32Array) => number;
+  /** Gate the third imagined window until the model is calibrated. */
+  horizon3Ema?: number;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
   const disc = opts.discount ?? 0.65;
   const twoStep = Boolean(opts.predictFrom && opts.readPred && opts.imagined2);
-  const threeStep = twoStep && Boolean(opts.imagined3);
+  const emaGate = opts.horizon3Ema ?? 0.12;
+  const threeStep = twoStep && Boolean(opts.imagined3) && opts.ema < emaGate;
 
   for (let a = 0; a < opts.acts; a++) {
     const pred = opts.predict(a, opts.imagined[a]);
