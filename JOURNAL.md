@@ -38,3 +38,16 @@ One improvement: the live policy now actually runs the gated third window. `imag
 
 ### Next hypothesis
 The third window is now on the body, not only in tests. Compare Field late ema, G2, lives, and Rooms foods with the gate on vs horizon 2 only on the same seed. If G2 holds and foods rise, try a cheap latent: predict hidden, not cells.
+
+## 2026-09-30 evening (America/New_York)
+
+### What changed
+`loop.ts` on main was again the 9-byte stub (`see-local`). Finished that first: restored Loop from `5a43946` (last intact tree), then the falling-streak gate (`SCENT_FALL_STREAK = 4`, persist `scentFallStreak` on save/load).
+
+One improvement: the live policy now actually runs the gated third window. `imagineScores` already knew `imagined3` + `horizon3Ema`, but `Kernel.choose` never passed the buffers — horizon 3 was a test-only path. Choose now allocates `imagined3`, wires it, and sets `horizon3Ema: 0.12`. Law 05 names the gate. Auth off. UI untouched.
+
+### Evidence
+`node --experimental-strip-types --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 5/5 pass (novelty/ρ̂/streak + "horizon 3 stays off until ema is under the gate"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200.
+
+### Next hypothesis
+The third window is now on the body, not only in tests. Compare Field late ema, G2, lives, and Rooms foods with the gate on vs horizon 2 only on the same seed. If G2 holds and foods rise, try a cheap latent: predict hidden, not cells.
