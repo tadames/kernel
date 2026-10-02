@@ -98,6 +98,7 @@ export class Kernel {
   obsMean = new Float32Array(CH);
   imagined: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   imagined2: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
+  imagined3: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   thoughts: Thought[] = [];
   thought = "I begin with no model of this place.";
   params: Params = { lr: 0.035, curiosity: 1, goal: 1, temperature: 0.45 };
@@ -265,13 +266,17 @@ export class Kernel {
 
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
+    const latentRho = this.loop.latentRho();
     imagineScores({
       acts: ACTS,
       curiosity: this.params.curiosity,
       goal: this.params.goal,
-      progressEma: this.loop.progressEma,
+      progressEma: this.loop.progressEma + 0.35 * latentRho,
       ema: this.loop.ema,
       imagined: this.imagined,
+      imagined2: this.imagined2,
+      imagined3: this.imagined3,
+      horizon3Ema: 0.12,
       scores: this.scores,
       predict: (a, into) => this.loop.imagine(this.encode(obs, a, true), into),
       residualWeight: (i) => this.loop.familyWeight(i % CH),
@@ -308,7 +313,6 @@ export class Kernel {
           novelty: (1 - destScent) * scentW,
         };
       },
-      imagined2: this.imagined2,
       progressBonus: (a) => {
         const from = (VIEW * VIEW) >> 1;
         const tx = R + DIRS[a].x;

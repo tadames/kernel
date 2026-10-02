@@ -82,3 +82,37 @@ test("horizon 3 stays off until ema is under the gate", () => {
   assert.ok(run(0.05, low3) > 0, "third window stayed idle after the gate opened");
   assert.ok(low3[0][0] > 0.8 || low3[1][0] > 0.8, "calibrated run must write the third window");
 });
+
+test("latent loop compresses hidden state on structure and refuses noise", () => {
+  const run = (noise: boolean) => {
+    const loop = new Loop(6, 16, 6);
+    for (let t = 0; t < 320; t++) {
+      const x = new Float32Array(6);
+      if (noise) {
+        for (let i = 0; i < 6; i++) x[i] = Math.random() < 0.5 ? 0 : 1;
+      } else {
+        const bit = t % 2;
+        x[0] = bit;
+        x[1] = 1 - bit;
+        x[2] = bit;
+        x[3] = bit;
+        x[4] = 1 - bit;
+        x[5] = bit;
+      }
+      loop.assimilate(x, 0.08);
+      loop.commit(x);
+    }
+    return loop;
+  };
+  const structured = run(false);
+  const noise = run(true);
+  assert.ok(structured.latentEma < 0.02, `structured latent ema ${structured.latentEma}`);
+  assert.ok(noise.latentEma > 0.02, `noise latent ema collapsed ${noise.latentEma}`);
+  assert.ok(structured.latentEma < noise.latentEma * 0.6, `latent did not separate ${structured.latentEma} vs ${noise.latentEma}`);
+  const dumped = structured.exportBrain();
+  assert.equal(dumped.scentFallStreak, structured.scentFallStreak);
+  const restored = new Loop(6, 16, 6);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.scentFallStreak, structured.scentFallStreak);
+  assert.ok(Math.abs(restored.latentEma - structured.latentEma) < 1e-9);
+});

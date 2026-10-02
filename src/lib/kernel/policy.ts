@@ -15,7 +15,9 @@
  * when horizon ≥2 is on we also use an action-conditional ρ̂: the drop in
  * expected residual from step-1 to the best later window. Prefer
  * moves the model itself expects to make more certain. A third step lets
- * ρ̂ look past a wall. A second loop on hidden activations remains Phase 1.
+ * ρ̂ look past a wall, and only runs once ema is under the gate. A second
+ * loop predicts the next hidden state; its progress is mixed into learning
+ * by the caller once the latent is compressing.
  */
 
 export function softmaxSample(
