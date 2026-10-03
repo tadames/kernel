@@ -7,10 +7,11 @@
  * stayed under the freeze line for SCENT_FALL_STREAK steps, or during the
  * 96-step probe.
  *
- * Phase 1 seed: a second loop whose observation is the first loop's hidden
- * state. It predicts the next latent, not the next cells. Cell prediction
- * stays — the body still has to imagine a window. Latent progress is the
- * JEPA signal, measured before the latent update.
+ * Phase 1 seed: a second loop predicts a latent, not cells. The projection
+ * is a slow encoder. Its target is stop-grad — the predictor cannot move the
+ * code it is scored against. The encoder steps only when latent progress is
+ * positive, so noise does not rewrite the features. Cell prediction stays:
+ * the body still imagines a window.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -33,12 +34,16 @@ export type BrainDump = {
   latentB2: number[];
   latentEma: number;
   latentSurprise: number;
+  /** Slow encoder. Absent on brains saved before the projection was learned. */
+  proj?: number[];
 };
 
 export class Loop {
   static readonly SCENT_FALL_STREAK = 4;
   static readonly SCENT_FREEZE = 0.05;
   static readonly SCENT_PROBE = 96;
+  /** Slow relative to the latent predictor (0.4). Stop-grad target. */
+  static readonly ENC_LR = 0.08;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
@@ -74,9 +79,12 @@ export class Loop {
 
   private prevFamily2 = 1;
   private sideEma = 0.25;
-  /** Fixed random features. The second loop predicts these, not cells. */
+  /** Slow encoder. Stop-grad target; steps only when the latent is compressing. */
   private proj: Float32Array;
   private latentNow: Float32Array;
+  private prevEncObs: Float32Array | null = null;
+  private encObsPending: Float32Array | null = null;
+  encoderSteps = 0;
 
   constructor(
     readonly inn: number,
@@ -181,14 +189,46 @@ export class Loop {
     return into;
   }
 
+  /**
+   * Stop-grad encoder step. `h` is the detached target. The predictor's
+   * input gradient is applied to the projection that produced prevHidden,
+   * never to the target. Runs only after latent progress, so a fair coin
+   * does not get to pick features.
+   */
+  private learnEncoder() {
+    if (!this.prevEncObs || !this.prevHidden) return;
+    // Same gate as curiosity. Flicker on a fair coin is not progress.
+    if (this.latentEma >= 0.2 || this.latentProgress <= 0.001) return;
+    // Stop-grad covariance. Target code is already detached; this step only
+    // writes the projection that will encode the next observation. Stable
+    // channels accumulate. Noise averages toward zero, then decays.
+    const x = this.prevEncObs;
+    const n = Math.min(x.length, this.out);
+    const lr = Loop.ENC_LR;
+    for (let i = 0; i < this.hidden; i++) {
+      const z = this.prevHidden[i];
+      const row = i * this.out;
+      for (let j = 0; j < n; j++) {
+        const w = this.proj[row + j];
+        let next = w * 0.998 + lr * z * (x[j] - 0.5);
+        if (next > 1.5) next = 1.5;
+        else if (next < -1.5) next = -1.5;
+        this.proj[row + j] = next;
+      }
+    }
+    this.encoderSteps += 1;
+  }
+
   private commitHidden(h: Float32Array) {
     if (!this.prevHidden) {
       this.prevHidden = new Float32Array(this.hidden);
       this.prevHidden.set(h);
       this.lastHidden.set(h);
+      this.stashEncObs();
       return;
     }
     const pred = this.latent.forward(this.prevHidden, this.latentPred);
+    // Stop-grad target. A copy, not a view the encoder can chase.
     const zt = new Float32Array(this.hidden);
     let s = 0;
     for (let i = 0; i < this.hidden; i++) {
@@ -212,8 +252,23 @@ export class Loop {
     this.latentProgress = this.latentEma - this.latentSurprise;
     this.latentEma = 0.92 * this.latentEma + 0.08 * this.latentSurprise;
     this.latent.train(this.prevHidden, zt, 0.4);
+    this.learnEncoder();
     this.prevHidden.set(h);
     this.lastHidden.set(h);
+    this.stashEncObs();
+  }
+
+  private noteEncObs(obs: Float32Array) {
+    if (!this.encObsPending) this.encObsPending = new Float32Array(this.out);
+    const n = Math.min(obs.length, this.out);
+    this.encObsPending.fill(0);
+    this.encObsPending.set(obs.subarray(0, n));
+  }
+
+  private stashEncObs() {
+    if (!this.encObsPending) return;
+    if (!this.prevEncObs) this.prevEncObs = new Float32Array(this.out);
+    this.prevEncObs.set(this.encObsPending);
   }
 
   /**
@@ -261,6 +316,7 @@ export class Loop {
     this.commitment = 1 - (commitDen ? (commitMass / commitDen) * 4 : 1);
     this.trackScent(target);
     this.project(target, this.latentNow);
+    this.noteEncObs(target);
 
     const trainTarget = target.slice();
     if (fam === 3) {
@@ -332,6 +388,7 @@ export class Loop {
       latentB2: z.b2,
       latentEma: this.latentEma,
       latentSurprise: this.latentSurprise,
+      proj: Array.from(this.proj),
     };
   }
 
@@ -355,6 +412,7 @@ export class Loop {
     this.scentTrains = w.scentTrains ?? 0;
     this.latentEma = w.latentEma ?? 0.25;
     this.latentSurprise = w.latentSurprise ?? 0.25;
+    if (w.proj && w.proj.length === this.proj.length) this.proj.set(w.proj);
     return true;
   }
 }

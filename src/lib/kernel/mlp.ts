@@ -18,6 +18,8 @@ export class MLP {
   private dz2: Float32Array;
   private dh: Float32Array;
   private dz1: Float32Array;
+  /** dL/dx from the last train, using weights before the step. Stop-grad callers read this. */
+  readonly dx: Float32Array;
 
   constructor(input: number, hidden: number, output: number) {
     this.in = input;
@@ -33,6 +35,7 @@ export class MLP {
     this.dz2 = new Float32Array(output);
     this.dh = new Float32Array(hidden);
     this.dz1 = new Float32Array(hidden);
+    this.dx = new Float32Array(input);
     this.randomize();
   }
 
@@ -84,6 +87,12 @@ export class MLP {
     }
     for (let i = 0; i < h; i++) {
       dz1[i] = dh[i] * (1 - ha[i] * ha[i]);
+    }
+    this.dx.fill(0);
+    for (let i = 0; i < h; i++) {
+      const row = i * inn;
+      const g = dz1[i];
+      for (let j = 0; j < inn; j++) this.dx[j] += w1[row + j] * g;
     }
     for (let i = 0; i < h; i++) {
       const row = i * inn;

@@ -116,3 +116,54 @@ test("latent loop compresses hidden state on structure and refuses noise", () =>
   assert.equal(restored.scentFallStreak, structured.scentFallStreak);
   assert.ok(Math.abs(restored.latentEma - structured.latentEma) < 1e-9);
 });
+
+test("stop-grad encoder moves on structure and stays put on noise", () => {
+  const l1 = (a: number[], b: number[]) => {
+    let s = 0;
+    for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+    return s;
+  };
+  const structured = new Loop(6, 16, 6);
+  const s0 = (structured.exportBrain().proj ?? []).slice();
+  for (let t = 0; t < 240; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, bit, bit, 1 - bit, 1 - bit]);
+    structured.assimilate(x, 0.08);
+    structured.commit(x);
+  }
+  const noise = new Loop(6, 16, 6);
+  const n0 = (noise.exportBrain().proj ?? []).slice();
+  for (let t = 0; t < 240; t++) {
+    const x = new Float32Array(6);
+    for (let i = 0; i < 6; i++) x[i] = Math.random();
+    noise.assimilate(x, 0.08);
+    noise.commit(x);
+  }
+  const sd = l1(s0, structured.exportBrain().proj ?? []);
+  const nd = l1(n0, noise.exportBrain().proj ?? []);
+  assert.ok(structured.encoderSteps > 8, `encoder did not step on structure: ${structured.encoderSteps}`);
+  assert.ok(sd > 0.02, `encoder barely moved on structure: ${sd}`);
+  assert.ok(sd > nd * 2, `encoder drift did not separate ${sd} vs ${nd}`);
+  const restored = new Loop(6, 16, 6);
+  assert.equal(restored.importBrain(structured.exportBrain()), true);
+  assert.ok(l1(structured.exportBrain().proj ?? [], restored.exportBrain().proj ?? []) < 1e-9);
+});
+
+test("stop-grad encoder prefers structured channels over noise", () => {
+  const loop = new Loop(4, 16, 4);
+  for (let t = 0; t < 400; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, Math.random(), Math.random()]);
+    loop.assimilate(x, 0.08);
+    loop.commit(x);
+  }
+  const proj = loop.exportBrain().proj ?? [];
+  const col = [0, 0, 0, 0];
+  for (let i = 0; i < 16; i++) {
+    for (let j = 0; j < 4; j++) col[j] += Math.abs(proj[i * 4 + j]);
+  }
+  const structured = col[0] + col[1];
+  const noise = col[2] + col[3];
+  assert.ok(loop.encoderSteps > 8, `encoder idle: ${loop.encoderSteps}`);
+  assert.ok(structured > noise * 2, `channels not chosen ${structured} vs ${noise}`);
+});

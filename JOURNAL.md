@@ -64,3 +64,14 @@ One improvement: Phase 1 seed. A second loop predicts a fixed random projection 
 
 ### Next hypothesis
 The latent is a fixed projection, so it cannot yet invent the features it predicts. If Field late ema does not fall faster than the cell loop alone, the mix is noise — drop it from curiosity and keep the latent as a Bench trace only. If it falls, make the projection slow-learned (stop-grad encoder) so the second loop can choose what to compress.
+
+## 2026-10-02 evening (America/New_York)
+
+### What changed
+The latent projection was a fixed random matrix, so the second loop could not choose what to compress. It is now a slow encoder. The target code is stop-grad: the predictor is scored against a detached copy and cannot move that target. The encoder steps only after `latentEma < 0.2` and latent progress is positive — the same gate as curiosity — and writes a clipped covariance update, so stable channels accumulate and noise decays. Weights stay in [-1.5, 1.5]. The projection is saved and loaded with the brain. Law 04 / 05 name the stop-grad encoder. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 8/8 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent separation, plus "stop-grad encoder moves on structure and stays put on noise" and "stop-grad encoder prefers structured channels over noise"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The encoder now prefers structured channels in a toy window. If Field late ema does not fall faster than the fixed-projection seed, the covariance step is still decoration — keep it as a Bench trace and drop it from curiosity. If Field falls, condition the latent predictor on the action so ρ̂ can score imagined codes, not only cells.

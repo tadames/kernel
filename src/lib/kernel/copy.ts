@@ -17,7 +17,7 @@ export const LAWS = [
   {
     id: "04",
     title: "Curiosity is compression progress, not novelty",
-    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, scaled by recent progress ρ, and further by an action-conditional residual drop across horizon-2 imagination (ρ̂). Visit-scent is a side channel: plan surprise, mute, and ρ stay hard-zero on family 2; imagination novelty reads scentNovelty(cell) only after the family-2 residual has stayed under the freeze line for a short falling streak (or during the 96-step probe). A single dip does not open. When that gate is open, ρ̂ also includes the per-cell scent residual drop from here to the destination — compression progress on flow, not a scent tax. A second loop now predicts the next hidden state (Phase 1 seed). Its progress is gated into curiosity only after the latent itself is compressing. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
+    body: "Raw surprise is a trap. Noise is infinitely surprising and infinitely useless. Schmidhuber’s rule is sharper: reward the derivative — how much better the model just became. The intrinsic term is primarily the model’s own expected residual (uncertainty in the predicted window), mixed lightly with visit-scent, scaled by recent progress ρ, and further by an action-conditional residual drop across horizon-2 imagination (ρ̂). Visit-scent is a side channel: plan surprise, mute, and ρ stay hard-zero on family 2; imagination novelty reads scentNovelty(cell) only after the family-2 residual has stayed under the freeze line for a short falling streak (or during the 96-step probe). A single dip does not open. When that gate is open, ρ̂ also includes the per-cell scent residual drop from here to the destination — compression progress on flow, not a scent tax. A second loop now predicts a latent, not cells (Phase 1 seed). The projection is a slow stop-grad encoder: it steps only when that latent is compressing, and it cannot move the target it is scored against. Its progress is gated into curiosity only after the latent itself is compressing. The Bench view is the test: the same loop compresses a repeating bit stream and refuses a fair coin.",
   },
   {
     id: "05",
@@ -47,7 +47,7 @@ export const PHASES = [
     id: "1",
     title: "Hierarchy",
     now: false,
-    body: "Predict in a latent space, not in cells. The seed is live: a second loop whose observation is the first loop’s hidden state, trained on the next latent before it is used as curiosity. A hierarchy of worlds, and a model of learning so ρ̂ can be fully action-conditional, are still open.",
+    body: "Predict in a latent space, not in cells. The seed is live: a second loop predicts a slow-learned latent (stop-grad encoder), trained on the next code before it is used as curiosity. A hierarchy of worlds, and a model of learning so ρ̂ can be fully action-conditional, are still open.",
   },
   {
     id: "2",
@@ -104,6 +104,6 @@ export const STAGES = [
     id: "act",
     code: "a \u2190 \u03c0(M, \u03c1, goal)",
     name: "Act",
-    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). A third window is gated on ema < 0.12. Read whiskers on step 1 and pure model later. Residual drop across those windows is action-conditional ρ̂. A second loop’s latent progress is mixed in only after that latent is compressing. Sample. No half-plane scan for food.",
+    note: "Imagine every legal move, then the best follow-up from the predicted window (horizon 2). A third window is gated on ema < 0.12. Read whiskers on step 1 and pure model later. Residual drop across those windows is action-conditional ρ̂. A second loop’s latent progress is mixed in only after that latent is compressing. Its encoder is stop-grad and slow. Sample. No half-plane scan for food.",
   },
 ] as const;
