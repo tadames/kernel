@@ -109,7 +109,7 @@ export class Kernel {
   constructor(kind: WorldKind = "field", seed = 1) {
     this.seed = seed;
     this.rand = mulberry32(seed);
-    this.loop = new Loop(IN, HIDDEN, OUT);
+    this.loop = new Loop(IN, HIDDEN, OUT, ACTS);
     this.cells = new Uint8Array(SIZE * SIZE);
     this.scent = new Float32Array(SIZE * SIZE);
     this.setWorld(kind, seed);
@@ -147,7 +147,7 @@ export class Kernel {
   }
 
   resetBrain() {
-    this.loop = new Loop(IN, HIDDEN, OUT);
+    this.loop = new Loop(IN, HIDDEN, OUT, ACTS);
     this.loop.commit(this.encode(this.sense()));
     this.history = [];
     this.thoughts = [];
@@ -318,7 +318,7 @@ export class Kernel {
         const tx = R + DIRS[a].x;
         const ty = R + DIRS[a].y;
         const to = a === 4 ? from : ty * VIEW + tx;
-        return this.loop.scentRhoHat(from, to);
+        return this.loop.scentRhoHat(from, to) + this.loop.latentRhoHat(a);
       },
     });
     let temp = this.params.temperature;

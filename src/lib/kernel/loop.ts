@@ -10,8 +10,9 @@
  * Phase 1 seed: a second loop predicts a latent, not cells. The projection
  * is a slow encoder. Its target is stop-grad — the predictor cannot move the
  * code it is scored against. The encoder steps only when latent progress is
- * positive, so noise does not rewrite the features. Cell prediction stays:
- * the body still imagines a window.
+ * positive, so noise does not rewrite the features. The latent predictor is
+ * action-conditional: the code it imagines depends on the move, so rho-hat
+ * can score a drop in code residual, not only cells. Cell prediction stays.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -36,6 +37,10 @@ export type BrainDump = {
   latentSurprise: number;
   /** Slow encoder. Absent on brains saved before the projection was learned. */
   proj?: number[];
+  /** Action bias on the latent code. Absent on brains saved before action conditioning. */
+  latentActBias?: number[];
+  /** Per-action latent prediction error. Absent on older brains. */
+  latentActionEma?: number[];
 };
 
 export class Loop {
@@ -72,6 +77,8 @@ export class Loop {
   latentSurprise = 0.25;
   latentEma = 0.25;
   latentProgress = 0;
+  /** Action that produced the last latent transition. */
+  lastLatentAction = 0;
   /** Side head for family 2. Plan surprise stays muted; this residual gates novelty. */
   private scentW: Float32Array;
   private scentB: Float32Array;
@@ -82,18 +89,28 @@ export class Loop {
   /** Slow encoder. Stop-grad target; steps only when the latent is compressing. */
   private proj: Float32Array;
   private latentNow: Float32Array;
+  private latentIn: Float32Array;
+  private latentImagined: Float32Array;
+  /** Clipped per-action shift so the imagined code can leave 1/2. */
+  private actBias: Float32Array;
+  /** Prediction error of the action-conditional code, per move. */
+  private actionLatentEma: Float32Array;
   private prevEncObs: Float32Array | null = null;
   private encObsPending: Float32Array | null = null;
   encoderSteps = 0;
 
+  /** One-hot width of the action the latent predictor conditions on. */
+  readonly acts: number;
   constructor(
     readonly inn: number,
     readonly hidden: number,
     readonly out: number,
+    acts = 5,
   ) {
+    this.acts = acts;
     this.net = new MLP(inn, hidden, out);
     const latentH = Math.max(4, hidden >> 2);
-    this.latent = new MLP(hidden, latentH, hidden);
+    this.latent = new MLP(hidden + acts, latentH, hidden);
     this.lastPred = new Float32Array(out);
     this.lastPred.fill(0.5);
     this.residualEma = new Float32Array(out);
@@ -114,6 +131,11 @@ export class Loop {
     const ap = Math.sqrt(2 / out);
     for (let i = 0; i < this.proj.length; i++) this.proj[i] = (Math.random() * 2 - 1) * ap;
     this.latentNow = new Float32Array(hidden);
+    this.latentIn = new Float32Array(hidden + acts);
+    this.latentImagined = new Float32Array(hidden);
+    this.actBias = new Float32Array(acts * hidden);
+    this.actionLatentEma = new Float32Array(acts);
+    this.actionLatentEma.fill(0.25);
   }
 
   private families() {
@@ -219,6 +241,86 @@ export class Loop {
     this.encoderSteps += 1;
   }
 
+  /** Action one-hot lives just past the observation in the committed input. */
+  private readAction(x: Float32Array | null): number {
+    if (!x || x.length < this.out + this.acts) return 0;
+    let best = 0;
+    let bestV = x[this.out] ?? 0;
+    for (let a = 1; a < this.acts; a++) {
+      const v = x[this.out + a] ?? 0;
+      if (v > bestV) {
+        bestV = v;
+        best = a;
+      }
+    }
+    return bestV > 0.5 ? best : 0;
+  }
+
+  private fillLatentIn(h: Float32Array, action: number) {
+    this.latentIn.fill(0);
+    this.latentIn.set(h.subarray(0, this.hidden));
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    this.latentIn[this.hidden + a] = 1;
+  }
+
+  /** Mean Bernoulli variance. Peaks at 1/2, falls as the code commits. */
+  private codeResidual(code: Float32Array): number {
+    let s = 0;
+    const n = Math.min(code.length, this.hidden);
+    for (let i = 0; i < n; i++) {
+      const y = code[i]!;
+      s += y * (1 - y);
+    }
+    return n ? s / n : 0;
+  }
+
+  /**
+   * Predict the next code under `action` without learning.
+   * Uses the current hidden, so imagination can score a move before it is taken.
+   */
+  private applyActBias(pred: Float32Array, action: number) {
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const row = a * this.hidden;
+    for (let i = 0; i < this.hidden; i++) {
+      const y = pred[i]! + this.actBias[row + i]!;
+      pred[i] = y < 0 ? 0 : y > 1 ? 1 : y;
+    }
+    return pred;
+  }
+
+  private learnActBias(pred: Float32Array, target: Float32Array, action: number) {
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const row = a * this.hidden;
+    for (let i = 0; i < this.hidden; i++) {
+      let next = this.actBias[row + i]! - 0.2 * (pred[i]! - target[i]!);
+      if (next > 0.45) next = 0.45;
+      else if (next < -0.45) next = -0.45;
+      this.actBias[row + i] = next;
+    }
+  }
+
+  imagineLatent(action: number, into: Float32Array = this.latentImagined): Float32Array {
+    this.fillLatentIn(this.lastHidden, action);
+    this.latent.forward(this.latentIn, into);
+    return this.applyActBias(into, action);
+  }
+
+  /**
+   * Action-conditional latent rho-hat: drop in predicted code residual from the
+   * last transition's code to the code imagined under this move.
+   * Zero until the latent itself is compressing, so an uncalibrated code never pays.
+   */
+  latentRhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || !this.prevHidden) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    // Score the imagined code: its cached prediction error against the latent's own ema.
+    this.imagineLatent(a);
+    const drop = this.latentEma - this.actionLatentEma[a]!;
+    // Flicker under the gate is not progress. Same idea as the encoder's 0.001 floor, wider.
+    if (drop <= 0.01) return 0;
+    return drop;
+  }
+
   private commitHidden(h: Float32Array) {
     if (!this.prevHidden) {
       this.prevHidden = new Float32Array(this.hidden);
@@ -227,7 +329,11 @@ export class Loop {
       this.stashEncObs();
       return;
     }
-    const pred = this.latent.forward(this.prevHidden, this.latentPred);
+    const action = this.readAction(this.prevInput);
+    this.lastLatentAction = action;
+    this.fillLatentIn(this.prevHidden, action);
+    const pred = this.latent.forward(this.latentIn, this.latentPred);
+    this.applyActBias(pred, action);
     // Stop-grad target. A copy, not a view the encoder can chase.
     const zt = new Float32Array(this.hidden);
     let s = 0;
@@ -237,6 +343,7 @@ export class Loop {
       const d = pred[i] - t;
       s += d * d;
     }
+    this.learnActBias(pred, zt, action);
     this.latentSurprise = s / this.hidden;
     let varH = 0;
     let meanH = 0;
@@ -249,9 +356,10 @@ export class Loop {
     varH /= this.hidden;
     // Collapse is not compression. A constant hidden predicts itself on noise.
     if (varH < 0.01) this.latentSurprise = Math.max(this.latentSurprise, 0.25);
+    this.actionLatentEma[action] = 0.9 * this.actionLatentEma[action]! + 0.1 * this.latentSurprise;
     this.latentProgress = this.latentEma - this.latentSurprise;
     this.latentEma = 0.92 * this.latentEma + 0.08 * this.latentSurprise;
-    this.latent.train(this.prevHidden, zt, 0.4);
+    this.latent.train(this.latentIn, zt, 0.4);
     this.learnEncoder();
     this.prevHidden.set(h);
     this.lastHidden.set(h);
@@ -389,6 +497,8 @@ export class Loop {
       latentEma: this.latentEma,
       latentSurprise: this.latentSurprise,
       proj: Array.from(this.proj),
+      latentActBias: Array.from(this.actBias),
+      latentActionEma: Array.from(this.actionLatentEma),
     };
   }
 
@@ -413,6 +523,8 @@ export class Loop {
     this.latentEma = w.latentEma ?? 0.25;
     this.latentSurprise = w.latentSurprise ?? 0.25;
     if (w.proj && w.proj.length === this.proj.length) this.proj.set(w.proj);
+    if (w.latentActBias && w.latentActBias.length === this.actBias.length) this.actBias.set(w.latentActBias);
+    if (w.latentActionEma && w.latentActionEma.length === this.actionLatentEma.length) this.actionLatentEma.set(w.latentActionEma);
     return true;
   }
 }

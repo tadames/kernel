@@ -167,3 +167,51 @@ test("stop-grad encoder prefers structured channels over noise", () => {
   assert.ok(loop.encoderSteps > 8, `encoder idle: ${loop.encoderSteps}`);
   assert.ok(structured > noise * 2, `channels not chosen ${structured} vs ${noise}`);
 });
+
+test("action-conditional latent ρ̂ pays for the move that predicts a sharper code", () => {
+  const acts = 5;
+  const out = 6;
+  const inn = out + acts;
+  const loop = new Loop(inn, 16, out, acts);
+  for (let t = 0; t < 700; t++) {
+    const a = t % 2;
+    const obs = new Float32Array(out);
+    if (a === 0) obs.set([1, 0, 1, 0, 1, 0]);
+    else {
+      const bit = (t >> 1) % 2;
+      obs.set([bit, 1 - bit, bit, 1 - bit, bit, 1 - bit]);
+    }
+    loop.assimilate(obs, 0.12);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + a] = 1;
+    loop.commit(x);
+  }
+  assert.ok(loop.latentEma < 0.2, `gate never opened: ${loop.latentEma}`);
+  const code0 = Array.from(loop.imagineLatent(0));
+  const code1 = Array.from(loop.imagineLatent(1));
+  let dist = 0;
+  for (let i = 0; i < code0.length; i++) dist += Math.abs(code0[i] - code1[i]);
+  assert.ok(dist > 1, `imagined codes did not depend on the move: ${dist}`);
+  const pay = loop.latentRhoHat(1);
+  const flat = loop.latentRhoHat(0);
+  assert.ok(pay > flat, `compressible move did not win ${pay} vs ${flat}`);
+  assert.ok(pay > 0.01, `latent ρ̂ too small: ${pay}`);
+  const dumped = loop.exportBrain();
+  const restored = new Loop(inn, 16, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.ok(Math.abs((restored.exportBrain().latentActionEma?.[1] ?? 1) - (dumped.latentActionEma?.[1] ?? 0)) < 1e-9);
+
+  const noise = new Loop(inn, 16, out, acts);
+  for (let t = 0; t < 200; t++) {
+    const obs = new Float32Array(out);
+    for (let i = 0; i < out; i++) obs[i] = Math.random();
+    noise.assimilate(obs, 0.08);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + (t % 2)] = 1;
+    noise.commit(x);
+  }
+  assert.equal(noise.latentRhoHat(0), 0, "incompressible latent must not fund ρ̂");
+  assert.equal(noise.latentRhoHat(1), 0, "incompressible latent must not fund ρ̂");
+});

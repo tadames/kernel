@@ -75,3 +75,14 @@ The latent projection was a fixed random matrix, so the second loop could not ch
 
 ### Next hypothesis
 The encoder now prefers structured channels in a toy window. If Field late ema does not fall faster than the fixed-projection seed, the covariance step is still decoration — keep it as a Bench trace and drop it from curiosity. If Field falls, condition the latent predictor on the action so ρ̂ can score imagined codes, not only cells.
+
+## 2026-10-03 evening (America/New_York)
+
+### What changed
+The latent predictor was action-blind, so ρ̂ could not score a move. It now conditions on the action one-hot in the committed input, plus a clipped per-action bias so the imagined code can leave ½. ρ̂ for a move is the drop from latent ema to that action's own prediction error, and only after `latentEma < 0.2` and the drop clears 0.01. A collapsed code still floors at 0.25, so a constant hidden does not pay. Choose adds `latentRhoHat(a)` to the progress bonus. Bias and per-action ema save and load. Law 04 / 05 and the Phase 1 note name the conditioning. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 9/9 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent separation, stop-grad encoder, plus "action-conditional latent ρ̂ pays for the move that predicts a sharper code"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The action channel is live in a toy window. If Field late ema does not fall faster than the action-blind latent, the bias is decoration — keep the trace, drop it from the progress bonus. If Field falls, stack a slower code on this one: predict the latent, not the cells, one level up.
