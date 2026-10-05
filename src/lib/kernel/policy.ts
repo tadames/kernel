@@ -17,7 +17,8 @@
  * moves the model itself expects to make more certain. A third step lets
  * ρ̂ look past a wall, and only runs once ema is under the gate. A second
  * loop predicts the next hidden state; its progress is mixed into learning
- * by the caller once the latent is compressing.
+ * by the caller once the latent is compressing. A slower code one level up
+ * is mixed the same way, and only after both codes are compressing.
  */
 
 export function softmaxSample(

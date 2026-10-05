@@ -13,6 +13,8 @@
  * positive, so noise does not rewrite the features. The latent predictor is
  * action-conditional: the code it imagines depends on the move, so rho-hat
  * can score a drop in code residual, not only cells. Cell prediction stays.
+ * One level up, a slower loop predicts that latent code, not the cells.
+ * Its progress pays only after both codes are compressing.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -41,6 +43,17 @@ export type BrainDump = {
   latentActBias?: number[];
   /** Per-action latent prediction error. Absent on older brains. */
   latentActionEma?: number[];
+  /** Slow code one level up. Absent on brains saved before the hierarchy. */
+  slowW1?: number[];
+  slowB1?: number[];
+  slowW2?: number[];
+  slowB2?: number[];
+  slowEma?: number;
+  slowSurprise?: number;
+  slowActBias?: number[];
+  slowActionEma?: number[];
+  /** Low-passed latent code. Absent on older brains. */
+  slowCode?: number[];
 };
 
 export class Loop {
@@ -49,10 +62,14 @@ export class Loop {
   static readonly SCENT_PROBE = 96;
   /** Slow relative to the latent predictor (0.4). Stop-grad target. */
   static readonly ENC_LR = 0.08;
+  /** Slower than the latent predictor. Predicts the latent code, not cells. */
+  static readonly SLOW_LR = 0.12;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
   readonly latent: MLP;
+  /** Third compressor. Input and target are the latent code, not cells. */
+  readonly slow: MLP;
   prevInput: Float32Array | null = null;
   lastPred: Float32Array;
   surprise = 0.25;
@@ -99,6 +116,18 @@ export class Loop {
   private encObsPending: Float32Array | null = null;
   encoderSteps = 0;
 
+  slowSurprise = 0.25;
+  slowEma = 0.25;
+  slowProgress = 0;
+  slowSteps = 0;
+  private slowCode: Float32Array;
+  private prevSlow: Float32Array | null = null;
+  private slowPred: Float32Array;
+  private slowIn: Float32Array;
+  private slowImagined: Float32Array;
+  private slowBias: Float32Array;
+  private slowActionEma: Float32Array;
+
   /** One-hot width of the action the latent predictor conditions on. */
   readonly acts: number;
   constructor(
@@ -136,6 +165,17 @@ export class Loop {
     this.actBias = new Float32Array(acts * hidden);
     this.actionLatentEma = new Float32Array(acts);
     this.actionLatentEma.fill(0.25);
+    const slowH = Math.max(4, hidden >> 3);
+    this.slow = new MLP(hidden + acts, slowH, hidden);
+    this.slowCode = new Float32Array(hidden);
+    this.slowCode.fill(0.5);
+    this.slowPred = new Float32Array(hidden);
+    this.slowPred.fill(0.5);
+    this.slowIn = new Float32Array(hidden + acts);
+    this.slowImagined = new Float32Array(hidden);
+    this.slowBias = new Float32Array(acts * hidden);
+    this.slowActionEma = new Float32Array(acts);
+    this.slowActionEma.fill(0.25);
   }
 
   private families() {
@@ -361,9 +401,113 @@ export class Loop {
     this.latentEma = 0.92 * this.latentEma + 0.08 * this.latentSurprise;
     this.latent.train(this.latentIn, zt, 0.4);
     this.learnEncoder();
+    this.commitSlow(zt, action);
     this.prevHidden.set(h);
     this.lastHidden.set(h);
     this.stashEncObs();
+  }
+
+  private fillSlowIn(code: Float32Array, action: number) {
+    this.slowIn.fill(0);
+    this.slowIn.set(code.subarray(0, this.hidden));
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    this.slowIn[this.hidden + a] = 1;
+  }
+
+  private applySlowBias(pred: Float32Array, action: number) {
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const row = a * this.hidden;
+    for (let i = 0; i < this.hidden; i++) {
+      const y = pred[i]! + this.slowBias[row + i]!;
+      pred[i] = y < 0 ? 0 : y > 1 ? 1 : y;
+    }
+    return pred;
+  }
+
+  private learnSlowBias(pred: Float32Array, target: Float32Array, action: number) {
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const row = a * this.hidden;
+    for (let i = 0; i < this.hidden; i++) {
+      let next = this.slowBias[row + i]! - 0.08 * (pred[i]! - target[i]!);
+      if (next > 0.35) next = 0.35;
+      else if (next < -0.35) next = -0.35;
+      this.slowBias[row + i] = next;
+    }
+  }
+
+  /**
+   * One level up: predict the detached latent code, low-passed, not the cells.
+   * Trains only after the level-1 code is compressing, and at a slower rate.
+   */
+  private commitSlow(zt: Float32Array, action: number) {
+    for (let i = 0; i < this.hidden; i++) {
+      this.slowCode[i] = 0.85 * this.slowCode[i]! + 0.15 * zt[i]!;
+    }
+    if (!this.prevSlow) {
+      this.prevSlow = new Float32Array(this.hidden);
+      this.prevSlow.set(this.slowCode);
+      return;
+    }
+    if (this.latentEma >= 0.2) {
+      this.prevSlow.set(this.slowCode);
+      return;
+    }
+    this.fillSlowIn(this.prevSlow, action);
+    const pred = this.slow.forward(this.slowIn, this.slowPred);
+    this.applySlowBias(pred, action);
+    const target = new Float32Array(this.hidden);
+    let s = 0;
+    let mean = 0;
+    for (let i = 0; i < this.hidden; i++) {
+      target[i] = this.slowCode[i]!;
+      mean += target[i]!;
+      const d = pred[i]! - target[i]!;
+      s += d * d;
+    }
+    mean /= this.hidden;
+    let varS = 0;
+    for (let i = 0; i < this.hidden; i++) {
+      const d = target[i]! - mean;
+      varS += d * d;
+    }
+    varS /= this.hidden;
+    this.learnSlowBias(pred, target, action);
+    this.slowSurprise = s / this.hidden;
+    if (varS < 0.004) this.slowSurprise = Math.max(this.slowSurprise, 0.25);
+    this.slowActionEma[action] = 0.8 * this.slowActionEma[action]! + 0.2 * this.slowSurprise;
+    this.slowProgress = this.slowEma - this.slowSurprise;
+    this.slowEma = 0.96 * this.slowEma + 0.04 * this.slowSurprise;
+    this.slow.train(this.slowIn, target, Loop.SLOW_LR);
+    this.slowSteps += 1;
+    this.prevSlow.set(this.slowCode);
+  }
+
+  imagineSlow(action: number, into: Float32Array = this.slowImagined): Float32Array {
+    const src = this.prevSlow ?? this.slowCode;
+    this.fillSlowIn(src, action);
+    this.slow.forward(this.slowIn, into);
+    return this.applySlowBias(into, action);
+  }
+
+  /** Gated slow progress. Zero until both the latent and the slow code are compressing. */
+  slowRho(): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= 0.2) return 0;
+    // Flicker under the gate is not progress. Same floor as the encoder.
+    if (this.slowProgress <= 0.001) return 0;
+    return this.slowProgress;
+  }
+
+  /**
+   * Action-conditional slow rho-hat: drop from the slow ema to this move's
+   * own prediction error. Zero until both codes are compressing.
+   */
+  slowRhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= 0.2 || !this.prevSlow) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    this.imagineSlow(a);
+    const drop = this.slowEma - this.slowActionEma[a]!;
+    if (drop <= 0.005) return 0;
+    return drop;
   }
 
   private noteEncObs(obs: Float32Array) {
@@ -481,6 +625,7 @@ export class Loop {
   exportBrain(): BrainDump {
     const w = this.net.exportWeights();
     const z = this.latent.exportWeights();
+    const zslow = this.slow.exportWeights();
     return {
       ...w,
       ema: this.ema,
@@ -499,6 +644,15 @@ export class Loop {
       proj: Array.from(this.proj),
       latentActBias: Array.from(this.actBias),
       latentActionEma: Array.from(this.actionLatentEma),
+      slowW1: zslow.w1,
+      slowB1: zslow.b1,
+      slowW2: zslow.w2,
+      slowB2: zslow.b2,
+      slowEma: this.slowEma,
+      slowSurprise: this.slowSurprise,
+      slowActBias: Array.from(this.slowBias),
+      slowActionEma: Array.from(this.slowActionEma),
+      slowCode: Array.from(this.slowCode),
     };
   }
 
@@ -525,6 +679,18 @@ export class Loop {
     if (w.proj && w.proj.length === this.proj.length) this.proj.set(w.proj);
     if (w.latentActBias && w.latentActBias.length === this.actBias.length) this.actBias.set(w.latentActBias);
     if (w.latentActionEma && w.latentActionEma.length === this.actionLatentEma.length) this.actionLatentEma.set(w.latentActionEma);
+    if (w.slowW1 && w.slowB1 && w.slowW2 && w.slowB2) {
+      this.slow.importWeights({ w1: w.slowW1, b1: w.slowB1, w2: w.slowW2, b2: w.slowB2 });
+    }
+    this.slowEma = w.slowEma ?? 0.25;
+    this.slowSurprise = w.slowSurprise ?? 0.25;
+    if (w.slowActBias && w.slowActBias.length === this.slowBias.length) this.slowBias.set(w.slowActBias);
+    if (w.slowActionEma && w.slowActionEma.length === this.slowActionEma.length) this.slowActionEma.set(w.slowActionEma);
+    if (w.slowCode && w.slowCode.length === this.slowCode.length) {
+      this.slowCode.set(w.slowCode);
+      if (!this.prevSlow) this.prevSlow = new Float32Array(this.hidden);
+      this.prevSlow.set(this.slowCode);
+    }
     return true;
   }
 }

@@ -215,3 +215,54 @@ test("action-conditional latent ρ̂ pays for the move that predicts a sharper c
   assert.equal(noise.latentRhoHat(0), 0, "incompressible latent must not fund ρ̂");
   assert.equal(noise.latentRhoHat(1), 0, "incompressible latent must not fund ρ̂");
 });
+
+test("slow code predicts the latent, not cells, and stays shut on noise", () => {
+  const acts = 5;
+  const out = 6;
+  const inn = out + acts;
+  const loop = new Loop(inn, 16, out, acts);
+  let paid = 0;
+  let progressed = 0;
+  for (let t = 0; t < 900; t++) {
+    const a = t % 2;
+    const obs = new Float32Array(out);
+    if (a === 0) obs.set([1, 0, 1, 0, 1, 0]);
+    else {
+      const bit = (t >> 1) % 2;
+      obs.set([bit, 1 - bit, bit, 1 - bit, bit, 1 - bit]);
+    }
+    loop.assimilate(obs, 0.12);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + a] = 1;
+    loop.commit(x);
+    if (loop.slowRho() > 0.001) progressed += 1;
+    if (loop.slowRhoHat(a) > 0) paid += 1;
+  }
+  assert.ok(loop.latentEma < 0.2, `level-1 gate never opened: ${loop.latentEma}`);
+  assert.ok(loop.slowSteps > 40, `slow loop idle: ${loop.slowSteps}`);
+  assert.ok(loop.slowEma < 0.05, `slow code did not compress the latent: ${loop.slowEma}`);
+  assert.ok(progressed > 10, `slow progress did not pay while falling: ${progressed}`);
+  assert.ok(paid > 5, `slow ρ̂ paid neither move while falling: ${paid}`);
+  const dumped = loop.exportBrain();
+  const restored = new Loop(inn, 16, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.ok(Math.abs((restored.exportBrain().slowEma ?? 1) - (dumped.slowEma ?? 0)) < 1e-9);
+  assert.ok(
+    Math.abs((restored.exportBrain().slowActionEma?.[1] ?? 1) - (dumped.slowActionEma?.[1] ?? 0)) < 1e-9,
+  );
+
+  const noise = new Loop(inn, 16, out, acts);
+  for (let t = 0; t < 240; t++) {
+    const obs = new Float32Array(out);
+    for (let i = 0; i < out; i++) obs[i] = Math.random();
+    noise.assimilate(obs, 0.08);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + (t % 2)] = 1;
+    noise.commit(x);
+  }
+  assert.equal(noise.slowRho(), 0, "incompressible slow code must not fund ρ");
+  assert.equal(noise.slowRhoHat(0), 0, "incompressible slow code must not fund ρ̂");
+  assert.equal(noise.slowRhoHat(1), 0, "incompressible slow code must not fund ρ̂");
+});

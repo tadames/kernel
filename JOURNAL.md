@@ -86,3 +86,14 @@ The latent predictor was action-blind, so ρ̂ could not score a move. It now co
 
 ### Next hypothesis
 The action channel is live in a toy window. If Field late ema does not fall faster than the action-blind latent, the bias is decoration — keep the trace, drop it from the progress bonus. If Field falls, stack a slower code on this one: predict the latent, not the cells, one level up.
+
+## 2026-10-04 evening (America/New_York)
+
+### What changed
+One improvement: a slower code one level up. It predicts a low-passed copy of the latent, not the cells, and only after the level-1 code is already compressing (`latentEma < 0.2`). Learning rate is 0.12 against the latent predictor's 0.4. Progress and the per-move drop pay only after both codes are compressing, and a 0.001 floor drops flicker. Choose mixes `slowRho` into the progress bonus and adds `slowRhoHat(a)`. Weights, bias, per-action ema, and the slow code save and load. Law 04 / 05 and the Phase 1 note name the stack. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 10/10 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent separation, stop-grad encoder, action-conditional latent, plus "slow code predicts the latent, not cells, and stays shut on noise"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The slow code compresses a toy latent. If Field late ema does not fall faster than the level-1 loop alone, the mix is decoration — keep the trace, drop it from the progress bonus. If Field falls, let a level-1 residual wake the slow step so a surprise downstairs can still move the slower code.

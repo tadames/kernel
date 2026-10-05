@@ -267,11 +267,12 @@ export class Kernel {
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
     const latentRho = this.loop.latentRho();
+    const slowRho = this.loop.slowRho();
     imagineScores({
       acts: ACTS,
       curiosity: this.params.curiosity,
       goal: this.params.goal,
-      progressEma: this.loop.progressEma + 0.35 * latentRho,
+      progressEma: this.loop.progressEma + 0.35 * latentRho + 0.2 * slowRho,
       ema: this.loop.ema,
       imagined: this.imagined,
       imagined2: this.imagined2,
@@ -318,7 +319,7 @@ export class Kernel {
         const tx = R + DIRS[a].x;
         const ty = R + DIRS[a].y;
         const to = a === 4 ? from : ty * VIEW + tx;
-        return this.loop.scentRhoHat(from, to) + this.loop.latentRhoHat(a);
+        return this.loop.scentRhoHat(from, to) + this.loop.latentRhoHat(a) + this.loop.slowRhoHat(a);
       },
     });
     let temp = this.params.temperature;
