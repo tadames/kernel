@@ -97,3 +97,15 @@ One improvement: a slower code one level up. It predicts a low-passed copy of th
 
 ### Next hypothesis
 The slow code compresses a toy latent. If Field late ema does not fall faster than the level-1 loop alone, the mix is decoration — keep the trace, drop it from the progress bonus. If Field falls, let a level-1 residual wake the slow step so a surprise downstairs can still move the slower code.
+
+## 2026-10-05 evening (America/New_York)
+
+### What changed
+One improvement: a level-1 residual can wake the slower code. `commitSlow` still trains after `latentEma < 0.2`. If the latent residual exceeds its ema by 0.06 while that gate is shut, one slow step still runs, at half rate, and counts as `slowWakes`. A wake moves weights and bias only. It does not write slow progress or lower slow ema, so it cannot fund ρ or ρ̂. While the gate is open, the same excess scales the slow rate up to 2×, so a downstairs surprise moves the slower code harder than a quiet step. `slowWakes` saves and loads. Law 04 / 05 and the Phase 1 note name the wake. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 11/11 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent separation, stop-grad encoder, action-conditional latent, slow code, plus "level-1 residual wakes the slow step and does not pay"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no auth copy.
+
+### Next hypothesis
+The wake moves a toy code after a regime shift and does not pay. If Field late ema does not fall faster than the gated slow code alone, the wake is decoration — keep the counter, drop the closed-gate step. If Field falls, let the slow code imagine one step of the latent, so ρ̂ can score a slower window and not only the current code.
+

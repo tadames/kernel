@@ -265,4 +265,46 @@ test("slow code predicts the latent, not cells, and stays shut on noise", () => 
   assert.equal(noise.slowRho(), 0, "incompressible slow code must not fund ρ");
   assert.equal(noise.slowRhoHat(0), 0, "incompressible slow code must not fund ρ̂");
   assert.equal(noise.slowRhoHat(1), 0, "incompressible slow code must not fund ρ̂");
+  assert.equal(noise.slowWakes, 0, "noise residual that tracks its ema must not wake the slow step");
+});
+
+test("level-1 residual wakes the slow step and does not pay", () => {
+  const acts = 5;
+  const out = 6;
+  const inn = out + acts;
+  const loop = new Loop(inn, 16, out, acts);
+  const step = (obs: Float32Array, a: number) => {
+    loop.assimilate(obs, 0.12);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + a] = 1;
+    loop.commit(x);
+  };
+  for (let t = 0; t < 700; t++) {
+    const a = t % 2;
+    const obs = new Float32Array(out);
+    if (a === 0) obs.set([1, 0, 1, 0, 1, 0]);
+    else {
+      const bit = (t >> 1) % 2;
+      obs.set([bit, 1 - bit, bit, 1 - bit, bit, 1 - bit]);
+    }
+    step(obs, a);
+  }
+  assert.ok(loop.latentEma < 0.2, `level-1 gate never opened: ${loop.latentEma}`);
+  assert.equal(loop.slowWakes, 0, "a compressing latent must not count as a wake");
+  const before = loop.slow.exportWeights().w1.reduce((s, v) => s + v, 0);
+  for (let t = 0; t < 80; t++) {
+    const obs = new Float32Array(out);
+    for (let i = 0; i < out; i++) obs[i] = (t * 3 + i * 5) % 2;
+    step(obs, t % 2);
+  }
+  const after = loop.slow.exportWeights().w1.reduce((s, v) => s + v, 0);
+  assert.ok(loop.slowWakes > 0, `downstairs residual did not wake the slow step: ${loop.slowWakes}`);
+  assert.ok(Math.abs(after - before) > 1e-6, "wake did not move the slower code");
+  assert.equal(loop.slowRho(), 0, "a wake while the latent gate is shut must not fund ρ");
+  assert.equal(loop.slowRhoHat(0), 0, "a wake while the latent gate is shut must not fund ρ̂");
+  const dumped = loop.exportBrain();
+  const restored = new Loop(inn, 16, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.exportBrain().slowWakes, dumped.slowWakes);
 });

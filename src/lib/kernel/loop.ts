@@ -14,7 +14,9 @@
  * action-conditional: the code it imagines depends on the move, so rho-hat
  * can score a drop in code residual, not only cells. Cell prediction stays.
  * One level up, a slower loop predicts that latent code, not the cells.
- * Its progress pays only after both codes are compressing.
+ * Its progress pays only after both codes are compressing. A level-1 residual
+ * above its ema wakes that slower step even when the latent gate is shut, so
+ * a surprise downstairs can still move the slower code. The wake does not pay.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -54,6 +56,8 @@ export type BrainDump = {
   slowActionEma?: number[];
   /** Low-passed latent code. Absent on older brains. */
   slowCode?: number[];
+  /** Closed-gate steps woken by a level-1 residual. Absent on older brains. */
+  slowWakes?: number;
 };
 
 export class Loop {
@@ -64,6 +68,8 @@ export class Loop {
   static readonly ENC_LR = 0.08;
   /** Slower than the latent predictor. Predicts the latent code, not cells. */
   static readonly SLOW_LR = 0.12;
+  /** Level-1 residual above its ema by this much wakes a closed slow step. */
+  static readonly SLOW_WAKE = 0.06;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
@@ -120,6 +126,8 @@ export class Loop {
   slowEma = 0.25;
   slowProgress = 0;
   slowSteps = 0;
+  /** Slow steps taken while the latent gate was shut, woken by a downstairs residual. */
+  slowWakes = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -437,7 +445,9 @@ export class Loop {
 
   /**
    * One level up: predict the detached latent code, low-passed, not the cells.
-   * Trains only after the level-1 code is compressing, and at a slower rate.
+   * Trains after the level-1 code is compressing, at a slower rate. A level-1
+   * residual above its ema wakes one step even when that gate is shut, so a
+   * surprise downstairs can still move the slower code. The wake does not pay.
    */
   private commitSlow(zt: Float32Array, action: number) {
     for (let i = 0; i < this.hidden; i++) {
@@ -448,7 +458,9 @@ export class Loop {
       this.prevSlow.set(this.slowCode);
       return;
     }
-    if (this.latentEma >= 0.2) {
+    const excess = this.latentSurprise - this.latentEma;
+    const wake = excess > Loop.SLOW_WAKE;
+    if (this.latentEma >= 0.2 && !wake) {
       this.prevSlow.set(this.slowCode);
       return;
     }
@@ -474,11 +486,16 @@ export class Loop {
     this.learnSlowBias(pred, target, action);
     this.slowSurprise = s / this.hidden;
     if (varS < 0.004) this.slowSurprise = Math.max(this.slowSurprise, 0.25);
-    this.slowActionEma[action] = 0.8 * this.slowActionEma[action]! + 0.2 * this.slowSurprise;
-    this.slowProgress = this.slowEma - this.slowSurprise;
-    this.slowEma = 0.96 * this.slowEma + 0.04 * this.slowSurprise;
-    this.slow.train(this.slowIn, target, Loop.SLOW_LR);
+    const closed = this.latentEma >= 0.2;
+    if (!closed) {
+      this.slowActionEma[action] = 0.8 * this.slowActionEma[action]! + 0.2 * this.slowSurprise;
+      this.slowProgress = this.slowEma - this.slowSurprise;
+      this.slowEma = 0.96 * this.slowEma + 0.04 * this.slowSurprise;
+    }
+    const lr = closed ? Loop.SLOW_LR * 0.5 : Loop.SLOW_LR * (1 + Math.min(1, Math.max(0, excess) / 0.1));
+    this.slow.train(this.slowIn, target, lr);
     this.slowSteps += 1;
+    if (closed) this.slowWakes += 1;
     this.prevSlow.set(this.slowCode);
   }
 
@@ -653,6 +670,7 @@ export class Loop {
       slowActBias: Array.from(this.slowBias),
       slowActionEma: Array.from(this.slowActionEma),
       slowCode: Array.from(this.slowCode),
+      slowWakes: this.slowWakes,
     };
   }
 
@@ -691,6 +709,7 @@ export class Loop {
       if (!this.prevSlow) this.prevSlow = new Float32Array(this.hidden);
       this.prevSlow.set(this.slowCode);
     }
+    this.slowWakes = w.slowWakes ?? 0;
     return true;
   }
 }
