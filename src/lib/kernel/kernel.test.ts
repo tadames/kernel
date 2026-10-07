@@ -308,3 +308,53 @@ test("level-1 residual wakes the slow step and does not pay", () => {
   assert.equal(restored.importBrain(dumped), true);
   assert.equal(restored.exportBrain().slowWakes, dumped.slowWakes);
 });
+
+test("slow window scores one imagined latent step, not only the current code", () => {
+  const acts = 5;
+  const out = 6;
+  const inn = out + acts;
+  const loop = new Loop(inn, 16, out, acts);
+  const step = (obs: Float32Array, a: number) => {
+    loop.assimilate(obs, 0.12);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + a] = 1;
+    loop.commit(x);
+  };
+  for (let t = 0; t < 900; t++) {
+    const a = t % 2;
+    const obs = new Float32Array(out);
+    if (a === 0) obs.set([1, 0, 1, 0, 1, 0]);
+    else {
+      const bit = (t >> 1) % 2;
+      obs.set([bit, 1 - bit, bit, 1 - bit, bit, 1 - bit]);
+    }
+    step(obs, a);
+  }
+  assert.ok(loop.latentEma < 0.2, `level-1 gate never opened: ${loop.latentEma}`);
+  assert.ok(loop.slowEma < 0.2, `slow gate never opened: ${loop.slowEma}`);
+  const window = Math.max(loop.slowWindowRhoHat(0), loop.slowWindowRhoHat(1));
+  assert.ok(window > 0.001, `slower window did not pay: ${window}`);
+  const held = loop.lastHidden.slice();
+  loop.lastHidden.fill(0.5);
+  const collapsed = Math.max(loop.slowWindowRhoHat(0), loop.slowWindowRhoHat(1));
+  loop.lastHidden.set(held);
+  assert.ok(window > collapsed, `collapsed latent still matched the structured window ${window} vs ${collapsed}`);
+  const dumped = loop.exportBrain();
+  const restored = new Loop(inn, 16, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.ok(Math.abs((restored.exportBrain().slowWindow ?? 0) - (dumped.slowWindow ?? 0)) < 1e-9);
+
+  const noise = new Loop(inn, 16, out, acts);
+  for (let t = 0; t < 240; t++) {
+    const obs = new Float32Array(out);
+    for (let i = 0; i < out; i++) obs[i] = Math.random();
+    noise.assimilate(obs, 0.08);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + (t % 2)] = 1;
+    noise.commit(x);
+  }
+  assert.equal(noise.slowWindowRhoHat(0), 0, "incompressible slow window must not fund ρ̂");
+  assert.equal(noise.slowWindowRhoHat(1), 0, "incompressible slow window must not fund ρ̂");
+});

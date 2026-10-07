@@ -109,3 +109,14 @@ One improvement: a level-1 residual can wake the slower code. `commitSlow` still
 ### Next hypothesis
 The wake moves a toy code after a regime shift and does not pay. If Field late ema does not fall faster than the gated slow code alone, the wake is decoration — keep the counter, drop the closed-gate step. If Field falls, let the slow code imagine one step of the latent, so ρ̂ can score a slower window and not only the current code.
 
+
+## 2026-10-06 evening (America/New_York)
+
+### What changed
+One improvement: the slow code imagines one latent step. `slowWindowRhoHat` scores the drop from the residual of the code already in hand to the residual of the low-passed next code under that imagined latent, using the same 0.85/0.15 mix as `commitSlow`. It pays only after both codes are compressing, floors flicker at 0.001, and refuses a collapsed imagined code. It does not write slow progress. Choose adds it beside the current-code `slowRhoHat`. The last paying drop saves and loads as `slowWindow`. Law 04 / 05 and the act stage name the window. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 12/12 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, plus "slow window scores one imagined latent step, not only the current code"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The window pays on a toy latent when the imagined next code is closer to the slow prediction than the code in hand. If Field late ema does not fall faster than the current-code slow ρ̂ alone, the window is decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code imagine a second latent step so ρ̂ can score past a regime the first window still treats as a wall.

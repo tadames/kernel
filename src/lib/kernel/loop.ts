@@ -17,6 +17,8 @@
  * Its progress pays only after both codes are compressing. A level-1 residual
  * above its ema wakes that slower step even when the latent gate is shut, so
  * a surprise downstairs can still move the slower code. The wake does not pay.
+ * ρ̂ can also score one imagined latent step: the slow prediction against the
+ * low-passed next code, not only against the code already in hand.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -58,6 +60,8 @@ export type BrainDump = {
   slowCode?: number[];
   /** Closed-gate steps woken by a level-1 residual. Absent on older brains. */
   slowWakes?: number;
+  /** Last slower-window drop that cleared the floor. Absent on older brains. */
+  slowWindow?: number;
 };
 
 export class Loop {
@@ -128,6 +132,8 @@ export class Loop {
   slowSteps = 0;
   /** Slow steps taken while the latent gate was shut, woken by a downstairs residual. */
   slowWakes = 0;
+  /** Last slower-window drop that cleared the floor. Inspectable, not a reward store. */
+  slowWindow = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -527,6 +533,48 @@ export class Loop {
     return drop;
   }
 
+  /**
+   * Slower window: one imagined latent step under this move, low-passed the
+   * same way commitSlow writes the code. ρ̂ is the drop from the residual of
+   * the current code to the residual of that imagined next code, under the
+   * same slow prediction. Zero until both codes are compressing. A collapsed
+   * imagined code does not pay. This does not write slow progress.
+   */
+  slowWindowRhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= 0.2 || !this.prevSlow) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const z = this.imagineLatent(a);
+    const pred = this.imagineSlow(a);
+    let now = 0;
+    let next = 0;
+    let mean = 0;
+    for (let i = 0; i < this.hidden; i++) {
+      const c = this.slowCode[i]!;
+      const t = 0.85 * c + 0.15 * z[i]!;
+      mean += t;
+      const dNow = pred[i]! - c;
+      const dNext = pred[i]! - t;
+      now += dNow * dNow;
+      next += dNext * dNext;
+    }
+    now /= this.hidden;
+    next /= this.hidden;
+    mean /= this.hidden;
+    let varS = 0;
+    for (let i = 0; i < this.hidden; i++) {
+      const t = 0.85 * this.slowCode[i]! + 0.15 * z[i]!;
+      const d = t - mean;
+      varS += d * d;
+    }
+    varS /= this.hidden;
+    if (varS < 0.004) return 0;
+    const drop = now - next;
+    // Floor matches slow progress. A compressed code lives under the 0.005 action-ema gate.
+    if (drop <= 0.001) return 0;
+    this.slowWindow = drop;
+    return drop;
+  }
+
   private noteEncObs(obs: Float32Array) {
     if (!this.encObsPending) this.encObsPending = new Float32Array(this.out);
     const n = Math.min(obs.length, this.out);
@@ -671,6 +719,7 @@ export class Loop {
       slowActionEma: Array.from(this.slowActionEma),
       slowCode: Array.from(this.slowCode),
       slowWakes: this.slowWakes,
+      slowWindow: this.slowWindow,
     };
   }
 
@@ -710,6 +759,7 @@ export class Loop {
       this.prevSlow.set(this.slowCode);
     }
     this.slowWakes = w.slowWakes ?? 0;
+    this.slowWindow = w.slowWindow ?? 0;
     return true;
   }
 }
