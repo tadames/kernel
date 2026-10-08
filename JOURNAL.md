@@ -120,3 +120,14 @@ One improvement: the slow code imagines one latent step. `slowWindowRhoHat` scor
 
 ### Next hypothesis
 The window pays on a toy latent when the imagined next code is closer to the slow prediction than the code in hand. If Field late ema does not fall faster than the current-code slow ρ̂ alone, the window is decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code imagine a second latent step so ρ̂ can score past a regime the first window still treats as a wall.
+
+## 2026-10-07 evening (America/New_York)
+
+### What changed
+One improvement: the slow code imagines a second latent step. `slowWindow2RhoHat` scores the drop from the residual of the one-step low-passed code to the residual of a second low-passed code, under the same slow prediction. The follow-up is the legal action whose imagined code is closest. It pays only when the first window treats the move as a wall — no drop, or a collapsed one-step code — and a collapsed second code does not pay. It does not write slow progress. Choose adds it beside `slowWindowRhoHat`. The last paying drop saves and loads as `slowWindow2`. Law 04 / 05 and the act stage name the wall gate. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 13/13 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, plus "slow window scores a second latent step past a wall the first window refuses"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The second step pays on a toy wall when a follow-up code is closer to the slow prediction than the refused first step. If Field late ema does not fall faster than the one-step window alone, the second step is decoration — keep the trace, drop it from the progress bonus. If Field falls, gate the second step on `slowEma < 0.12` the way horizon 3 is gated, so an uncalibrated slow code cannot imagine past a wall it has not earned.

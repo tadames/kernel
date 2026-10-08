@@ -18,7 +18,9 @@
  * above its ema wakes that slower step even when the latent gate is shut, so
  * a surprise downstairs can still move the slower code. The wake does not pay.
  * ρ̂ can also score one imagined latent step: the slow prediction against the
- * low-passed next code, not only against the code already in hand.
+ * low-passed next code, not only against the code already in hand. A second
+ * latent step scores past a wall that first window refuses, and does not pay
+ * when the first window already pays.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -62,6 +64,8 @@ export type BrainDump = {
   slowWakes?: number;
   /** Last slower-window drop that cleared the floor. Absent on older brains. */
   slowWindow?: number;
+  /** Second imagined latent step. Absent on brains saved before the wall gate. */
+  slowWindow2?: number;
 };
 
 export class Loop {
@@ -118,6 +122,8 @@ export class Loop {
   private latentNow: Float32Array;
   private latentIn: Float32Array;
   private latentImagined: Float32Array;
+  private latentImagined2: Float32Array;
+  private latentStep: Float32Array;
   /** Clipped per-action shift so the imagined code can leave 1/2. */
   private actBias: Float32Array;
   /** Prediction error of the action-conditional code, per move. */
@@ -134,6 +140,8 @@ export class Loop {
   slowWakes = 0;
   /** Last slower-window drop that cleared the floor. Inspectable, not a reward store. */
   slowWindow = 0;
+  /** Last second-step drop that cleared the floor past a first-window wall. */
+  slowWindow2 = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -176,6 +184,8 @@ export class Loop {
     this.latentNow = new Float32Array(hidden);
     this.latentIn = new Float32Array(hidden + acts);
     this.latentImagined = new Float32Array(hidden);
+    this.latentImagined2 = new Float32Array(hidden);
+    this.latentStep = new Float32Array(hidden);
     this.actBias = new Float32Array(acts * hidden);
     this.actionLatentEma = new Float32Array(acts);
     this.actionLatentEma.fill(0.25);
@@ -353,10 +363,14 @@ export class Loop {
     }
   }
 
-  imagineLatent(action: number, into: Float32Array = this.latentImagined): Float32Array {
-    this.fillLatentIn(this.lastHidden, action);
+  imagineLatentFrom(src: Float32Array, action: number, into: Float32Array): Float32Array {
+    this.fillLatentIn(src, action);
     this.latent.forward(this.latentIn, into);
     return this.applyActBias(into, action);
+  }
+
+  imagineLatent(action: number, into: Float32Array = this.latentImagined): Float32Array {
+    return this.imagineLatentFrom(this.lastHidden, action, into);
   }
 
   /**
@@ -540,39 +554,72 @@ export class Loop {
    * same slow prediction. Zero until both codes are compressing. A collapsed
    * imagined code does not pay. This does not write slow progress.
    */
+  private slowStepResidual(pred: Float32Array, code: Float32Array): { res: number; mean: number; varS: number } {
+    let res = 0;
+    let mean = 0;
+    for (let i = 0; i < this.hidden; i++) {
+      const t = code[i]!;
+      mean += t;
+      const d = pred[i]! - t;
+      res += d * d;
+    }
+    res /= this.hidden;
+    mean /= this.hidden;
+    let varS = 0;
+    for (let i = 0; i < this.hidden; i++) {
+      const d = code[i]! - mean;
+      varS += d * d;
+    }
+    return { res, mean, varS: varS / this.hidden };
+  }
+
   slowWindowRhoHat(action: number): number {
     if (this.latentEma >= 0.2 || this.slowEma >= 0.2 || !this.prevSlow) return 0;
     const a = Math.max(0, Math.min(this.acts - 1, action | 0));
     const z = this.imagineLatent(a);
     const pred = this.imagineSlow(a);
-    let now = 0;
-    let next = 0;
-    let mean = 0;
-    for (let i = 0; i < this.hidden; i++) {
-      const c = this.slowCode[i]!;
-      const t = 0.85 * c + 0.15 * z[i]!;
-      mean += t;
-      const dNow = pred[i]! - c;
-      const dNext = pred[i]! - t;
-      now += dNow * dNow;
-      next += dNext * dNext;
-    }
-    now /= this.hidden;
-    next /= this.hidden;
-    mean /= this.hidden;
-    let varS = 0;
-    for (let i = 0; i < this.hidden; i++) {
-      const t = 0.85 * this.slowCode[i]! + 0.15 * z[i]!;
-      const d = t - mean;
-      varS += d * d;
-    }
-    varS /= this.hidden;
-    if (varS < 0.004) return 0;
-    const drop = now - next;
+    const held = this.slowStepResidual(pred, this.slowCode);
+    const nextCode = new Float32Array(this.hidden);
+    for (let i = 0; i < this.hidden; i++) nextCode[i] = 0.85 * this.slowCode[i]! + 0.15 * z[i]!;
+    const nxt = this.slowStepResidual(pred, nextCode);
+    if (nxt.varS < 0.004) return 0;
+    const drop = held.res - nxt.res;
     // Floor matches slow progress. A compressed code lives under the 0.005 action-ema gate.
     if (drop <= 0.001) return 0;
     this.slowWindow = drop;
     return drop;
+  }
+
+  /**
+   * Second latent step. Pays only when the first window treats this move as a
+   * wall (no drop, or a collapsed one-step code). The follow-up is the legal
+   * action whose low-passed code is closest to the slow prediction. A collapsed
+   * second code does not pay. This does not write slow progress.
+   */
+  slowWindow2RhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= 0.2 || !this.prevSlow) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const z1 = this.imagineLatent(a);
+    this.latentStep.set(z1);
+    const pred = this.imagineSlow(a);
+    const held = this.slowStepResidual(pred, this.slowCode);
+    const step1 = new Float32Array(this.hidden);
+    for (let i = 0; i < this.hidden; i++) step1[i] = 0.85 * this.slowCode[i]! + 0.15 * this.latentStep[i]!;
+    const first = this.slowStepResidual(pred, step1);
+    if (first.varS >= 0.004 && held.res - first.res > 0.001) return 0;
+    let best = 0;
+    for (let b = 0; b < this.acts; b++) {
+      const z2 = this.imagineLatentFrom(this.latentStep, b, this.latentImagined2);
+      const step2 = new Float32Array(this.hidden);
+      for (let i = 0; i < this.hidden; i++) step2[i] = 0.85 * step1[i]! + 0.15 * z2[i]!;
+      const second = this.slowStepResidual(pred, step2);
+      if (second.varS < 0.004) continue;
+      const drop = first.res - second.res;
+      if (drop > best) best = drop;
+    }
+    if (best <= 0.001) return 0;
+    this.slowWindow2 = best;
+    return best;
   }
 
   private noteEncObs(obs: Float32Array) {
@@ -720,6 +767,7 @@ export class Loop {
       slowCode: Array.from(this.slowCode),
       slowWakes: this.slowWakes,
       slowWindow: this.slowWindow,
+      slowWindow2: this.slowWindow2,
     };
   }
 
@@ -760,6 +808,7 @@ export class Loop {
     }
     this.slowWakes = w.slowWakes ?? 0;
     this.slowWindow = w.slowWindow ?? 0;
+    this.slowWindow2 = w.slowWindow2 ?? 0;
     return true;
   }
 }

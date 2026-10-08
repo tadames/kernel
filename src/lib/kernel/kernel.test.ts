@@ -358,3 +358,58 @@ test("slow window scores one imagined latent step, not only the current code", (
   assert.equal(noise.slowWindowRhoHat(0), 0, "incompressible slow window must not fund ρ̂");
   assert.equal(noise.slowWindowRhoHat(1), 0, "incompressible slow window must not fund ρ̂");
 });
+
+test("slow window scores a second latent step past a wall the first window refuses", () => {
+  const acts = 2;
+  const out = 4;
+  const inn = out + acts;
+  const hidden = 8;
+  const loop = new Loop(inn, hidden, out, acts);
+  const brain = loop.exportBrain();
+  brain.latentW1 = brain.latentW1.map(() => 0);
+  brain.latentB1 = brain.latentB1.map(() => 0);
+  brain.latentW2 = brain.latentW2.map(() => 0);
+  brain.latentB2 = brain.latentB2.map(() => 0);
+  brain.slowW1 = (brain.slowW1 ?? []).map(() => 0);
+  brain.slowB1 = (brain.slowB1 ?? []).map(() => 0);
+  brain.slowW2 = (brain.slowW2 ?? []).map(() => 0);
+  brain.slowB2 = (brain.slowB2 ?? []).map(() => 0);
+  brain.latentEma = 0.05;
+  brain.slowEma = 0.05;
+  brain.slowCode = Array.from({ length: hidden }, () => 0);
+  const bias = new Array(acts * hidden).fill(0);
+  // Action 0 imagines a collapsed zero code: the first window is a wall.
+  for (let i = 0; i < hidden; i++) bias[i] = -1;
+  // Action 1 imagines a structured code the slow prediction (½) is closer to.
+  for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 1 : -1;
+  brain.latentActBias = bias;
+  brain.slowActBias = new Array(acts * hidden).fill(0);
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowWindowRhoHat(0), 0, "first window must refuse the collapsed step");
+  const past = loop.slowWindow2RhoHat(0);
+  assert.ok(past > 0.001, `second latent step did not pay past the wall: ${past}`);
+  const dumped = loop.exportBrain();
+  // Same brain, but action 0 now imagines a structured code the first window can score.
+  const open = dumped.latentActBias!.slice();
+  for (let i = 0; i < hidden; i++) open[i] = i % 2 === 0 ? 1 : -1;
+  dumped.latentActBias = open;
+  assert.equal(loop.importBrain(dumped), true);
+  assert.ok(loop.slowWindowRhoHat(0) > 0.001, "control: first window should pay once the step is structured");
+  assert.equal(loop.slowWindow2RhoHat(0), 0, "a paying first window must keep the second step shut");
+  const restored = new Loop(inn, hidden, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.ok(Math.abs((restored.exportBrain().slowWindow2 ?? 0) - (dumped.slowWindow2 ?? 0)) < 1e-9);
+
+  const noise = new Loop(inn, hidden, out, acts);
+  for (let t = 0; t < 80; t++) {
+    const obs = new Float32Array(out);
+    for (let i = 0; i < out; i++) obs[i] = Math.random();
+    noise.assimilate(obs, 0.08);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + (t % 2)] = 1;
+    noise.commit(x);
+  }
+  assert.equal(noise.slowWindow2RhoHat(0), 0, "incompressible second step must not fund ρ̂");
+  assert.equal(noise.slowWindow2RhoHat(1), 0, "incompressible second step must not fund ρ̂");
+});
