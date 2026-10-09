@@ -78,6 +78,8 @@ export class Loop {
   static readonly SLOW_LR = 0.12;
   /** Level-1 residual above its ema by this much wakes a closed slow step. */
   static readonly SLOW_WAKE = 0.06;
+  /** Second slow window stays shut until the slow code has earned the same line as horizon 3. */
+  static readonly SLOW_WINDOW2_EMA = 0.12;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
@@ -592,12 +594,14 @@ export class Loop {
 
   /**
    * Second latent step. Pays only when the first window treats this move as a
-   * wall (no drop, or a collapsed one-step code). The follow-up is the legal
-   * action whose low-passed code is closest to the slow prediction. A collapsed
-   * second code does not pay. This does not write slow progress.
+   * wall (no drop, or a collapsed one-step code) and the slow code is already
+   * under SLOW_WINDOW2_EMA (0.12), the same line as horizon 3. An uncalibrated
+   * slow code cannot imagine past a wall it has not earned. The follow-up is
+   * the legal action whose low-passed code is closest to the slow prediction.
+   * A collapsed second code does not pay. This does not write slow progress.
    */
   slowWindow2RhoHat(action: number): number {
-    if (this.latentEma >= 0.2 || this.slowEma >= 0.2 || !this.prevSlow) return 0;
+    if (this.latentEma >= 0.2 || this.slowEma >= Loop.SLOW_WINDOW2_EMA || !this.prevSlow) return 0;
     const a = Math.max(0, Math.min(this.acts - 1, action | 0));
     const z1 = this.imagineLatent(a);
     this.latentStep.set(z1);

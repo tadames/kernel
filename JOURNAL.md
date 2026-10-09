@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-10-08 evening (America/New_York)
+
+### What changed
+One improvement: the second slow step is gated on `slowEma < 0.12`, the same line as horizon 3. `slowWindow2RhoHat` still pays only when the first window treats the move as a wall, and a collapsed second code still does not pay. An uncalibrated slow code (ema at or above 0.12) now returns 0 and does not write `slowWindow2`. Law 04 / 05, the Phase 1 note, and the act stage name the gate. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 14/14 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, second step past a wall, plus "slow window 2 stays shut until slowEma is under 0.12"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The second step can no longer fund ρ̂ before the slow code has earned the horizon-3 line. If Field late ema does not fall faster than the one-step window alone, the gated second step is still decoration — keep the trace, drop it from the progress bonus. If Field falls, let the follow-up be the action that also lowers the level-1 residual, so the second step cannot pick a code the latent loop would refuse.
+
+
 ## 2026-09-27 evening (America/New_York)
 
 ### What changed

@@ -413,3 +413,35 @@ test("slow window scores a second latent step past a wall the first window refus
   assert.equal(noise.slowWindow2RhoHat(0), 0, "incompressible second step must not fund ρ̂");
   assert.equal(noise.slowWindow2RhoHat(1), 0, "incompressible second step must not fund ρ̂");
 });
+
+test("slow window 2 stays shut until slowEma is under 0.12", () => {
+  const inn = 6;
+  const hidden = 4;
+  const out = 4;
+  const acts = 2;
+  const loop = new Loop(inn, hidden, out, acts);
+  const brain = loop.exportBrain();
+  brain.latentW1 = brain.latentW1.map(() => 0);
+  brain.latentB1 = brain.latentB1.map(() => 0);
+  brain.latentW2 = brain.latentW2.map(() => 0);
+  brain.latentB2 = brain.latentB2.map(() => 0);
+  brain.slowW1 = (brain.slowW1 ?? []).map(() => 0);
+  brain.slowB1 = (brain.slowB1 ?? []).map(() => 0);
+  brain.slowW2 = (brain.slowW2 ?? []).map(() => 0);
+  brain.slowB2 = (brain.slowB2 ?? []).map(() => 0);
+  brain.latentEma = 0.05;
+  brain.slowEma = 0.15;
+  brain.slowCode = Array.from({ length: hidden }, () => 0);
+  const bias = new Array(acts * hidden).fill(0);
+  for (let i = 0; i < hidden; i++) bias[i] = -1;
+  for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 1 : -1;
+  brain.latentActBias = bias;
+  brain.slowActBias = new Array(acts * hidden).fill(0);
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowWindow2RhoHat(0), 0, "uncalibrated slow code must not imagine past the wall");
+  assert.equal(loop.exportBrain().slowWindow2 ?? 0, 0, "a closed gate must not write the second-step trace");
+  brain.slowEma = 0.11;
+  assert.equal(loop.importBrain(brain), true);
+  const past = loop.slowWindow2RhoHat(0);
+  assert.ok(past > 0.001, `second step should pay once slowEma is under the gate: ${past}`);
+});
