@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-10-09 evening (America/New_York)
+
+### What changed
+One improvement: the second slow step’s follow-up must also lower the level-1 residual. In `slowWindow2RhoHat` the candidate action is still the one whose low-passed code is closest to the slow prediction, but only if its `actionLatentEma` is strictly lower than the first action’s. A follow-up the latent loop would refuse (equal or higher residual) returns 0 and does not write `slowWindow2`. Law 04 / 05, the Phase 1 note, and the act stage name the constraint. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 15/15 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, second step past a wall, slowEma gate, plus "slow window 2 follow-up must lower the level-1 residual"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The second step can no longer fund ρ̂ with a code the latent loop would refuse. If Field late ema does not fall faster than the gated one-step window alone, the residual constraint is still decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code itself predict one more step so ρ̂ can score a third latent window under the same residual constraint.
+
+
 ## 2026-10-08 evening (America/New_York)
 
 ### What changed

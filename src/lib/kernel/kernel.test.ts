@@ -384,6 +384,8 @@ test("slow window scores a second latent step past a wall the first window refus
   for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 1 : -1;
   brain.latentActBias = bias;
   brain.slowActBias = new Array(acts * hidden).fill(0);
+  // Action 1 has the lower level-1 residual, so it is eligible as a follow-up.
+  brain.latentActionEma = [0.20, 0.05];
   assert.equal(loop.importBrain(brain), true);
   assert.equal(loop.slowWindowRhoHat(0), 0, "first window must refuse the collapsed step");
   const past = loop.slowWindow2RhoHat(0);
@@ -437,6 +439,7 @@ test("slow window 2 stays shut until slowEma is under 0.12", () => {
   for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 1 : -1;
   brain.latentActBias = bias;
   brain.slowActBias = new Array(acts * hidden).fill(0);
+  brain.latentActionEma = [0.20, 0.05];
   assert.equal(loop.importBrain(brain), true);
   assert.equal(loop.slowWindow2RhoHat(0), 0, "uncalibrated slow code must not imagine past the wall");
   assert.equal(loop.exportBrain().slowWindow2 ?? 0, 0, "a closed gate must not write the second-step trace");
@@ -444,4 +447,41 @@ test("slow window 2 stays shut until slowEma is under 0.12", () => {
   assert.equal(loop.importBrain(brain), true);
   const past = loop.slowWindow2RhoHat(0);
   assert.ok(past > 0.001, `second step should pay once slowEma is under the gate: ${past}`);
+});
+
+test("slow window 2 follow-up must lower the level-1 residual", () => {
+  const acts = 2;
+  const out = 4;
+  const inn = out + acts;
+  const hidden = 8;
+  const loop = new Loop(inn, hidden, out, acts);
+  const brain = loop.exportBrain();
+  brain.latentW1 = brain.latentW1.map(() => 0);
+  brain.latentB1 = brain.latentB1.map(() => 0);
+  brain.latentW2 = brain.latentW2.map(() => 0);
+  brain.latentB2 = brain.latentB2.map(() => 0);
+  brain.slowW1 = (brain.slowW1 ?? []).map(() => 0);
+  brain.slowB1 = (brain.slowB1 ?? []).map(() => 0);
+  brain.slowW2 = (brain.slowW2 ?? []).map(() => 0);
+  brain.slowB2 = (brain.slowB2 ?? []).map(() => 0);
+  brain.latentEma = 0.05;
+  brain.slowEma = 0.05;
+  brain.slowCode = Array.from({ length: hidden }, () => 0);
+  const bias = new Array(acts * hidden).fill(0);
+  // Action 0 imagines a collapsed zero code: the first window is a wall.
+  for (let i = 0; i < hidden; i++) bias[i] = -1;
+  // Action 1 imagines a structured code the slow prediction (½) is closer to.
+  for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 1 : -1;
+  brain.latentActBias = bias;
+  brain.slowActBias = new Array(acts * hidden).fill(0);
+  // Both actions have the same level-1 residual: no follow-up lowers it.
+  brain.latentActionEma = [0.15, 0.15];
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowWindowRhoHat(0), 0, "first window must refuse the collapsed step");
+  assert.equal(loop.slowWindow2RhoHat(0), 0, "second step must not pay when no follow-up lowers the level-1 residual");
+  // Now make action 1 lower the residual. It should pay.
+  brain.latentActionEma = [0.20, 0.05];
+  assert.equal(loop.importBrain(brain), true);
+  const past = loop.slowWindow2RhoHat(0);
+  assert.ok(past > 0.001, `second step should pay once the follow-up lowers level-1 residual: ${past}`);
 });

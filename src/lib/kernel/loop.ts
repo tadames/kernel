@@ -20,7 +20,9 @@
  * ρ̂ can also score one imagined latent step: the slow prediction against the
  * low-passed next code, not only against the code already in hand. A second
  * latent step scores past a wall that first window refuses, and does not pay
- * when the first window already pays.
+ * when the first window already pays. The follow-up is the legal action that
+ * also lowers the level-1 residual, so the second step cannot pick a code the
+ * latent loop would refuse.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -597,8 +599,10 @@ export class Loop {
    * wall (no drop, or a collapsed one-step code) and the slow code is already
    * under SLOW_WINDOW2_EMA (0.12), the same line as horizon 3. An uncalibrated
    * slow code cannot imagine past a wall it has not earned. The follow-up is
-   * the legal action whose low-passed code is closest to the slow prediction.
-   * A collapsed second code does not pay. This does not write slow progress.
+   * the legal action whose low-passed code is closest to the slow prediction
+   * and whose level-1 residual is lower than the first action's, so the second
+   * step cannot pick a code the latent loop would refuse. A collapsed second
+   * code does not pay. This does not write slow progress.
    */
   slowWindow2RhoHat(action: number): number {
     if (this.latentEma >= 0.2 || this.slowEma >= Loop.SLOW_WINDOW2_EMA || !this.prevSlow) return 0;
@@ -612,7 +616,11 @@ export class Loop {
     const first = this.slowStepResidual(pred, step1);
     if (first.varS >= 0.004 && held.res - first.res > 0.001) return 0;
     let best = 0;
+    const firstLevel1 = this.actionLatentEma[a]!;
     for (let b = 0; b < this.acts; b++) {
+      // Follow-up must also lower the level-1 residual. A code the latent
+      // loop would refuse (higher or equal residual) cannot fund the second step.
+      if (this.actionLatentEma[b]! >= firstLevel1 - 0.001) continue;
       const z2 = this.imagineLatentFrom(this.latentStep, b, this.latentImagined2);
       const step2 = new Float32Array(this.hidden);
       for (let i = 0; i < this.hidden; i++) step2[i] = 0.85 * step1[i]! + 0.15 * z2[i]!;
