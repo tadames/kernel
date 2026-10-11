@@ -155,3 +155,14 @@ One improvement: the slow code imagines a second latent step. `slowWindow2RhoHat
 
 ### Next hypothesis
 The second step pays on a toy wall when a follow-up code is closer to the slow prediction than the refused first step. If Field late ema does not fall faster than the one-step window alone, the second step is decoration — keep the trace, drop it from the progress bonus. If Field falls, gate the second step on `slowEma < 0.12` the way horizon 3 is gated, so an uncalibrated slow code cannot imagine past a wall it has not earned.
+
+## 2026-10-10 evening (America/New_York)
+
+### What changed
+One improvement: the slow code itself predicts one more step so ρ̂ can score a third latent window under the same residual constraint. `slowWindow3RhoHat` scores the incremental drop from the best second code to a follow-up whose level-1 residual is lower, and writes `slowWindow3`. It stays shut until `slowEma < 0.12`. Law 04 / 05, the Phase 1 note, and the act stage name the third window. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 16/16 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, second step past a wall, slowEma gate, residual constraint, plus "slow window 3 scores one more step under the residual constraint"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: desktop and mobile 200, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The third step can no longer fund ρ̂ with a code the latent loop would refuse, and only after the slow code has earned the horizon-3 line. If Field late ema does not fall faster than the gated two-step window alone, the third window is still decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code invent its own features (stop-grad encoder on the slow loop) so the hierarchy can choose what to compress one level up.

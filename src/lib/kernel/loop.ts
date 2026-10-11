@@ -22,7 +22,9 @@
  * latent step scores past a wall that first window refuses, and does not pay
  * when the first window already pays. The follow-up is the legal action that
  * also lowers the level-1 residual, so the second step cannot pick a code the
- * latent loop would refuse.
+ * latent loop would refuse. A third latent step scores one more imagined code
+ * under the same residual constraint: its follow-up must lower the level-1
+ * residual relative to the second action.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -68,6 +70,8 @@ export type BrainDump = {
   slowWindow?: number;
   /** Second imagined latent step. Absent on brains saved before the wall gate. */
   slowWindow2?: number;
+  /** Third imagined latent step past a second-window wall. Absent on older brains. */
+  slowWindow3?: number;
 };
 
 export class Loop {
@@ -127,6 +131,7 @@ export class Loop {
   private latentIn: Float32Array;
   private latentImagined: Float32Array;
   private latentImagined2: Float32Array;
+  private latentImagined3: Float32Array;
   private latentStep: Float32Array;
   /** Clipped per-action shift so the imagined code can leave 1/2. */
   private actBias: Float32Array;
@@ -146,6 +151,8 @@ export class Loop {
   slowWindow = 0;
   /** Last second-step drop that cleared the floor past a first-window wall. */
   slowWindow2 = 0;
+  /** Last third-step drop that cleared the floor past a second-window wall. */
+  slowWindow3 = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -189,6 +196,7 @@ export class Loop {
     this.latentIn = new Float32Array(hidden + acts);
     this.latentImagined = new Float32Array(hidden);
     this.latentImagined2 = new Float32Array(hidden);
+    this.latentImagined3 = new Float32Array(hidden);
     this.latentStep = new Float32Array(hidden);
     this.actBias = new Float32Array(acts * hidden);
     this.actionLatentEma = new Float32Array(acts);
@@ -634,6 +642,66 @@ export class Loop {
     return best;
   }
 
+  /**
+   * Third latent window: one more imagined step under the same residual
+   * constraint. Builds from the best second step. The third follow-up must
+   * lower the level-1 residual relative to that second action, so it cannot
+   * pick a code the latent loop would refuse. Pays the incremental drop from
+   * the second code to the third. A collapsed third code does not pay. Stays
+   * shut until slowEma < 0.12. This does not write slow progress.
+   */
+  slowWindow3RhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= Loop.SLOW_WINDOW2_EMA || !this.prevSlow) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const z1 = this.imagineLatent(a);
+    this.latentStep.set(z1);
+    const pred = this.imagineSlow(a);
+    const held = this.slowStepResidual(pred, this.slowCode);
+    const step1 = new Float32Array(this.hidden);
+    for (let i = 0; i < this.hidden; i++) step1[i] = 0.85 * this.slowCode[i]! + 0.15 * this.latentStep[i]!;
+    const first = this.slowStepResidual(pred, step1);
+    if (first.varS >= 0.004 && held.res - first.res > 0.001) return 0;
+    const firstLevel1 = this.actionLatentEma[a]!;
+    let best2 = 0;
+    let best2Action = -1;
+    let best2Step: Float32Array | null = null;
+    let best2Z: Float32Array | null = null;
+    let best2Level1 = Infinity;
+    let best2Res = first.res;
+    for (let b = 0; b < this.acts; b++) {
+      if (this.actionLatentEma[b]! >= firstLevel1 - 0.001) continue;
+      const z2 = this.imagineLatentFrom(this.latentStep, b, this.latentImagined2);
+      const step2 = new Float32Array(this.hidden);
+      for (let i = 0; i < this.hidden; i++) step2[i] = 0.85 * step1[i]! + 0.15 * z2[i]!;
+      const second = this.slowStepResidual(pred, step2);
+      if (second.varS < 0.004) continue;
+      const drop2 = first.res - second.res;
+      if (drop2 > best2) {
+        best2 = drop2;
+        best2Action = b;
+        best2Step = step2;
+        best2Z = z2.slice();
+        best2Level1 = this.actionLatentEma[b]!;
+        best2Res = second.res;
+      }
+    }
+    if (best2Action < 0 || !best2Step || !best2Z) return 0;
+    let best = 0;
+    for (let c = 0; c < this.acts; c++) {
+      if (this.actionLatentEma[c]! >= best2Level1 - 0.001) continue;
+      const z3 = this.imagineLatentFrom(best2Z, c, this.latentImagined3);
+      const step3 = new Float32Array(this.hidden);
+      for (let i = 0; i < this.hidden; i++) step3[i] = 0.85 * best2Step[i]! + 0.15 * z3[i]!;
+      const third = this.slowStepResidual(pred, step3);
+      if (third.varS < 0.004) continue;
+      const drop = best2Res - third.res;
+      if (drop > best) best = drop;
+    }
+    if (best <= 0.001) return 0;
+    this.slowWindow3 = best;
+    return best;
+  }
+
   private noteEncObs(obs: Float32Array) {
     if (!this.encObsPending) this.encObsPending = new Float32Array(this.out);
     const n = Math.min(obs.length, this.out);
@@ -780,6 +848,7 @@ export class Loop {
       slowWakes: this.slowWakes,
       slowWindow: this.slowWindow,
       slowWindow2: this.slowWindow2,
+      slowWindow3: this.slowWindow3,
     };
   }
 
@@ -821,6 +890,7 @@ export class Loop {
     this.slowWakes = w.slowWakes ?? 0;
     this.slowWindow = w.slowWindow ?? 0;
     this.slowWindow2 = w.slowWindow2 ?? 0;
+    this.slowWindow3 = w.slowWindow3 ?? 0;
     return true;
   }
 }

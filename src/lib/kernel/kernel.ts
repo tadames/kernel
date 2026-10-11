@@ -319,7 +319,7 @@ export class Kernel {
         const tx = R + DIRS[a].x;
         const ty = R + DIRS[a].y;
         const to = a === 4 ? from : ty * VIEW + tx;
-        return this.loop.scentRhoHat(from, to) + this.loop.latentRhoHat(a) + this.loop.slowRhoHat(a) + this.loop.slowWindowRhoHat(a) + this.loop.slowWindow2RhoHat(a);
+        return this.loop.scentRhoHat(from, to) + this.loop.latentRhoHat(a) + this.loop.slowRhoHat(a) + this.loop.slowWindowRhoHat(a) + this.loop.slowWindow2RhoHat(a) + this.loop.slowWindow3RhoHat(a);
       },
     });
     let temp = this.params.temperature;
