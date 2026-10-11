@@ -1,3 +1,14 @@
+## 2026-10-10 evening (America/New_York)
+
+### What changed
+One improvement: the slow code scores a third latent window. `slowWindow3RhoHat` imagines one more step from the best second step. The third follow-up must lower the level-1 residual relative to the second action, so it cannot pick a code the latent loop would refuse. It pays the incremental drop from the second code to the third. A collapsed third code does not pay. It stays shut until `slowEma < 0.12`. Choose adds it beside the other windows. The last paying drop saves and loads as `slowWindow3`. Law 04 / 05, the Phase 1 note, and the act stage name the constraint. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 16/16 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, second step past a wall, slowEma gate, residual constraint, plus "slow window 3 scores one more step under the residual constraint"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: page title Kernel, Lab/Bench/Laws/Loop present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The third step pays an incremental drop when a follow-up lowers the level-1 residual and the imagined code is closer to the slow prediction. If Field late ema does not fall faster than the gated two-step window alone, the third step is decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code predict its own next step (not only a latent-imagined code) so ρ̂ can score a window the latent predictor has not already compressed.
+
 # Journal
 
 ## 2026-10-09 evening (America/New_York)
