@@ -25,6 +25,8 @@
  * latent loop would refuse. A third latent step scores one more imagined code
  * under the same residual constraint: its follow-up must lower the level-1
  * residual relative to the second action.
+ * The slow code can also predict its own next step, not only a latent-imagined
+ * code, so ρ̂ can score a window the latent predictor has not already compressed.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -72,6 +74,8 @@ export type BrainDump = {
   slowWindow2?: number;
   /** Third imagined latent step past a second-window wall. Absent on older brains. */
   slowWindow3?: number;
+  /** Self-predicted next step of the slow code. Absent on older brains. */
+  slowSelfWindow?: number;
 };
 
 export class Loop {
@@ -153,11 +157,14 @@ export class Loop {
   slowWindow2 = 0;
   /** Last third-step drop that cleared the floor past a second-window wall. */
   slowWindow3 = 0;
+  /** Last self-window drop that cleared the floor. */
+  slowSelfWindow = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
   private slowIn: Float32Array;
   private slowImagined: Float32Array;
+  private slowImaginedFromBuf: Float32Array;
   private slowBias: Float32Array;
   private slowActionEma: Float32Array;
 
@@ -209,6 +216,7 @@ export class Loop {
     this.slowPred.fill(0.5);
     this.slowIn = new Float32Array(hidden + acts);
     this.slowImagined = new Float32Array(hidden);
+    this.slowImaginedFromBuf = new Float32Array(hidden);
     this.slowBias = new Float32Array(acts * hidden);
     this.slowActionEma = new Float32Array(acts);
     this.slowActionEma.fill(0.25);
@@ -538,6 +546,13 @@ export class Loop {
     return this.applySlowBias(into, action);
   }
 
+  /** Predict the next slow code from an arbitrary source code under `action`. */
+  imagineSlowFrom(src: Float32Array, action: number, into: Float32Array = this.slowImaginedFromBuf): Float32Array {
+    this.fillSlowIn(src, action);
+    this.slow.forward(this.slowIn, into);
+    return this.applySlowBias(into, action);
+  }
+
   /** Gated slow progress. Zero until both the latent and the slow code are compressing. */
   slowRho(): number {
     if (this.latentEma >= 0.2 || this.slowEma >= 0.2) return 0;
@@ -702,6 +717,27 @@ export class Loop {
     return best;
   }
 
+  /**
+   * Self window: the slow code predicts its own next step under this move,
+   * without a latent-imagined code. ρ̂ is the drop from the residual of the
+   * current code to the residual of that self-predicted next code, under a
+   * further slow prediction. Zero until both codes are compressing. A collapsed
+   * self-code does not pay. This does not write slow progress.
+   */
+  slowSelfWindowRhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= 0.2 || !this.prevSlow) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const pred = this.imagineSlow(a);
+    const held = this.slowStepResidual(pred, this.slowCode);
+    const nextPred = this.imagineSlowFrom(pred, a);
+    const nxt = this.slowStepResidual(nextPred, pred);
+    if (nxt.varS < 0.004) return 0;
+    const drop = held.res - nxt.res;
+    if (drop <= 0.001) return 0;
+    this.slowSelfWindow = drop;
+    return drop;
+  }
+
   private noteEncObs(obs: Float32Array) {
     if (!this.encObsPending) this.encObsPending = new Float32Array(this.out);
     const n = Math.min(obs.length, this.out);
@@ -849,6 +885,7 @@ export class Loop {
       slowWindow: this.slowWindow,
       slowWindow2: this.slowWindow2,
       slowWindow3: this.slowWindow3,
+      slowSelfWindow: this.slowSelfWindow,
     };
   }
 
@@ -891,6 +928,7 @@ export class Loop {
     this.slowWindow = w.slowWindow ?? 0;
     this.slowWindow2 = w.slowWindow2 ?? 0;
     this.slowWindow3 = w.slowWindow3 ?? 0;
+    this.slowSelfWindow = w.slowSelfWindow ?? 0;
     return true;
   }
 }

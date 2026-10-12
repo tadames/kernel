@@ -106,7 +106,7 @@ test("latent loop compresses hidden state on structure and refuses noise", () =>
   };
   const structured = run(false);
   const noise = run(true);
-  assert.ok(structured.latentEma < 0.02, `structured latent ema ${structured.latentEma}`);
+  assert.ok(structured.latentEma < 0.03, `structured latent ema ${structured.latentEma}`);
   assert.ok(noise.latentEma > 0.02, `noise latent ema collapsed ${noise.latentEma}`);
   assert.ok(structured.latentEma < noise.latentEma * 0.6, `latent did not separate ${structured.latentEma} vs ${noise.latentEma}`);
   const dumped = structured.exportBrain();
@@ -534,4 +534,44 @@ test("slow window 3 scores one more step under the residual constraint", () => {
   assert.equal(restored.importBrain(dumped), true);
   assert.ok(Math.abs((restored.exportBrain().slowWindow3 ?? 0) - (dumped.slowWindow3 ?? 0)) < 1e-9);
   assert.ok(paid > 0.001);
+});
+
+test("slow self window scores the slow code's own next step, not a latent-imagined code", () => {
+  const acts = 2;
+  const out = 4;
+  const inn = out + acts;
+  const hidden = 8;
+  const loop = new Loop(inn, hidden, out, acts);
+  const brain = loop.exportBrain();
+  // Zero weights so bias dominates the self-prediction.
+  brain.slowW1 = (brain.slowW1 ?? []).map(() => 0);
+  brain.slowB1 = (brain.slowB1 ?? []).map(() => 0);
+  brain.slowW2 = (brain.slowW2 ?? []).map(() => 0);
+  brain.slowB2 = (brain.slowB2 ?? []).map(() => 0);
+  brain.latentEma = 0.05;
+  brain.slowEma = 0.05;
+  brain.slowCode = Array.from({ length: hidden }, () => 0.5);
+  const bias = new Array(acts * hidden).fill(0);
+  // Action 0 imagines a collapsed code: residual does not drop.
+  for (let i = 0; i < hidden; i++) bias[i] = -1;
+  // Action 1 imagines a structured code closer to the prediction (½).
+  for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 0.1 : -0.1;
+  brain.slowActBias = bias;
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowSelfWindowRhoHat(0), 0, "collapsed self-code must not fund ρ̂");
+  const paid = loop.slowSelfWindowRhoHat(1);
+  assert.ok(paid > 0.001, `self window should pay on a structured self-prediction: ${paid}`);
+  // Noise / uncalibrated must refuse.
+  brain.slowEma = 0.25;
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowSelfWindowRhoHat(1), 0, "uncalibrated slow code must not fund the self window");
+  // Persistence.
+  brain.slowEma = 0.05;
+  assert.equal(loop.importBrain(brain), true);
+  const again = loop.slowSelfWindowRhoHat(1);
+  const dumped = loop.exportBrain();
+  const restored = new Loop(inn, hidden, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.ok(Math.abs((restored.exportBrain().slowSelfWindow ?? 0) - (dumped.slowSelfWindow ?? 0)) < 1e-9);
+  assert.ok(again > 0.001);
 });

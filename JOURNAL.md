@@ -1,3 +1,14 @@
+## 2026-10-11 evening (America/New_York)
+
+### What changed
+One improvement: the slow code predicts its own next step. `slowSelfWindowRhoHat` scores the residual drop from the current slow code to the code the slow predictor itself imagines under the action, under a further slow prediction. It does not use a latent-imagined code, so ρ̂ can score a window the latent predictor has not already compressed. A collapsed self-code does not pay. It stays shut until both codes are compressing. Choose adds it beside the latent windows. The last paying drop saves and loads as `slowSelfWindow`. Law 04 / 05, the Phase 1 note, and the act stage name the self-step. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 17/17 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, second step past a wall, slowEma gate, residual constraint, third step, plus "slow self window scores the slow code's own next step, not a latent-imagined code"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: page title Kernel, Lab/Bench/Laws/Loop present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The self window pays an incremental drop when the slow predictor's own next code is closer to its prediction than the code in hand. If Field late ema does not fall faster than the gated latent windows alone, the self step is decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code imagine a second self-step so ρ̂ can score past a wall its own first prediction still treats as a wall.
+
 ## 2026-10-10 evening (America/New_York)
 
 ### What changed
