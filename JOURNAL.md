@@ -188,3 +188,14 @@ One improvement: the slow code itself predicts one more step so ρ̂ can score a
 
 ### Next hypothesis
 The third step can no longer fund ρ̂ with a code the latent loop would refuse, and only after the slow code has earned the horizon-3 line. If Field late ema does not fall faster than the gated two-step window alone, the third window is still decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code invent its own features (stop-grad encoder on the slow loop) so the hierarchy can choose what to compress one level up.
+
+## 2026-10-12 evening (America/New_York)
+
+### What changed
+One improvement: the slow code imagines a second self-step past a wall its own first prediction treats as a wall. `slowSelfWindow2RhoHat` scores the residual drop from the current code to a follow-up self-prediction under a different action, only when the first self-window refused. It stays shut until `slowEma < 0.12`. A collapsed follow-up does not pay. Choose adds it beside the first self-window. The last paying drop saves and loads as `slowSelfWindow2`. Law 04 / 05, the Phase 1 note, and the act stage name the second self-step. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 18/18 pass (prior novelty, streak, ρ̂, horizon-3 gate, latent, encoder, action-conditional latent, slow code, wake, one-step window, second step past a wall, slowEma gate, residual constraint, third step, self window, plus "slow self window 2 scores a second self-step past a wall the first treats as a wall"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: page title Kernel, Lab/Bench/Laws/Loop present, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The second self-step pays an incremental drop when a follow-up action's own next code is closer to its prediction than the first self-prediction that refused. If Field late ema does not fall faster than the gated first self-window alone, the second self-step is decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code invent its own features (stop-grad encoder on the slow loop) so the hierarchy can choose what to compress one level up.

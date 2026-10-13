@@ -575,3 +575,48 @@ test("slow self window scores the slow code's own next step, not a latent-imagin
   assert.ok(Math.abs((restored.exportBrain().slowSelfWindow ?? 0) - (dumped.slowSelfWindow ?? 0)) < 1e-9);
   assert.ok(again > 0.001);
 });
+
+test("slow self window 2 scores a second self-step past a wall the first treats as a wall", () => {
+  const acts = 2;
+  const out = 4;
+  const inn = out + acts;
+  const hidden = 8;
+  const loop = new Loop(inn, hidden, out, acts);
+  const brain = loop.exportBrain();
+  brain.slowW1 = (brain.slowW1 ?? []).map(() => 0);
+  brain.slowB1 = (brain.slowB1 ?? []).map(() => 0);
+  brain.slowW2 = (brain.slowW2 ?? []).map(() => 0);
+  brain.slowB2 = (brain.slowB2 ?? []).map(() => 0);
+  brain.latentEma = 0.05;
+  brain.slowEma = 0.05;
+  brain.slowCode = Array.from({ length: hidden }, () => 0.5);
+  const bias = new Array(acts * hidden).fill(0);
+  // Action 0 imagines a collapsed code: first self-window is a wall.
+  for (let i = 0; i < hidden; i++) bias[i] = -1;
+  // Action 1 imagines a structured code closer to ½ so the second self-step pays.
+  for (let i = 0; i < hidden; i++) bias[hidden + i] = i % 2 === 0 ? 0.1 : -0.1;
+  brain.slowActBias = bias;
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowSelfWindowRhoHat(0), 0, "first self-window must refuse the collapsed step");
+  const past = loop.slowSelfWindow2RhoHat(0);
+  assert.ok(past > 0.001, `second self-step should pay past the wall: ${past}`);
+  // When first already pays, second stays shut.
+  brain.slowActBias = bias.map((v, i) => i < hidden ? (i % 2 === 0 ? 0.1 : -0.1) : v);
+  assert.equal(loop.importBrain(brain), true);
+  assert.ok(loop.slowSelfWindowRhoHat(0) > 0.001, "first should now pay");
+  assert.equal(loop.slowSelfWindow2RhoHat(0), 0, "second self-step must not pay when first already pays");
+  // Uncalibrated gate.
+  brain.slowEma = 0.15;
+  brain.slowActBias = bias;
+  assert.equal(loop.importBrain(brain), true);
+  assert.equal(loop.slowSelfWindow2RhoHat(0), 0, "uncalibrated slow code must not fund the second self-window");
+  // Persistence.
+  brain.slowEma = 0.05;
+  assert.equal(loop.importBrain(brain), true);
+  const paid = loop.slowSelfWindow2RhoHat(0);
+  const dumped = loop.exportBrain();
+  const restored = new Loop(inn, hidden, out, acts);
+  assert.equal(restored.importBrain(dumped), true);
+  assert.ok(Math.abs((restored.exportBrain().slowSelfWindow2 ?? 0) - (dumped.slowSelfWindow2 ?? 0)) < 1e-9);
+  assert.ok(paid > 0.001);
+});

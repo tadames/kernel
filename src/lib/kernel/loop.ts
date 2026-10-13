@@ -27,6 +27,8 @@
  * residual relative to the second action.
  * The slow code can also predict its own next step, not only a latent-imagined
  * code, so ρ̂ can score a window the latent predictor has not already compressed.
+ * A second self-step scores past a wall that first self-prediction treats as a
+ * wall, and only after slowEma < 0.12.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -76,6 +78,8 @@ export type BrainDump = {
   slowWindow3?: number;
   /** Self-predicted next step of the slow code. Absent on older brains. */
   slowSelfWindow?: number;
+  /** Second self-step past a first self-window wall. Absent on older brains. */
+  slowSelfWindow2?: number;
 };
 
 export class Loop {
@@ -159,6 +163,8 @@ export class Loop {
   slowWindow3 = 0;
   /** Last self-window drop that cleared the floor. */
   slowSelfWindow = 0;
+  /** Last second self-step drop that cleared the floor past a first self-window wall. */
+  slowSelfWindow2 = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -738,6 +744,36 @@ export class Loop {
     return drop;
   }
 
+  /**
+   * Second self window: one more self-step past a wall the first self-prediction
+   * treats as a wall. From the first predicted code, imagines a follow-up action
+   * whose own self-next drops the residual further. Pays only when the first
+   * self-window refused. Stays shut until slowEma < 0.12. A collapsed follow-up
+   * does not pay. This does not write slow progress.
+   */
+  slowSelfWindow2RhoHat(action: number): number {
+    if (this.latentEma >= 0.2 || this.slowEma >= Loop.SLOW_WINDOW2_EMA || !this.prevSlow) return 0;
+    const a = Math.max(0, Math.min(this.acts - 1, action | 0));
+    const pred = this.imagineSlow(a);
+    const held = this.slowStepResidual(pred, this.slowCode);
+    const nextPred = this.imagineSlowFrom(pred, a);
+    const first = this.slowStepResidual(nextPred, pred);
+    if (first.varS >= 0.004 && held.res - first.res > 0.001) return 0;
+    let best = 0;
+    for (let b = 0; b < this.acts; b++) {
+      if (b === a) continue;
+      const furtherPred = this.imagineSlowFrom(pred, b);
+      const furtherNext = this.imagineSlowFrom(furtherPred, b);
+      const sec = this.slowStepResidual(furtherNext, furtherPred);
+      if (sec.varS < 0.004) continue;
+      const drop = held.res - sec.res;
+      if (drop > best) best = drop;
+    }
+    if (best <= 0.001) return 0;
+    this.slowSelfWindow2 = best;
+    return best;
+  }
+
   private noteEncObs(obs: Float32Array) {
     if (!this.encObsPending) this.encObsPending = new Float32Array(this.out);
     const n = Math.min(obs.length, this.out);
@@ -886,6 +922,7 @@ export class Loop {
       slowWindow2: this.slowWindow2,
       slowWindow3: this.slowWindow3,
       slowSelfWindow: this.slowSelfWindow,
+      slowSelfWindow2: this.slowSelfWindow2,
     };
   }
 
@@ -929,6 +966,7 @@ export class Loop {
     this.slowWindow2 = w.slowWindow2 ?? 0;
     this.slowWindow3 = w.slowWindow3 ?? 0;
     this.slowSelfWindow = w.slowSelfWindow ?? 0;
+    this.slowSelfWindow2 = w.slowSelfWindow2 ?? 0;
     return true;
   }
 }
