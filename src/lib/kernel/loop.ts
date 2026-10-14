@@ -14,6 +14,9 @@
  * action-conditional: the code it imagines depends on the move, so rho-hat
  * can score a drop in code residual, not only cells. Cell prediction stays.
  * One level up, a slower loop predicts that latent code, not the cells.
+ * The slow code invents its own features: a stop-grad encoder projects the
+ * latent into the slow space. The encoder steps only when the slow code is
+ * compressing, and the predictor cannot move the target it is scored against.
  * Its progress pays only after both codes are compressing. A level-1 residual
  * above its ema wakes that slower step even when the latent gate is shut, so
  * a surprise downstairs can still move the slower code. The wake does not pay.
@@ -53,6 +56,8 @@ export type BrainDump = {
   latentSurprise: number;
   /** Slow encoder. Absent on brains saved before the projection was learned. */
   proj?: number[];
+  /** Slow encoder projection. Absent on brains saved before the slow features were learned. */
+  slowProj?: number[];
   /** Action bias on the latent code. Absent on brains saved before action conditioning. */
   latentActBias?: number[];
   /** Per-action latent prediction error. Absent on older brains. */
@@ -135,6 +140,10 @@ export class Loop {
   private sideEma = 0.25;
   /** Slow encoder. Stop-grad target; steps only when the latent is compressing. */
   private proj: Float32Array;
+  /** Slow encoder. Stop-grad target; steps only when the slow code is compressing. */
+  private slowProj: Float32Array;
+  slowEncoderSteps = 0;
+  private prevZt: Float32Array | null = null;
   private latentNow: Float32Array;
   private latentIn: Float32Array;
   private latentImagined: Float32Array;
@@ -205,6 +214,13 @@ export class Loop {
     this.proj = new Float32Array(hidden * out);
     const ap = Math.sqrt(2 / out);
     for (let i = 0; i < this.proj.length; i++) this.proj[i] = (Math.random() * 2 - 1) * ap;
+    this.slowProj = new Float32Array(hidden * hidden);
+    for (let i = 0; i < this.hidden; i++) {
+      for (let j = 0; j < this.hidden; j++) {
+        const idx = i * this.hidden + j;
+        this.slowProj[idx] = i === j ? 1 : 0;
+      }
+    }
     this.latentNow = new Float32Array(hidden);
     this.latentIn = new Float32Array(hidden + acts);
     this.latentImagined = new Float32Array(hidden);
@@ -329,6 +345,42 @@ export class Loop {
       }
     }
     this.encoderSteps += 1;
+  }
+
+  private projectSlow(code: Float32Array, into: Float32Array) {
+    for (let i = 0; i < this.hidden; i++) {
+      let s = 0;
+      const row = i * this.hidden;
+      for (let j = 0; j < this.hidden; j++) s += this.slowProj[row + j] * code[j]!;
+      // Residual so the identity init is exact, and features are invented gradually.
+      const mixed = code[i]! + 0.01 * (s - code[i]!);
+      into[i] = mixed < 0 ? 0 : mixed > 1 ? 1 : mixed;
+    }
+    return into;
+  }
+
+  /**
+   * Stop-grad slow encoder step. The slow predictor's residual does not move
+   * the projection. Steps only after slow progress, so noise does not rewrite
+   * the features the hierarchy chooses to compress.
+   */
+  private learnSlowEncoder() {
+    if (!this.prevZt || !this.prevSlow) return;
+    if (this.slowEma >= 0.2 || this.slowProgress <= 0.01 || this.latentEma >= 0.2) return;
+    const x = this.prevZt;
+    const lr = Loop.ENC_LR * 0.5;
+    for (let i = 0; i < this.hidden; i++) {
+      const z = this.prevSlow[i]!;
+      const row = i * this.hidden;
+      for (let j = 0; j < this.hidden; j++) {
+        const w = this.slowProj[row + j]!;
+        let next = w * 0.998 + lr * z * (x[j]! - 0.5);
+        if (next > 1.5) next = 1.5;
+        else if (next < -1.5) next = -1.5;
+        this.slowProj[row + j] = next;
+      }
+    }
+    this.slowEncoderSteps += 1;
   }
 
   /** Action one-hot lives just past the observation in the committed input. */
@@ -490,24 +542,30 @@ export class Loop {
   }
 
   /**
-   * One level up: predict the detached latent code, low-passed, not the cells.
-   * Trains after the level-1 code is compressing, at a slower rate. A level-1
-   * residual above its ema wakes one step even when that gate is shut, so a
-   * surprise downstairs can still move the slower code. The wake does not pay.
+   * One level up: predict the encoded latent code, low-passed, not the cells.
+   * The slow encoder invents the features. Trains after the level-1 code is
+   * compressing, at a slower rate. A level-1 residual above its ema wakes one
+   * step even when that gate is shut, so a surprise downstairs can still move
+   * the slower code. The wake does not pay.
    */
   private commitSlow(zt: Float32Array, action: number) {
+    const encoded = new Float32Array(this.hidden);
+    this.projectSlow(zt, encoded);
     for (let i = 0; i < this.hidden; i++) {
-      this.slowCode[i] = 0.85 * this.slowCode[i]! + 0.15 * zt[i]!;
+      this.slowCode[i] = 0.85 * this.slowCode[i]! + 0.15 * encoded[i]!;
     }
     if (!this.prevSlow) {
       this.prevSlow = new Float32Array(this.hidden);
       this.prevSlow.set(this.slowCode);
+      this.prevZt = new Float32Array(this.hidden);
+      this.prevZt.set(zt);
       return;
     }
     const excess = this.latentSurprise - this.latentEma;
     const wake = excess > Loop.SLOW_WAKE;
     if (this.latentEma >= 0.2 && !wake) {
       this.prevSlow.set(this.slowCode);
+      if (this.prevZt) this.prevZt.set(zt);
       return;
     }
     this.fillSlowIn(this.prevSlow, action);
@@ -542,7 +600,10 @@ export class Loop {
     this.slow.train(this.slowIn, target, lr);
     this.slowSteps += 1;
     if (closed) this.slowWakes += 1;
+    this.learnSlowEncoder();
     this.prevSlow.set(this.slowCode);
+    if (!this.prevZt) this.prevZt = new Float32Array(this.hidden);
+    this.prevZt.set(zt);
   }
 
   imagineSlow(action: number, into: Float32Array = this.slowImagined): Float32Array {
@@ -906,6 +967,7 @@ export class Loop {
       latentEma: this.latentEma,
       latentSurprise: this.latentSurprise,
       proj: Array.from(this.proj),
+      slowProj: Array.from(this.slowProj),
       latentActBias: Array.from(this.actBias),
       latentActionEma: Array.from(this.actionLatentEma),
       slowW1: zslow.w1,
@@ -947,6 +1009,7 @@ export class Loop {
     this.latentEma = w.latentEma ?? 0.25;
     this.latentSurprise = w.latentSurprise ?? 0.25;
     if (w.proj && w.proj.length === this.proj.length) this.proj.set(w.proj);
+    if (w.slowProj && w.slowProj.length === this.slowProj.length) this.slowProj.set(w.slowProj);
     if (w.latentActBias && w.latentActBias.length === this.actBias.length) this.actBias.set(w.latentActBias);
     if (w.latentActionEma && w.latentActionEma.length === this.actionLatentEma.length) this.actionLatentEma.set(w.latentActionEma);
     if (w.slowW1 && w.slowB1 && w.slowW2 && w.slowB2) {

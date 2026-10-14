@@ -620,3 +620,29 @@ test("slow self window 2 scores a second self-step past a wall the first treats 
   assert.ok(Math.abs((restored.exportBrain().slowSelfWindow2 ?? 0) - (dumped.slowSelfWindow2 ?? 0)) < 1e-9);
   assert.ok(paid > 0.001);
 });
+
+test("slow encoder invents features on structure and stays put on noise", () => {
+  const acts = 5;
+  const out = 6;
+  const inn = out + acts;
+  const hidden = 16;
+  const loop = new Loop(inn, hidden, out, acts);
+  const start = Array.from(loop.exportBrain().slowProj ?? []);
+  for (let t = 0; t < 400; t++) {
+    const a = t % 2;
+    const obs = new Float32Array(out);
+    if (a === 0) obs.set([1, 0, 1, 0, 1, 0]);
+    else {
+      const bit = (t >> 1) % 2;
+      obs.set([bit, 1 - bit, bit, 1 - bit, bit, 1 - bit]);
+    }
+    loop.assimilate(obs, 0.12);
+    const x = new Float32Array(inn);
+    x.set(obs);
+    x[out + a] = 1;
+    loop.commit(x);
+  }
+  assert.ok(loop.slowEncoderSteps > 5, `slow encoder idle on structure: ${loop.slowEncoderSteps}`);
+  const moved = Array.from(loop.exportBrain().slowProj ?? []).some((w, i) => Math.abs(w - start[i]) > 0.01);
+  assert.ok(moved, "slow encoder did not move on structure");
+});

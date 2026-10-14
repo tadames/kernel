@@ -199,3 +199,14 @@ One improvement: the slow code imagines a second self-step past a wall its own f
 
 ### Next hypothesis
 The second self-step pays an incremental drop when a follow-up action's own next code is closer to its prediction than the first self-prediction that refused. If Field late ema does not fall faster than the gated first self-window alone, the second self-step is decoration — keep the trace, drop it from the progress bonus. If Field falls, let the slow code invent its own features (stop-grad encoder on the slow loop) so the hierarchy can choose what to compress one level up.
+
+## 2026-10-13 evening (America/New_York)
+
+### What changed
+One improvement: the slow code invents its own features. A stop-grad encoder projects the latent code into the slow space. The projection starts as identity so the prior slow code is unchanged at step 0, then a residual mix (1%) lets features accumulate. The encoder steps only when both the latent and the slow code are compressing (slowEma < 0.2, latentEma < 0.2, slowProgress > 0.001). The predictor cannot move the projection. Law 04 / 05 and the Phase 1 note name the slow encoder. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 19/19 pass (prior 18 plus "slow encoder invents features on structure and stays put on noise"). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: page title Kernel, Lab/Bench/Laws/Loop present, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The residual mix is small so the encoder can invent without immediately rewriting the code the slow predictor already compresses. If Field late ema does not fall faster than the gated self-windows alone, the invented features are still decoration — keep the trace, drop the mix. If Field falls, raise the mix and let the slow encoder choose a lower-dimensional code so the hierarchy can compress one level up more aggressively.
