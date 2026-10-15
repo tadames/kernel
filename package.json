@@ -16,9 +16,11 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts",
+    "test": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts src/lib/kernel/measure.test.ts",
     "test:platform": "node --test 'scripts/**/*.test.mjs'",
     "bench:json": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/bench.ts",
+    "sweep": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/sweep.ts",
+    "gate": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/gate.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

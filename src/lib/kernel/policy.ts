@@ -108,6 +108,12 @@ export function imagineScores(opts: {
   progressBonus?: (a: number, pred: Float32Array) => number;
   /** Gate the third imagined window until the model is calibrated. */
   horizon3Ema?: number;
+  /**
+   * Add the imagined residual drop to rho-hat. On for the rho signal.
+   * Baselines leave it off so their bonus is only the curiosity term.
+   * Omitted means on, which is the historical rho path.
+   */
+  horizonRho?: boolean;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -115,6 +121,7 @@ export function imagineScores(opts: {
   const twoStep = Boolean(opts.predictFrom && opts.readPred && opts.imagined2);
   const emaGate = opts.horizon3Ema ?? 0.12;
   const threeStep = twoStep && Boolean(opts.imagined3) && opts.ema < emaGate;
+  const horizonRho = opts.horizonRho !== false;
 
   for (let a = 0; a < opts.acts; a++) {
     const pred = opts.predict(a, opts.imagined[a]);
@@ -140,7 +147,7 @@ export function imagineScores(opts: {
           }
         }
       }
-      rhoHat += Math.max(0, res1 - bestRes2);
+      if (horizonRho) rhoHat += Math.max(0, res1 - bestRes2);
       let best3 = 0;
       if (threeStep && bestPred2) {
         let best3v = -Infinity;
@@ -156,7 +163,7 @@ export function imagineScores(opts: {
           }
         }
         best3 = best3v;
-        rhoHat += Math.max(0, bestRes2 - bestRes3);
+        if (horizonRho) rhoHat += Math.max(0, bestRes2 - bestRes3);
       }
       const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
       opts.scores[a] = score1 + disc * confidence * best2 + disc * disc * confidence * best3;

@@ -22,3 +22,18 @@ jobs:
           bytes=$(wc -c < src/lib/kernel/loop.ts)
           echo "loop.ts ${bytes} bytes"
           test "$bytes" -ge 2048
+
+  ablation-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Probe gate for kernel mechanism changes
+        run: npm run gate -- --ci

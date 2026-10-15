@@ -1,0 +1,240 @@
+{
+  "date": "2026-10-15T21:38:10.251Z",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "steps": 280,
+  "flags": [
+    "encoderMix",
+    "wake",
+    "latentRho",
+    "slowRho",
+    "slowRhoHat",
+    "slowWindow2",
+    "slowSelfWindow"
+  ],
+  "results": [
+    {
+      "flag": "encoderMix",
+      "hypothesis": "On Field, seeds 1–20, encoderMix on lowers late held-out probe error versus encoderMix off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.2350286230463347,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "n": 20,
+        "excludesZero": false
+      },
+      "lives": {
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [0.0000, 0.0000]; on must be lower and the interval must exclude zero"
+      ]
+    },
+    {
+      "flag": "wake",
+      "hypothesis": "On Field, seeds 1–20, wake on lowers late held-out probe error versus wake off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.2350286230463347,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "n": 20,
+        "excludesZero": false
+      },
+      "lives": {
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [0.0000, 0.0000]; on must be lower and the interval must exclude zero"
+      ]
+    },
+    {
+      "flag": "latentRho",
+      "hypothesis": "On Field, seeds 1–20, latentRho on lowers late held-out probe error versus latentRho off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.23483801967417786,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": -0.00019060337215683342,
+        "lo": -0.00036843640455340584,
+        "hi": -0.000037627986194936625,
+        "n": 20,
+        "excludesZero": true
+      },
+      "lives": {
+        "mean": 0.1,
+        "lo": 0,
+        "hi": 0.25,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [-0.0004, -0.0000]; on must be lower and the interval must exclude zero"
+      ]
+    },
+    {
+      "flag": "slowRho",
+      "hypothesis": "On Field, seeds 1–20, slowRho on lowers late held-out probe error versus slowRho off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.23487499315152652,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": -0.00015362989480820904,
+        "lo": -0.0003772238840167974,
+        "hi": 0.00007181659118956768,
+        "n": 20,
+        "excludesZero": false
+      },
+      "lives": {
+        "mean": 0.1,
+        "lo": -0.15,
+        "hi": 0.35,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [-0.0004, 0.0001]; on must be lower and the interval must exclude zero"
+      ]
+    },
+    {
+      "flag": "slowRhoHat",
+      "hypothesis": "On Field, seeds 1–20, slowRhoHat on lowers late held-out probe error versus slowRhoHat off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.23479546692029435,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": -0.00023315612604036666,
+        "lo": -0.0004518165002940902,
+        "hi": -0.00002525859441795675,
+        "n": 20,
+        "excludesZero": true
+      },
+      "lives": {
+        "mean": 0,
+        "lo": -0.3,
+        "hi": 0.25,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [-0.0005, -0.0000]; on must be lower and the interval must exclude zero"
+      ]
+    },
+    {
+      "flag": "slowWindow2",
+      "hypothesis": "On Field, seeds 1–20, slowWindow2 on lowers late held-out probe error versus slowWindow2 off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.23500844565242773,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": -0.000020177393906956054,
+        "lo": -0.00006087415416115433,
+        "hi": 0.0000011918002584349053,
+        "n": 20,
+        "excludesZero": false
+      },
+      "lives": {
+        "mean": -0.05,
+        "lo": -0.15,
+        "hi": 0,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [-0.0001, 0.0000]; on must be lower and the interval must exclude zero"
+      ]
+    },
+    {
+      "flag": "slowSelfWindow",
+      "hypothesis": "On Field, seeds 1–20, slowSelfWindow on lowers late held-out probe error versus slowSelfWindow off, with the other kept defaults unchanged.",
+      "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
+      "pass": false,
+      "probeOff": 0.23500724585601387,
+      "probeOn": 0.2350286230463347,
+      "diff": {
+        "mean": -0.000021377190320784335,
+        "lo": -0.0001510858383634753,
+        "hi": 0.00010142357497174847,
+        "n": 20,
+        "excludesZero": false
+      },
+      "lives": {
+        "mean": 0.15,
+        "lo": -0.05,
+        "hi": 0.35,
+        "n": 20,
+        "excludesZero": false
+      },
+      "g2On": 20,
+      "g2Off": 20,
+      "c2On": 20,
+      "c2Off": 20,
+      "reasons": [
+        "probe CI of (off − on) is [-0.0002, 0.0001]; on must be lower and the interval must exclude zero"
+      ]
+    }
+  ]
+}

@@ -32,6 +32,10 @@
   "include": [
     "src",
     "server",
-    "scripts/bench.ts"
+    "scripts/bench.ts",
+    "scripts/sweep.ts",
+    "scripts/gate.ts",
+    "scripts/pool.ts",
+    "scripts/episode-worker.ts"
   ]
 }

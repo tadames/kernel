@@ -1,5 +1,95 @@
 # Journal
 
+## 2026-10-15 probe instrument (America/New_York)
+
+The 5% on-policy ema rule is retired before this run. G1 moves to a fixed held-out probe. The blocks below are the preregistration. They were written before `npm run gate`. Results are filled in after that command, not before.
+
+Leave-one-out from the kept defaults, Field, seeds 1–20, rho learner, canonical map, frozen probe at step 280. Other flags stay at the defaults that were on when the run started.
+
+### Preregister encoderMix
+
+- hypothesis: On Field, seeds 1–20, encoderMix on lowers late held-out probe error versus encoderMix off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister wake
+
+- hypothesis: On Field, seeds 1–20, wake on lowers late held-out probe error versus wake off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister latentRho
+
+- hypothesis: On Field, seeds 1–20, latentRho on lowers late held-out probe error versus latentRho off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister slowRho
+
+- hypothesis: On Field, seeds 1–20, slowRho on lowers late held-out probe error versus slowRho off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister slowRhoHat
+
+- hypothesis: On Field, seeds 1–20, slowRhoHat on lowers late held-out probe error versus slowRhoHat off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister slowWindow2
+
+- hypothesis: On Field, seeds 1–20, slowWindow2 on lowers late held-out probe error versus slowWindow2 off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister slowSelfWindow
+
+- hypothesis: On Field, seeds 1–20, slowSelfWindow on lowers late held-out probe error versus slowSelfWindow off, with the other kept defaults unchanged.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Results
+
+The gate ran after the preregistration above, on the defaults that were on that morning (encoderMix, wake, latentRho, slowRho, slowRhoHat, slowWindow2, slowSelfWindow). Seeds 1–20, Field, canonical map, frozen probe at step 280. Positive diff would mean on has lower probe error. None did. All seven are reverted (default off, code kept). G2 was 20/20 and C2 was 20/20 on every arm. Lives did not rise. Source: `bench/gate.json`.
+
+| flag | probe on | probe off | off − on | 95% CI | decision |
+|---|---:|---:|---:|---|---|
+| encoderMix | 0.2350 | 0.2350 | 0.0000 | [0.0000, 0.0000] | revert — exact tie (slowEncoder is off, so the mix does not run) |
+| wake | 0.2350 | 0.2350 | 0.0000 | [0.0000, 0.0000] | revert — exact tie |
+| latentRho | 0.2350 | 0.2348 | −0.0002 | [−0.0004, −0.0000] | revert — on is worse |
+| slowRho | 0.2350 | 0.2349 | −0.0002 | [−0.0004, 0.0001] | revert — CI includes zero |
+| slowRhoHat | 0.2350 | 0.2348 | −0.0002 | [−0.0005, −0.0000] | revert — on is worse |
+| slowWindow2 | 0.2350 | 0.2350 | −0.0000 | [−0.0001, 0.0000] | revert — CI includes zero |
+| slowSelfWindow | 0.2350 | 0.2350 | −0.0000 | [−0.0002, 0.0001] | revert — CI includes zero |
+
+The five-signal sweep ran after that reversion, so rho is the cell-loop compression signal with those terms out of the bonus. 20 seeds, Field and Rooms, 280 steps. Probe error is lower-better. G1 needs probe late < 0.85 × probe early (about 0.213 here) or probe late < 0.14. Every signal is 0/20. Source: `bench/sweep.md`.
+
+| env | signal | probe early | probe late | on-policy ema | distinct cells | state entropy | foods | G1 |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| field | random | 0.251 | 0.236 [0.234, 0.238] | 0.237 [0.234, 0.239] | 53.5 [48.7, 58.5] | 5.28 [5.11, 5.44] | 3.85 [2.95, 4.75] | 0/20 |
+| field | count | 0.251 | 0.235 [0.233, 0.236] | 0.236 [0.233, 0.238] | 128.3 [123.5, 133.0] | 6.79 [6.70, 6.86] | 16.10 [14.45, 17.80] | 0/20 |
+| field | surprise | 0.251 | 0.235 [0.233, 0.237] | 0.236 [0.234, 0.239] | 96.9 [91.0, 102.5] | 6.19 [6.08, 6.29] | 9.70 [8.55, 10.95] | 0/20 |
+| field | rnd | 0.251 | 0.235 [0.233, 0.236] | 0.236 [0.234, 0.238] | 82.3 [76.2, 88.8] | 5.96 [5.84, 6.08] | 9.15 [7.65, 10.70] | 0/20 |
+| field | rho | 0.251 | 0.235 [0.233, 0.237] | 0.236 [0.234, 0.239] | 72.2 [67.8, 75.8] | 5.76 [5.65, 5.84] | 6.95 [5.90, 8.05] | 0/20 |
+| rooms | random | 0.252 | 0.234 [0.231, 0.237] | 0.236 [0.232, 0.239] | 54.4 [50.5, 58.5] | 5.36 [5.25, 5.47] | 4.75 [4.10, 5.40] | 0/20 |
+| rooms | count | 0.252 | 0.234 [0.231, 0.237] | 0.235 [0.233, 0.238] | 128.6 [122.8, 133.5] | 6.79 [6.71, 6.86] | 15.70 [13.90, 17.40] | 0/20 |
+| rooms | surprise | 0.252 | 0.234 [0.231, 0.237] | 0.235 [0.233, 0.238] | 83.1 [75.6, 90.2] | 5.94 [5.77, 6.08] | 8.70 [7.20, 10.20] | 0/20 |
+| rooms | rnd | 0.252 | 0.234 [0.231, 0.237] | 0.234 [0.231, 0.237] | 73.2 [66.9, 79.8] | 5.76 [5.63, 5.89] | 7.80 [6.65, 9.15] | 0/20 |
+| rooms | rho | 0.252 | 0.234 [0.231, 0.237] | 0.234 [0.232, 0.236] | 62.9 [57.3, 68.3] | 5.60 [5.46, 5.73] | 6.05 [5.25, 6.85] | 0/20 |
+
+Rho does not beat the baselines. On Field its probe error is tied with count, surprise, and RND (every paired CI includes zero) and it only beats random, by about 0.001. On Rooms no pair separates. Count covers about twice as many cells as rho and eats about twice the food. Surprise and RND sit between them. The on-policy ema matches the probe, so this is not a dark-room fake: neither number falls through the G1 line. G1 stays open. The threshold was not loosened.
+
+### Next hypothesis
+
+Do not put another curiosity term on the bonus. The probe says the cell predictor is barely moving, and rho is not the reason the body eats. The next run should take open problem 3 in `RESEARCH.md` — credit assignment longer than one imagination step — behind a flag, preregister it, and gate it on probe late error over at least 20 seeds. If the CI does not clear, leave it off.
+
 ## 2026-10-15 evening (America/New_York)
 
 ### What changed

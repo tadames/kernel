@@ -1,11 +1,15 @@
 /**
  * Seeded measurements for the nightly job.
- * One Field life supplies G1, foods, lives, and the C2 band.
+ * One Field life supplies G1 (held-out probe), on-policy ema, foods, lives, and the C2 band.
+ * The map is the canonical Field. The episode seed reseeds weights and the policy RNG.
  * Math.random is reseeded before every episode so a flag flip is the only change.
  */
 import { Kernel } from "./kernel.ts";
 import { StreamKernel, type StreamKind } from "./stream.ts";
 import { mulberry32 } from "./presets.ts";
+import { CANONICAL_ENV } from "./env.ts";
+import { PROBE_EARLY_STEP } from "./probe.ts";
+import { loadCanonicalProbe } from "./probe-file.ts";
 import {
   LOOP_FEATURE_KEYS,
   resolveLoopFeatures,
@@ -33,6 +37,9 @@ export type SeedMetrics = {
   seed: number;
   fieldEarly: number;
   fieldLate: number;
+  /** Held-out probe error. G1 reads these, not the on-policy ema. */
+  fieldProbeEarly: number;
+  fieldProbeLate: number;
   fieldFoods: number;
   fieldLives: number;
   roomsFoods: number;
@@ -61,6 +68,8 @@ export type SeedMetrics = {
 export type BenchMean = {
   fieldEarly: number;
   fieldLate: number;
+  fieldProbeEarly: number;
+  fieldProbeLate: number;
   fieldFoods: number;
   fieldLives: number;
   roomsFoods: number;
@@ -107,26 +116,38 @@ function mean(xs: number[]) {
 }
 
 function runField(seed: number, features: LoopFeatures) {
+  const probe = loadCanonicalProbe("field");
   return withSeed(seed * 10007 + 1, () => {
-    const k = new Kernel("field", seed, features);
+    const k = new Kernel("field", seed, features, { env: CANONICAL_ENV.field });
     let early = 0;
+    let probeEarly = 0;
     const H: number[] = [];
     const B: number[] = [];
     for (let t = 0; t < FIELD_STEPS; t++) {
       k.step();
+      if (t + 1 === PROBE_EARLY_STEP) probeEarly = k.frozenProbeError(probe);
       if (t === 49) early = k.ema;
       if (t >= FIELD_STEPS - 80) {
         H.push(k.policyEntropy);
         B.push(k.branching);
       }
     }
-    return { early, late: k.ema, foods: k.foods, lives: k.lives, meanH: mean(H), meanB: mean(B) };
+    return {
+      early,
+      late: k.ema,
+      probeEarly,
+      probeLate: k.frozenProbeError(probe),
+      foods: k.foods,
+      lives: k.lives,
+      meanH: mean(H),
+      meanB: mean(B),
+    };
   });
 }
 
 function runRooms(seed: number, features: LoopFeatures) {
   return withSeed(seed * 10007 + 5, () => {
-    const k = new Kernel("rooms", seed, features);
+    const k = new Kernel("rooms", seed, features, { env: CANONICAL_ENV.rooms });
     for (let t = 0; t < FIELD_STEPS; t++) k.step();
     return { foods: k.foods, lives: k.lives };
   });
@@ -156,7 +177,7 @@ export function measureSeed(seed: number, features: LoopFeatures): SeedMetrics {
   const structured = runStreamDetailed("structured", seed);
   const noise = runStreamDetailed("noise", seed);
   const food = withSeed(seed * 10007 + 11, () => adjacentFood(seed, features));
-  const g1 = g1Pass(field.early, field.late);
+  const g1 = g1Pass(field.probeEarly, field.probeLate);
   const g2 = g2Pass(food.action, food.foods, food.x);
   const s1 = s1Pass(structured.early, structured.late);
   const s2 = s2Pass(noise.late);
@@ -167,6 +188,8 @@ export function measureSeed(seed: number, features: LoopFeatures): SeedMetrics {
     seed,
     fieldEarly: field.early,
     fieldLate: field.late,
+    fieldProbeEarly: field.probeEarly,
+    fieldProbeLate: field.probeLate,
     fieldFoods: field.foods,
     fieldLives: field.lives,
     roomsFoods: rooms.foods,
@@ -215,6 +238,8 @@ export function summarize(name: string, features: LoopFeatures, seeds: SeedMetri
     mean: {
       fieldEarly: meanOf((row) => row.fieldEarly),
       fieldLate: meanOf((row) => row.fieldLate),
+      fieldProbeEarly: meanOf((row) => row.fieldProbeEarly),
+      fieldProbeLate: meanOf((row) => row.fieldProbeLate),
       fieldFoods: meanOf((row) => row.fieldFoods),
       fieldLives: meanOf((row) => row.fieldLives),
       roomsFoods: meanOf((row) => row.roomsFoods),
