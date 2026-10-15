@@ -11,10 +11,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { CURIOSITY_SIGNALS, isCuriositySignal, type CuriositySignal } from "../src/lib/kernel/signals.ts";
 import type { EpisodeRequest, EpisodeResult, MeasuredEnv } from "../src/lib/kernel/measure.ts";
+import { g1Baseline } from "../src/lib/kernel/experiments.ts";
 import { bootstrapMeanCI, pairedDifference, type Interval } from "../src/lib/kernel/stats.ts";
 import { runPool, workerCount } from "./pool.ts";
 
-const METRICS = ["probeLate", "onPolicyLate", "distinctCells", "stateEntropy", "foods"] as const;
+const METRICS = ["probeLate", "skill", "onPolicyLate", "distinctCells", "stateEntropy", "foods"] as const;
 type Metric = (typeof METRICS)[number];
 
 function arg(name: string, fallback: string) {
@@ -90,7 +91,10 @@ async function main() {
         stateEntropy: cell("stateEntropy"),
         foods: cell("foods"),
         lives: bootstrapMeanCI(group.map((row) => row.lives), 2000, 0.05, 14),
+        skill: cell("skill"),
         g1: `${g1}/${group.length}`,
+        meanFloor: g1Baseline(env).meanFloor,
+        shiftCeiling: g1Baseline(env).shiftCeiling,
       });
     }
   }
@@ -122,7 +126,7 @@ async function main() {
     probeEvery: 40,
     signals,
     envs,
-    note: "probeLate is held-out prediction error (lower is better). onPolicyLate is the legacy ema. Maps are canonical; seeds reseed weights and policy noise.",
+    note: "probeLate is held-out prediction error (lower is better). G1 passes when late < the per-cell-mean floor and late < 0.85 × early. skill is (meanFloor − late) / (meanFloor − shiftCeiling). onPolicyLate is the legacy ema. Maps are canonical; seeds reseed weights and policy noise.",
     summary,
     pairwise,
     rows,
@@ -143,6 +147,7 @@ async function main() {
     "state_entropy",
     "foods",
     "lives",
+    "skill",
     "g1",
   ];
   const csv = [csvHeader.join(",")];
@@ -160,6 +165,7 @@ async function main() {
         row.stateEntropy.toFixed(6),
         row.foods,
         row.lives,
+        row.skill.toFixed(6),
         row.g1 ? 1 : 0,
       ].join(","),
     );
@@ -174,11 +180,11 @@ async function main() {
   for (const env of envs) {
     md.push(`## ${env}`);
     md.push("");
-    md.push("| signal | probe early | probe late | on-policy ema | distinct cells | state entropy | foods | G1 |");
-    md.push("|---|---:|---:|---:|---:|---:|---:|---:|");
+    md.push("| signal | probe early | probe late | skill | on-policy ema | distinct cells | state entropy | foods | G1 |");
+    md.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
     for (const row of summary.filter((item) => item.env === env)) {
       md.push(
-        `| ${row.signal} | ${fmt(row.probeEarly)} | ${fmt(row.probeLate)} | ${fmt(row.onPolicyLate)} | ${fmt(row.distinctCells, 2)} | ${fmt(row.stateEntropy, 2)} | ${fmt(row.foods, 2)} | ${row.g1} |`,
+        `| ${row.signal} | ${fmt(row.probeEarly)} | ${fmt(row.probeLate)} | ${fmt(row.skill, 3)} | ${fmt(row.onPolicyLate)} | ${fmt(row.distinctCells, 2)} | ${fmt(row.stateEntropy, 2)} | ${fmt(row.foods, 2)} | ${row.g1} |`,
       );
     }
     md.push("");

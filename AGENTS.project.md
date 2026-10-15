@@ -28,7 +28,7 @@ Skip, every run: dev server, `startup.sh`, browser smoke, brand assets, PWA, og 
 
 `npm run bench:json` writes `bench/latest.json` and appends `bench/history.csv` (date, sha, config, on-policy metrics, pass flags). Seeds are 1..5. They reseed weights and policy noise. The Field and Rooms **maps** are canonical (`layoutSeed` 1000 and 2000) so the held-out probe is the same environment the agent learns. Field and Rooms run 280 steps. Streams run 220. Weight init is reseeded per episode so a flag flip is the only change.
 
-G1 is scored on the **probe**, not the on-policy ema. Late probe error must be `< 0.85 ×` early probe error, or late probe error `< 0.14`. The on-policy ema is stored beside it as `fieldEarly` / `fieldLate` and is not the claim. Do not loosen the threshold in `src/lib/kernel/experiments.ts`. The bench exits non-zero when G2, S1, S2, S3, C1, or C2 loses a majority of seeds, or when `loop.ts` is under 2 KB. G1 is printed and stored either way.
+G1 is scored on the **probe**, not the on-policy ema. Late probe error must be **under that environment's per-cell-mean floor and** `< 0.85 ×` early probe error. The absolute `0.14` arm is retired: it sat between the sigmoid prior (0.250) and the mean floor (0.098 on Field, 0.114 on Rooms), so clearing it only showed that the net had left 0.5. Normalized skill is `(meanFloor − late) / (meanFloor − shiftCeiling)` and is reported beside the pass bit. Do not bring `0.14` back and do not lower the mean floor. The on-policy ema is stored beside the probe as `fieldEarly` / `fieldLate` and is not the claim. The bench exits non-zero when G2, S1, S2, S3, C1, or C2 loses a majority of seeds, or when `loop.ts` is under 2 KB. G1 is printed and stored either way.
 
 The 5-seed table is descriptive. It does not keep or remove a flag. That decision is `npm run gate`.
 
@@ -42,7 +42,7 @@ The 5-seed table is descriptive. It does not keep or remove a flag. That decisio
 
 ## Signals
 
-`Kernel` takes `signal` in its options: `random`, `count` (1/√n), `surprise` (imagined forward error), `rnd` (frozen random target plus a predictor), `rho` (compression progress, the default). The world model is the same learner. Only the intrinsic term changes. `EnvSpec.params` reserves `learnability`, `driftRate`, and `distractorRelevance`. Drift above zero throws. That family is not built.
+`Kernel` takes `signal` in its options: `random`, `count` (1/√n), `surprise` (imagined forward error), `rnd` (frozen random target plus a predictor), `rho` (compression progress, the default). The world model is the same learner. Only the intrinsic term changes. `EnvSpec.params` is `learnability`, `driftRate`, and `distractorRelevance`. On the `distractor` map those parameters are live: learnability is the fraction of west cells with a fixed pattern, drift 0 is stationary white noise in the east room, and a positive drift is the probability per step that the east pattern is redrawn. Relevance 0 is not food; relevance 1 is edible. A positive drift on a static map, with no family memory, still throws. The phase sweep is `npm run phase` and is not part of CI.
 
 ## Flags
 
@@ -52,7 +52,7 @@ The 5-seed table is descriptive. It does not keep or remove a flag. That decisio
 
 | ID | Pass |
 |---|---|
-| G1 | Field probe late `< 0.85 ×` probe early, or probe late `< 0.14`. On-policy ema is reported and is not the claim. |
+| G1 | Field probe late is under the per-cell-mean floor **and** `< 0.85 ×` probe early. Skill is reported. On-policy ema is not the claim. |
 | G2 | Adjacent food is taken (action east, a meal, or x = 6) |
 | S1 | Structured stream late `< 0.05` or `< 0.25 ×` early |
 | S2 | Noise late `> 0.15` |

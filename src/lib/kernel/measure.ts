@@ -3,7 +3,7 @@
  * checkpoints, plus coverage and food. The probe is not a function of the policy.
  */
 import { Kernel, SIZE, type KernelOptions } from "./kernel.ts";
-import { adjacentFood, c2Pass, g1Pass, g2Pass } from "./experiments.ts";
+import { adjacentFood, c2Pass, g1Baseline, g1Pass, g2Pass, normalizedSkill } from "./experiments.ts";
 import { CANONICAL_ENV, type EnvSpec } from "./env.ts";
 import { PROBE_EARLY_STEP, PROBE_EVERY, type ProbeSet } from "./probe.ts";
 import { loadCanonicalProbe } from "./probe-file.ts";
@@ -44,6 +44,8 @@ export type EpisodeResult = {
   lives: number;
   meanB: number;
   g1: boolean;
+  /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
+  skill: number;
   g2: boolean;
   c2: boolean;
   checkpoints: Checkpoint[];
@@ -107,7 +109,9 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));
   const g2 = g2Pass(food.action, food.foods, food.x);
-  const g1 = g1Pass(episode.probeEarly, episode.probeLate);
+  const baseline = g1Baseline(req.env);
+  const g1 = g1Pass(episode.probeEarly, episode.probeLate, baseline.meanFloor);
+  const skill = normalizedSkill(episode.probeLate, baseline);
   const c2 = c2Pass(episode.meanB);
   return {
     id: req.id,
@@ -118,6 +122,7 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
     steps: req.steps,
     ...episode,
     g1,
+    skill,
     g2,
     c2,
   };

@@ -8,7 +8,14 @@ import {
   randomEmpty,
   type WorldKind,
 } from "./presets.ts";
-import { applyDrift, DEFAULT_ENV_PARAMS, type EnvParams, type EnvSpec } from "./env.ts";
+import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid, type EnvParams, type EnvSpec, type GridBody } from "./env.ts";
+import {
+  cloneFamily,
+  createFamily,
+  isFamilyKind,
+  regionCells,
+  type FamilyMemory,
+} from "./family.ts";
 import {
   RndCuriosity,
   signalActionBonus,
@@ -56,6 +63,17 @@ export type KernelOptions = {
   layoutSeed?: number;
   /** Fixed environment, including reserved drift parameters. */
   env?: EnvSpec;
+  /**
+   * Multiplicative weight decay applied to the cell net after each update.
+   * 0 keeps the weights. This is the forgetting-rate knob.
+   */
+  forgettingRate?: number;
+  /**
+   * Freeze one learnable pattern in the east room. Used to measure the
+   * adaptation timescale. The phase sweep leaves this off, so drift 0 stays
+   * stationary white noise.
+   */
+  patternHold?: boolean;
 };
 
 export type Thought = { t: number; text: string };
@@ -99,8 +117,13 @@ export class Kernel {
   readonly features: LoopFeatures;
   /** Curiosity baseline. `rho` is the historical compression signal. */
   readonly signal: CuriositySignal;
-  /** Reserved environment parameters. Drift rate 0 is the static map. */
+  /** Reserved environment parameters. Drift rate 0 on a static map does not move. */
   readonly envParams: EnvParams;
+  /** Cell-net weight decay per step. 0 on Field and Rooms. */
+  readonly forgettingRate: number;
+  /** East-room state. Null on Field, Rooms, and the other static maps. */
+  family: FamilyMemory | null = null;
+  private readonly patternHold: boolean;
   private readonly fixedLayout: number | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
@@ -142,6 +165,8 @@ export class Kernel {
     this.features = resolveLoopFeatures(features);
     this.signal = options?.signal ?? "rho";
     this.envParams = options?.env?.params ?? { ...DEFAULT_ENV_PARAMS };
+    this.forgettingRate = options?.forgettingRate ?? 0;
+    this.patternHold = options?.patternHold ?? false;
     this.fixedLayout = options?.env ? options.env.layoutSeed : (options?.layoutSeed ?? null);
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
@@ -163,7 +188,14 @@ export class Kernel {
     this.seed = seed;
     this.rand = mulberry32(seed);
     const layout = this.fixedLayout ?? seed;
-    this.cells = generateWorld(kind, SIZE, layout);
+    if (isFamilyKind(kind)) {
+      const built = createFamily(kind, SIZE, layout, this.envParams, this.patternHold);
+      this.cells = built.cells;
+      this.family = built.family;
+    } else {
+      this.cells = generateWorld(kind, SIZE, layout);
+      this.family = null;
+    }
     this.scent.fill(0);
     this.visitCounts.fill(0);
     this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
@@ -186,9 +218,90 @@ export class Kernel {
   }
 
   private placeAgent() {
+    if (this.family && this.family.mode !== "split") {
+      const pool = regionCells(this.family, 0, this.cells).filter((i) => this.cells[i] === 0);
+      if (pool.length) {
+        const i = pool[(this.rand() * pool.length) | 0]!;
+        this.x = i % SIZE;
+        this.y = (i / SIZE) | 0;
+        return;
+      }
+    }
     const p = randomEmpty(this.cells, SIZE, this.rand);
     this.x = p.x;
     this.y = p.y;
+  }
+
+  regionAt(x = this.x, y = this.y) {
+    if (!this.family) return 0;
+    if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return 2;
+    return this.family.region[y * SIZE + x] ?? 2;
+  }
+
+  /** True wall and true food for one action. Glow is not either. */
+  private bodyAt(action: number) {
+    if (action === 4) {
+      const i = this.y * SIZE + this.x;
+      return { wall: 0, food: this.cells[i] === 2 ? 1 : 0 };
+    }
+    const nx = this.x + DIRS[action].x;
+    const ny = this.y + DIRS[action].y;
+    if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) return { wall: 1, food: 0 };
+    const cell = this.cells[ny * SIZE + nx];
+    return { wall: cell === 1 ? 1 : 0, food: cell === 2 ? 1 : 0 };
+  }
+
+  /**
+   * Train one transition pair at a fixed energy, the same pair the probe asks
+   * for: (window, action) → next window. Used by the adaptation measurement.
+   */
+  trainPair(obs: Float32Array, action: number, nextObs: Float32Array, lr: number) {
+    this.loop.commit(this.encode(obs, action, false, 100));
+    this.loop.assimilate(nextObs, lr);
+  }
+
+  /**
+   * Mean squared error of the current weights on `samples` states inside a
+   * region. Each sample is simulated on a copy, so the episode does not move.
+   * Wall and food channels only, matching the frozen probe.
+   */
+  liveProbeError(region: 0 | 1, samples = 48, probeSeed = 20261015) {
+    if (!this.family) return this.frozenProbeError({ transitions: [] });
+    const pool = regionCells(this.family, region, this.cells);
+    if (!pool.length) return 0;
+    const rand = mulberry32(probeSeed + region * 17 + this.age);
+    const into = new Float32Array(OBS);
+    const obs = new Float32Array(OBS);
+    let sum = 0;
+    let n = 0;
+    for (let s = 0; s < samples; s++) {
+      const index = pool[(rand() * pool.length) | 0]!;
+      const x = index % SIZE;
+      const y = (index / SIZE) | 0;
+      const action = (rand() * ACTS) | 0;
+      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow);
+      this.loop.imagine(this.encode(obs, action, false, 100), into);
+      const body: GridBody = {
+        cells: this.cells.slice(),
+        scent: this.scent.slice(),
+        x,
+        y,
+        energy: 100,
+        pulseClock: 0,
+      };
+      const family = cloneFamily(this.family);
+      const stepRand = mulberry32((probeSeed + s * 997 + region * 13) >>> 0);
+      stepGrid(body, this.worldKind, action, SIZE, stepRand, this.envParams, family);
+      const next = new Float32Array(OBS);
+      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow);
+      for (let i = 0; i < OBS; i++) {
+        if (i % CH === 2) continue;
+        const d = into[i]! - next[i]!;
+        sum += d * d;
+        n += 1;
+      }
+    }
+    return n ? sum / n : 0;
   }
 
   resetBrain() {
@@ -267,21 +380,7 @@ export class Kernel {
   }
 
   sense(into: Float32Array = new Float32Array(OBS), ox = this.x, oy = this.y): Float32Array {
-    let k = 0;
-    for (let dy = -R; dy <= R; dy++) {
-      for (let dx = -R; dx <= R; dx++) {
-        const wx = ox + dx;
-        const wy = oy + dy;
-        const oob = wx < 0 || wy < 0 || wx >= SIZE || wy >= SIZE;
-        const wall = oob || this.cells[wy * SIZE + wx] === 1 ? 1 : 0;
-        const food = !oob && this.cells[wy * SIZE + wx] === 2 ? 1 : 0;
-        const sc = oob ? 0 : this.scent[wy * SIZE + wx];
-        into[k++] = wall;
-        into[k++] = food;
-        into[k++] = sc;
-      }
-    }
-    return into;
+    return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null);
   }
 
   private encode(obs: Float32Array, action = this.lastAction, muteNoise = false, energy = this.energy): Float32Array {
@@ -404,6 +503,14 @@ export class Kernel {
         const stay = a === 4 ? 0.35 : 0;
         const cell = a === 4 ? (VIEW * VIEW) >> 1 : ty * VIEW + tx;
         const scentW = this.loop.scentNovelty(cell);
+        if (this.family) {
+          const body = this.bodyAt(a);
+          return {
+            reward: (0.45 + 1.4 * hunger) * body.food,
+            cost: 6.5 * body.wall + stay,
+            novelty: (1 - visScent) * scentW,
+          };
+        }
         return {
           reward: (0.45 + 1.4 * hunger) * (visFood + 0.55 * pred[CENTER + 1]),
           cost: 6.5 * visWall + 1.8 * pred[CENTER] + stay,
@@ -421,6 +528,9 @@ export class Kernel {
         const stay = a === 4 ? 0.35 : 0;
         const cell = a === 4 ? (VIEW * VIEW) >> 1 : ty * VIEW + tx;
         const scentW = this.loop.scentNovelty(cell);
+        if (this.family) {
+          return { reward: 0, cost: stay, novelty: (1 - destScent) * scentW };
+        }
         return {
           reward: (0.45 + 1.4 * hunger) * destFood,
           cost: 6.5 * destWall + 1.8 * pred[CENTER] + stay,
@@ -470,6 +580,7 @@ export class Kernel {
       if (this.burnIn === 0) this.loop.baselineRate = 0.02;
     }
     this.loop.assimilate(obs, lr);
+    if (this.forgettingRate > 0) this.loop.net.decay(this.forgettingRate);
     this.history.push(this.loop.surprise);
     if (this.history.length > HISTORY) this.history.shift();
     const action = this.choose(obs);
@@ -478,6 +589,28 @@ export class Kernel {
     // Commit that pair before the body moves. The historical commit stored the
     // window after the move, so the loss was reconstruction and the probe could not fall.
     const transitionInput = this.features.transition ? this.encode(raw, action) : null;
+    if (this.family) {
+      const body: GridBody = {
+        cells: this.cells,
+        scent: this.scent,
+        x: this.x,
+        y: this.y,
+        energy: this.energy,
+        pulseClock: this.pulseClock,
+      };
+      const moved = stepGrid(body, this.worldKind, action, SIZE, this.rand, this.envParams, this.family);
+      this.x = body.x;
+      this.y = body.y;
+      this.energy = body.energy;
+      this.pulseClock = body.pulseClock;
+      if (moved.ate) this.foods += 1;
+      if (moved.died) this.lives += 1;
+      this.observeSignal();
+      this.maybeThink(action, moved.ate, moved.blocked, moved.died);
+      this.age += 1;
+      this.loop.commit(transitionInput ?? this.encode(this.sense(), action));
+      return;
+    }
     const nx = this.x + DIRS[action].x;
     const ny = this.y + DIRS[action].y;
     const oob = nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE;

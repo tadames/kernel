@@ -57,7 +57,8 @@ export type ProbeJson = {
 const cache = new Map<string, ProbeSet>();
 
 function cacheKey(spec: EnvSpec, probeSeed: number) {
-  return `${spec.kind}:${spec.layoutSeed}:${probeSeed}:${spec.params.driftRate}`;
+  const p = spec.params;
+  return `${spec.kind}:${spec.layoutSeed}:${probeSeed}:${p.learnability}:${p.driftRate}:${p.distractorRelevance}`;
 }
 
 function capture(body: ReturnType<typeof makeBody>): Float32Array {

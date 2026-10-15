@@ -1,4 +1,4 @@
-export type WorldKind = "field" | "rooms" | "spiral" | "pulse" | "blank";
+export type WorldKind = "field" | "rooms" | "spiral" | "pulse" | "blank" | "distractor" | "split";
 
 export const WORLD_META: Record<
   WorldKind,
@@ -23,6 +23,14 @@ export const WORLD_META: Record<
   blank: {
     name: "Blank",
     blurb: "No food. Pure curiosity — a scientist with no grant.",
+  },
+  distractor: {
+    name: "Distractor",
+    blurb: "A walled east room whose bits can drift. The west room is the world.",
+  },
+  split: {
+    name: "Split",
+    blurb: "Two learnable rooms and one door. No replay between them.",
   },
 };
 
@@ -104,6 +112,33 @@ export function generateWorld(kind: WorldKind, size: number, seed: number): Uint
         set(fx2, fy2, FOOD);
       }
     }
+  } else if (kind === "distractor" || kind === "split") {
+    const div = Math.max(2, Math.min(size - 3, Math.round(size * 0.6)));
+    const door = (size / 2) | 0;
+    for (let y = 1; y < size - 1; y++) if (y < door - 3 || y > door + 3) set(div, y, WALL);
+    for (let y = 1; y < size - 1; y++) {
+      for (let x = 1; x < div; x++) {
+        if (cells[at(x, y)] === EMPTY && rand() < 0.07) set(x, y, WALL);
+      }
+    }
+    const emptiesIn = (x0: number, x1: number) => {
+      const e: number[] = [];
+      for (let y = 1; y < size - 1; y++) {
+        for (let x = x0; x <= x1; x++) if (cells[at(x, y)] === EMPTY) e.push(at(x, y));
+      }
+      return e;
+    };
+    const drop = (pool: number[], n: number) => {
+      let left = n;
+      while (left > 0 && pool.length) {
+        const j = (rand() * pool.length) | 0;
+        cells[pool[j]!] = FOOD;
+        pool.splice(j, 1);
+        left -= 1;
+      }
+    };
+    drop(emptiesIn(1, div - 1), 5);
+    if (kind === "split") drop(emptiesIn(div + 1, size - 2), 4);
   } else if (kind === "spiral") {
     cells.fill(WALL);
     for (let y = 1; y < size - 1; y++) {

@@ -1,5 +1,134 @@
 # Journal
 
+## 2026-10-15 phase diagram (America/New_York)
+
+Written before `npm run timescale`, before `npm run phase`, and before `npm run forget`. No outcome from those commands is in this block. The G1 rescore and the two sweeps are filled in underneath after they run.
+
+### Preregister G1
+
+- hypothesis: The absolute 0.14 arm is not a claim about learning the map. Constant 0.5 scores 0.250. The per-cell mean scores 0.098 on Field and 0.114 on Rooms. 0.14 sits between those, so a net that has only left the sigmoid prior passes. Replace it with a baseline-relative rule, computed per environment from the frozen probe: late error is under that environment's per-cell-mean floor, and late error is under 0.85 × early. Report normalized skill `(meanFloor − late) / (meanFloor − shiftCeiling)`, where the shift ceiling is the window-shift oracle (about 0.030 on Field and 0.039 on Rooms). Re-score the existing five signals on Field and Rooms, seeds 1–20, 280 steps. The learner is not changed.
+- metric: probeLate
+- direction: lower
+- threshold: late < mean floor of that environment AND late < 0.85 × early. Skill is reported and is not itself a pass bit. This is stricter than 0.14, not a loosening. Expectation, not a success criterion: most of the twenty-seed means sit above the mean floor, so most G1 fractions should fall. Count on Field was 0.097 against a floor of 0.098 and may be the only one close.
+
+### Preregister where rho fails
+
+Research question: where does learning-progress curiosity (rho) fail against random, count, surprise (ICM-style forward error), and RND?
+
+The map is a 15×15 grid. A wall at column 9 splits a west room from an east room. The opening is seven cells tall, centered, not one cell. A one-cell door was the first sketch; a 30-step smoke, not the sweep, showed east-room entry stuck at zero for almost every episode, so time-in-room could not measure allocation. The opening was widened before the 20-seed run. The wall still marks the room. Predictions below are unchanged. The west room is the useful world: fixed walls, five foods, and a low-frequency glow. `learnability` is the fraction of non-wall west cells whose glow is that fixed pattern; the rest are iid bits, redrawn every step. The east room is the distractor, marked by the wall. `driftRate` 0 means stationary white noise: every east cell is a fresh iid bit every step, not a frozen picture. `driftRate` p > 0 means a low-frequency pattern that is fully redrawn with probability p each step, so the pattern's lifetime is 1/p steps. `distractorRelevance` 0 means those bits are not food and do not block motion. Relevance 1 means a bit of 1 is edible food. The policy's extrinsic term on this family reads true walls and true food, so a glow bit is not a meal and not a wall. Curiosity still scores the predicted window. The live probe is scored separately on west cells and on east cells. It does not train.
+
+Adaptation timescale, measured before the sweep and then locked. τ is the e-folding time of excess live probe error on one frozen east pattern (`patternHold`, learnability 1, relevance 0). The shipped transition learner (cell learning rate 4) takes one uniform transition per step inside that room. Scent is zero, so the curve is the compressor. Excess is error minus the mean of the last 15% of a 400-step curve. τ is the OLS slope of log(excess) on step, on the prefix where excess stays above 5% of the initial excess and step < 300. If that slope is not negative, τ is the step of the half-life divided by ln 2. A curve that never halves is censored at 400. The reported τ is the mean over seeds 1–8, with a 95% bootstrap CI. The drift grid is then 0 and (1/τ)×{1/16, 1/4, 1, 4, 16}, clipped below 0.95, duplicates dropped. Forgetting half-lives are τ×{0.5, 1, 2, 4, 8}, as multiplicative weight decay λ = 1 − exp(−ln 2 / half-life) on the cell net. The learning rate stays 4.
+
+Phase sweep, after the grid is locked: learnability {0, 1/3, 2/3, 1} × the drift grid × relevance {0, 1} × {random, count, surprise, rnd, rho} × seeds 1–20. Episodes are 400 steps. Recorded per episode: fraction of steps in the east room, west probe, east probe, useful-room coverage, foods, foods eaten in the east. Workers, not CI.
+
+Predictions, relevance 0 unless said otherwise. Paired 95% bootstrap CIs on seeds. A mean over learnability is the primary test; the per-learnability splits are reported and are not a second chance to pick a winner.
+
+- (a1) Stationary noise, drift 0. Surprise spends more time in the east room than rho (CI of surprise − rho entirely above 0). Rho does not: CI of rho − random lies entirely below 0. Both clauses are required. A CI that only includes zero is inconclusive for that clause, not a pass.
+- (a2) Drift nearest 1/τ. Rho spends more time in the east room than random, than count, and than surprise (each CI entirely above 0), and more than rho itself spends at drift 0 (CI entirely above 0). That is the noisy TV defeating the learning-progress fix: a pattern that turns over on the learner's own clock looks like progress forever. Very fast drift should look more like noise again; that comparison is descriptive, not a third pass bit.
+- (a3) Positive control, not a claim about rho. At drift 0, count spends more time in the east room when relevance is 1 than when it is 0 (CI entirely above 0), because the bits are food. If this fails, the room is not doing what the parameter says.
+
+Forgetting. The split map has two learnable rooms, distinct fixed patterns, food on both sides, no east-room noise. No replay. The knob is weight decay, which is the forgetting rate; the two rooms are the interference. Episode length 2000 steps. Seeds 1–20. Five signals. Each step records which room the body is in. The period is the spectral peak of that series between 20 steps and half the episode, kept only when its power is at least 3× the median power in the band. Otherwise the seed has no period. For each signal, a seed that has a period at 3 or more rates contributes one OLS slope of log(period) on log(λ). The reported slope is the mean of those seed slopes, with a 95% bootstrap CI.
+
+- (b) Rho's slope is negative and the CI lies entirely below 0: faster forgetting, shorter revisit cycles. If fewer than half the seeds (10 of 20) yield a slope, the call is inconclusive even if the remaining CI is tidy. The same fit is reported for the other four signals. If they scale the same way, the cycles are not specific to rho and (b) is not confirmed as a learning-progress result.
+
+### Instrument lock
+
+Measured after the preregistration above and before either sweep. Source: `bench/phase/timescale.json`. Seeds 1–8, 400 uniform transitions on a frozen east pattern.
+
+| seed | τ | half-life | start | tail |
+|---|---:|---:|---:|---:|
+| 1 | 65.85 | 45.6 | 0.258 | 0.038 |
+| 2 | 99.29 | 68.8 | 0.270 | 0.059 |
+| 3 | 43.98 | 30.5 | 0.251 | 0.049 |
+| 4 | 90.17 | 62.5 | 0.252 | 0.044 |
+| 5 | 79.01 | 54.8 | 0.258 | 0.050 |
+| 6 | 53.72 | 37.2 | 0.256 | 0.057 |
+| 7 | 70.44 | 48.8 | 0.264 | 0.043 |
+| 8 | 38.76 | 26.9 | 0.251 | 0.048 |
+
+Mean τ = 67.65 steps, 95% bootstrap CI [53.66, 81.81]. No seed was censored. Every curve leaves the sigmoid prior and ends between 0.038 and 0.059.
+
+τ is steps of experience on the pattern. It is the clock while the body is in the room, not a count of steps spent elsewhere.
+
+Locked drift rates, probability per step: 0, 0.0009238, 0.003695, 0.01478, 0.05912, 0.2365. The rate nearest 1/τ is 0.01478, a pattern lifetime of about 68 steps. The neighbors are about 4× slower and 4× faster, then 16×.
+
+Locked forgetting rates λ, half-lives τ×{0.5, 1, 2, 4, 8}: 0.02028, 0.01019, 0.00511, 0.00256, 0.00128. Those half-lives are about 34, 68, 135, 271, and 542 steps.
+
+The phase sweep and the forgetting sweep have not been run. The five-signal G1 rescore has not been run.
+
+### Results
+
+G1 rescore, the phase sweep, and the forgetting sweep all ran after the blocks above. The learner was not changed. Source files: `bench/sweep.md`, `bench/phase/phase.json`, `bench/phase/forget.json`.
+
+#### G1, baseline-relative
+
+Same episodes as the previous sweep (seeds 1–20, 280 steps, Field and Rooms). Probe late did not move. The pass bit did. The old rule was late < 0.85 × early or late < 0.14, and that 0.14 arm was what passed. The new rule needs both late < the per-cell-mean floor and late < 0.85 × early. Skill is (meanFloor − late) / (meanFloor − shiftCeiling). Floors used here are the frozen ones: Field 0.098, Rooms 0.114. Shift ceilings: Field 0.030, Rooms 0.039. A negative skill means late error is still worse than predicting each cell's mean.
+
+| env | signal | probe late | skill | G1 now | G1 before (0.14 arm) |
+|---|---|---:|---:|---|---|
+| field | random | 0.110 [0.103, 0.119] | −0.185 [−0.307, −0.078] | 3/20 | 19/20 |
+| field | count | 0.097 [0.093, 0.104] | 0.007 [−0.085, 0.077] | 13/20 | 19/20 |
+| field | surprise | 0.107 [0.102, 0.113] | −0.133 [−0.230, −0.059] | 4/20 | 19/20 |
+| field | rnd | 0.110 [0.102, 0.119] | −0.173 [−0.305, −0.065] | 4/20 | 19/20 |
+| field | rho | 0.111 [0.104, 0.120] | −0.200 [−0.327, −0.094] | 4/20 | 18/20 |
+| rooms | random | 0.123 [0.115, 0.131] | −0.111 [−0.215, −0.009] | 8/20 | 16/20 |
+| rooms | count | 0.098 [0.094, 0.103] | 0.212 [0.151, 0.274] | 17/20 | 20/20 |
+| rooms | surprise | 0.114 [0.107, 0.120] | 0.011 [−0.078, 0.096] | 11/20 | 18/20 |
+| rooms | rnd | 0.112 [0.106, 0.119] | 0.027 [−0.067, 0.116] | 11/20 | 19/20 |
+| rooms | rho | 0.118 [0.111, 0.125] | −0.048 [−0.135, 0.039] | 9/20 | 19/20 |
+
+Count is the only signal whose mean late error is under the floor, and only clearly on Rooms (skill 0.212, CI above 0). On Field the count mean is 0.097 against a floor of 0.098, skill 0.007, and the CI includes 0: 13 of 20 seeds clear both clauses, 7 do not. Rho on Field is worse than the mean (skill −0.200, CI entirely below 0) and does not beat random (probe late random − rho = −0.001, CI includes 0). No signal's mean skill reaches the shift ceiling. The 0.14 arm is not coming back.
+
+#### Phase diagram
+
+4800 episodes, 400 steps, 4 workers, 181 seconds. Drift grid locked from τ = 67.65 [53.66, 81.81]. Critical drift 0.01478. Relevance 0 unless noted. East-room time is the mean over learnability {0, 1/3, 2/3, 1}.
+
+(a1) Stationary noise. **Refuted.** Surprise − rho = 0.0067 [−0.0353, 0.0487], inconclusive. Rho − random = 0.0905 [0.0442, 0.1370]: rho spends more time in the east room than a random walk, which is the clause that was required to lie entirely below 0. The per-learnability split does not rescue it. Rho − random excludes zero at learnability 0 (0.150 [0.077, 0.224]) and at learnability 1 (0.134 [0.050, 0.213]). At 1/3 and 2/3 the CIs include zero. Surprise never beats rho at a single learnability. East fractions at drift 0, learnability 0: random 0.093, count 0.306, surprise 0.199, rnd 0.302, rho 0.243. At learnability 1: 0.154, 0.325, 0.294, 0.225, 0.288.
+
+(a2) Drift nearest 1/τ. **Refuted.** Rho − random = 0.0296 [−0.0216, 0.0785], inconclusive. Rho − count = −0.0967 [−0.1214, −0.0669]: count is higher. Rho − surprise = −0.0454 [−0.0864, −0.0044]: surprise is higher. Rho at the critical drift minus rho at drift 0 = −0.0382 [−0.0912, 0.0135], inconclusive, and the point estimate is lower, not higher. Mean east time over learnability, relevance 0:
+
+| drift | random | count | surprise | rnd | rho |
+|---|---:|---:|---:|---:|---:|
+| 0 | 0.139 | 0.326 | 0.236 | 0.260 | 0.229 |
+| 0.00092 | 0.167 | 0.297 | 0.273 | 0.224 | 0.210 |
+| 0.0037 | 0.174 | 0.284 | 0.264 | 0.220 | 0.214 |
+| 0.0148 | 0.161 | 0.287 | 0.236 | 0.205 | 0.191 |
+| 0.059 | 0.162 | 0.286 | 0.235 | 0.227 | 0.205 |
+| 0.24 | 0.147 | 0.294 | 0.236 | 0.221 | 0.206 |
+
+Count sits near 0.29–0.33 at every drift. That is unvisited space, not the television. Rho sits between random and count and is not captured at 1/τ. Fast drift does not hand the room back to surprise either. West probe error, mean over learnability and drift, relevance 0: random 0.139, count 0.135, surprise 0.138, rnd 0.138, rho 0.139. The useful-world probe barely moves.
+
+(a3) Positive control. **Inconclusive.** Count's east time at drift 0, relevance 1 minus relevance 0, is 0.0309 [−0.0053, 0.0682]. The time difference does not clear zero. The food counts do show the room is edible, and they are not the preregistered test. At relevance 0, east food is 0 for every signal. At relevance 1, averaged over learnability and drift, foods and east foods are: random 65 / 48 (east fraction 0.267), count 178 / 90 (0.368), surprise 181 / 118 (0.439), rnd 156 / 98 (0.365), rho 146 / 93 (0.344). A bit of 1 is food on every step, so the meal counts are large. That is descriptive. It does not promote (a3) to a pass.
+
+Winner map, lowest mean west probe. Relevance 0, 24 cells: count 14, rnd 3, rho 3, random 2, surprise 2. Relevance 1: count 7, rho 7, random 5, rnd 4, surprise 1. One cell of 48 has a paired gap whose CI excludes zero (relevance 0, learnability 1, drift 0.2365, count over rnd, gap 0.0094 [0.0029, 0.0162]). The map is a ranking of means.
+
+Heatmaps, committed with the sweep:
+
+- `bench/phase/heatmap-time-rel0.png`
+- `bench/phase/heatmap-time-rel1.png`
+- `bench/phase/heatmap-winner-rel0.png`
+- `bench/phase/heatmap-winner-rel1.png`
+
+#### Forgetting cycles
+
+500 episodes, 2000 steps, 129 seconds. Weight decay at the five locked rates. The preregistered period is the spectral peak of east-room occupancy between 20 steps and half the episode, kept when its power is at least 3× the median in that band. The slope is the mean, over seeds, of OLS of log(period) on log(λ).
+
+| signal | seeds with a slope | slope | 95% CI | written call |
+|---|---:|---:|---|---|
+| random | 16/20 | −0.000 | [−0.000, −0.000] | confirmed, artifact |
+| count | 20/20 | −0.018 | [−0.058, 0.029] | inconclusive |
+| surprise | 18/20 | −0.011 | [−0.109, 0.081] | inconclusive |
+| rnd | 18/20 | −0.004 | [−0.068, 0.067] | inconclusive |
+| rho | 20/20 | −0.133 | [−0.238, −0.046] | confirmed by the sign rule |
+
+Random's periods are identical at every λ (mean 688.6, the same 16 seeds). Forgetting does not touch a random walk. The slope is about −6×10⁻¹⁵, and the bootstrap CI of that dust sits entirely below zero, so the written rule says confirmed. It is not scaling.
+
+Rho's spectral means, fast forgetting to slow: 540 [436, 656] (n=15), 646 [539, 754] (n=19), 656 [558, 764] (n=17), 656 [549, 773] (n=19), 716 [617, 818] (n=16). The sign matches the preregister. The exponent does not match a period that tracks the half-life: that would be a slope of −1, and −1 is outside this CI. East fraction stays between 0.31 and 0.35 at every rate.
+
+The autocorrelation does not show a revisit cycle. On essentially every episode, of every signal, the lag of maximum autocorrelation inside the searched window is 20, the floor of that window. Occupancy is sticky. A rho series has a few dozen room switches in 2000 steps, autocorrelation at lag 20 is about 0.5–0.75, and the local peaks near the spectral period are about 0.1–0.2. About 10% of rho's detected spectral periods sit on the half-episode cap (1000). That peak is low-frequency wander, not a cycle whose period is the forgetting time.
+
+(b) **Inconclusive.** The preregistered sign test on the spectral peak passes for rho and does not pass for count, surprise, or RND. The series do not contain the revisitation cycle the period was supposed to measure, and the slope is shallow. The prediction that forgetting regenerates progress and rho cycles at a period set by the forgetting rate is not confirmed.
+
 ## 2026-10-15 learner instrument (America/New_York)
 
 The probe late error near 0.235 is not a result about curiosity. The blocks below were written before `npm run gate` and before the 20-seed validation. The diagnosis numbers are from `scripts/diagnose-probe.ts` on this commit's parent learner (reconstruction commit, cell lr 0.035).

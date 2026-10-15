@@ -186,7 +186,7 @@ function main() {
   }
   if (!base.passes.g1) {
     console.error(
-      `G1 is open on the probe: late ${base.mean.fieldProbeLate.toFixed(4)} early ${base.mean.fieldProbeEarly.toFixed(4)} (on-policy ema ${base.mean.fieldLate.toFixed(4)}). Need probe late < 0.85·early or probe late < 0.14. Recorded, not loosened.`,
+      `G1 is open on the probe: late ${base.mean.fieldProbeLate.toFixed(4)} early ${base.mean.fieldProbeEarly.toFixed(4)} skill ${base.mean.fieldSkill.toFixed(3)} (on-policy ema ${base.mean.fieldLate.toFixed(4)}). Need probe late < per-cell-mean floor AND probe late < 0.85·early. Recorded, not loosened.`,
     );
   }
   const hard = ["g2", "s1", "s2", "s3", "c1", "c2"] as const;
