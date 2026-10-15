@@ -47,15 +47,15 @@ test("learnability selects deterministic west cells and relevance makes the east
   const none = createFamily("distractor", 15, 3000, { learnability: 0, driftRate: 0, distractorRelevance: 0 }, false);
   let noiseCells = 0;
   let west = 0;
-  const door = none.family.doorY * 15 + none.family.dividerX;
   for (let i = 0; i < none.cells.length; i++) {
-    if (i === door || none.family.region[i] !== 0 || none.cells[i] === 1) continue;
+    if ((i % 15) === none.family.dividerX) continue;
+    if (none.family.region[i] !== 0 || none.cells[i] === 1) continue;
     west += 1;
     noiseCells += none.family.stochastic[i]!;
   }
   assert.ok(west > 20);
   assert.equal(noiseCells, west);
-  assert.equal(none.family.stochastic[door], 0);
+  assert.equal(none.cells[1 * 15 + none.family.dividerX], 1);
 
   const edible = createFamily("distractor", 15, 11, { learnability: 1, driftRate: 0.25, distractorRelevance: 1 }, false);
   assert.equal(edible.family.mode, "drift");

@@ -64,6 +64,12 @@ export function doorY(size: number) {
   return (size / 2) | 0;
 }
 
+/** Wide opening. A one-cell door made entry a rare event on a few hundred steps. */
+export function isDoorRow(y: number, size: number) {
+  const mid = doorY(size);
+  return y >= mid - 3 && y <= mid + 3;
+}
+
 export function distractorSpec(partial: Partial<EnvParams>, layoutSeed = FAMILY_LAYOUT_SEED): EnvSpec {
   return {
     kind: "distractor",
@@ -113,7 +119,7 @@ export function createFamily(
     cells[i * size + size - 1] = 1;
   }
   for (let y = 1; y < size - 1; y++) {
-    const wall = y !== door;
+    const wall = !isDoorRow(y, size);
     cells[y * size + div] = wall ? 1 : 0;
     region[y * size + div] = wall ? 2 : 0;
     for (let x = 1; x < div; x++) region[y * size + x] = 0;

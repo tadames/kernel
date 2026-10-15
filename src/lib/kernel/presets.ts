@@ -115,7 +115,7 @@ export function generateWorld(kind: WorldKind, size: number, seed: number): Uint
   } else if (kind === "distractor" || kind === "split") {
     const div = Math.max(2, Math.min(size - 3, Math.round(size * 0.6)));
     const door = (size / 2) | 0;
-    for (let y = 1; y < size - 1; y++) if (y !== door) set(div, y, WALL);
+    for (let y = 1; y < size - 1; y++) if (y < door - 3 || y > door + 3) set(div, y, WALL);
     for (let y = 1; y < size - 1; y++) {
       for (let x = 1; x < div; x++) {
         if (cells[at(x, y)] === EMPTY && rand() < 0.07) set(x, y, WALL);
