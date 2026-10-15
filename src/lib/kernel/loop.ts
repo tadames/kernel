@@ -38,6 +38,68 @@
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
 
+/**
+ * Curiosity terms stacked onto the cell loop. Each one can be shut off
+ * without deleting the trace. Defaults are the kept set: a term stays on
+ * only when an ablation on seeds 1..5 shows it earns its place.
+ * See AGENTS.project.md.
+ */
+export const LOOP_FEATURE_KEYS = [
+  "encoder",
+  "slowEncoder",
+  "encoderMix",
+  "wake",
+  "latentRho",
+  "latentRhoHat",
+  "slowRho",
+  "slowRhoHat",
+  "slowWindow",
+  "slowWindow2",
+  "slowWindow3",
+  "slowSelfWindow",
+  "slowSelfWindow2",
+] as const;
+
+export type LoopFeatureKey = (typeof LOOP_FEATURE_KEYS)[number];
+
+export type LoopFeatures = Record<LoopFeatureKey, boolean>;
+
+/**
+ * Kept set after the 2026-10-15 leave-one-out on seeds 1..5.
+ * Improvement is (ema off − ema on) / ema off. A term stays on when its
+ * noise band still crosses a gain and it does not raise Field lives or fail G2.
+ * None cleared +5%. See JOURNAL.md.
+ *   encoder, slowEncoder, latentRhoHat, slowWindow — band at or below zero
+ *   slowWindow3 — measured null (spread under half a point)
+ *   slowSelfWindow2 — Field lives rise
+ *   encoderMix, wake, latentRho, slowRho, slowRhoHat, slowWindow2, slowSelfWindow — noisy, kept
+ */
+export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
+  encoder: false,
+  slowEncoder: false,
+  encoderMix: true,
+  wake: true,
+  latentRho: true,
+  latentRhoHat: false,
+  slowRho: true,
+  slowRhoHat: true,
+  slowWindow: false,
+  slowWindow2: true,
+  slowWindow3: false,
+  slowSelfWindow: true,
+  slowSelfWindow2: false,
+};
+
+export function resolveLoopFeatures(partial?: Partial<LoopFeatures>): LoopFeatures {
+  const out: LoopFeatures = { ...DEFAULT_LOOP_FEATURES };
+  if (!partial) return out;
+  for (const key of LOOP_FEATURE_KEYS) {
+    const value = partial[key];
+    if (typeof value === "boolean") out[key] = value;
+  }
+  return out;
+}
+
 export type BrainDump = {
   w1: number[];
   b1: number[];
@@ -187,13 +249,17 @@ export class Loop {
 
   /** One-hot width of the action the latent predictor conditions on. */
   readonly acts: number;
+  /** Which slow/latent terms learn and which enter the progress bonus. */
+  readonly features: LoopFeatures;
   constructor(
     readonly inn: number,
     readonly hidden: number,
     readonly out: number,
     acts = 5,
+    features?: Partial<LoopFeatures>,
   ) {
     this.acts = acts;
+    this.features = resolveLoopFeatures(features);
     this.net = new MLP(inn, hidden, out);
     const latentH = Math.max(4, hidden >> 2);
     this.latent = new MLP(hidden + acts, latentH, hidden);
@@ -326,6 +392,7 @@ export class Loop {
    * does not get to pick features.
    */
   private learnEncoder() {
+    if (!this.features.encoder) return;
     if (!this.prevEncObs || !this.prevHidden) return;
     // Same gate as curiosity. Flicker on a fair coin is not progress.
     if (this.latentEma >= 0.2 || this.latentProgress <= 0.001) return;
@@ -350,11 +417,19 @@ export class Loop {
   }
 
   private projectSlow(code: Float32Array, into: Float32Array) {
+    if (!this.features.slowEncoder) {
+      for (let i = 0; i < this.hidden; i++) {
+        const y = code[i]!;
+        into[i] = y < 0 ? 0 : y > 1 ? 1 : y;
+      }
+      return into;
+    }
     const part = participation(code);
-    // Residual mix. Identity init stays exact at mix=0. Mix rises with participation
-    // so a high-dimensional code invents features more aggressively; a already-low
-    // code stays closer to what the slow predictor already compresses.
-    const mix = 0.02 + 0.06 * Math.min(1, Math.max(0, (part - 2) / 8));
+    // Residual mix. Identity init stays exact at mix=0. The adaptive mix rises
+    // with participation. encoderMix off freezes the pre-adaptive 0.01 mix.
+    const mix = this.features.encoderMix
+      ? 0.02 + 0.06 * Math.min(1, Math.max(0, (part - 2) / 8))
+      : 0.01;
     for (let i = 0; i < this.hidden; i++) {
       let s = 0;
       const row = i * this.hidden;
@@ -371,6 +446,7 @@ export class Loop {
    * the features the hierarchy chooses to compress.
    */
   private learnSlowEncoder() {
+    if (!this.features.slowEncoder) return;
     if (!this.prevZt || !this.prevSlow) return;
     if (this.slowEma >= 0.2 || this.slowProgress <= 0.01 || this.latentEma >= 0.2) return;
     const x = this.prevZt;
@@ -568,7 +644,7 @@ export class Loop {
       return;
     }
     const excess = this.latentSurprise - this.latentEma;
-    const wake = excess > Loop.SLOW_WAKE;
+    const wake = this.features.wake && excess > Loop.SLOW_WAKE;
     if (this.latentEma >= 0.2 && !wake) {
       this.prevSlow.set(this.slowCode);
       if (this.prevZt) this.prevZt.set(zt);
@@ -602,7 +678,8 @@ export class Loop {
       this.slowProgress = this.slowEma - this.slowSurprise;
       this.slowEma = 0.96 * this.slowEma + 0.04 * this.slowSurprise;
     }
-    const lr = closed ? Loop.SLOW_LR * 0.5 : Loop.SLOW_LR * (1 + Math.min(1, Math.max(0, excess) / 0.1));
+    const openBoost = this.features.wake ? 1 + Math.min(1, Math.max(0, excess) / 0.1) : 1;
+    const lr = closed ? Loop.SLOW_LR * 0.5 : Loop.SLOW_LR * openBoost;
     this.slow.train(this.slowIn, target, lr);
     this.slowSteps += 1;
     if (closed) this.slowWakes += 1;

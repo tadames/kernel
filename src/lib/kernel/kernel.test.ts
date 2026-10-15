@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MLP, mse } from "./mlp.ts";
-import { Loop } from "./loop.ts";
+import { Loop, DEFAULT_LOOP_FEATURES } from "./loop.ts";
+import { mulberry32 } from "./presets.ts";
+
+// Weight init uses Math.random. Pin it so the suite does not flicker in CI.
+Math.random = mulberry32(20261015);
 import { Kernel } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
 import { evaluateClaims } from "./experiments.ts";
@@ -123,7 +127,8 @@ test("stop-grad encoder moves on structure and stays put on noise", () => {
     for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
     return s;
   };
-  const structured = new Loop(6, 16, 6);
+  const learn = { encoder: true } as const;
+  const structured = new Loop(6, 16, 6, 5, learn);
   const s0 = (structured.exportBrain().proj ?? []).slice();
   for (let t = 0; t < 240; t++) {
     const bit = t % 2;
@@ -131,7 +136,7 @@ test("stop-grad encoder moves on structure and stays put on noise", () => {
     structured.assimilate(x, 0.08);
     structured.commit(x);
   }
-  const noise = new Loop(6, 16, 6);
+  const noise = new Loop(6, 16, 6, 5, learn);
   const n0 = (noise.exportBrain().proj ?? []).slice();
   for (let t = 0; t < 240; t++) {
     const x = new Float32Array(6);
@@ -150,7 +155,7 @@ test("stop-grad encoder moves on structure and stays put on noise", () => {
 });
 
 test("stop-grad encoder prefers structured channels over noise", () => {
-  const loop = new Loop(4, 16, 4);
+  const loop = new Loop(4, 16, 4, 5, { encoder: true });
   for (let t = 0; t < 400; t++) {
     const bit = t % 2;
     const x = new Float32Array([bit, 1 - bit, Math.random(), Math.random()]);
@@ -252,7 +257,7 @@ test("slow code predicts the latent, not cells, and stays shut on noise", () => 
     Math.abs((restored.exportBrain().slowActionEma?.[1] ?? 1) - (dumped.slowActionEma?.[1] ?? 0)) < 1e-9,
   );
 
-  const noise = new Loop(inn, 16, out, acts);
+  const noise = new Loop(inn, 16, out, acts, { wake: true });
   for (let t = 0; t < 240; t++) {
     const obs = new Float32Array(out);
     for (let i = 0; i < out; i++) obs[i] = Math.random();
@@ -272,7 +277,7 @@ test("level-1 residual wakes the slow step and does not pay", () => {
   const acts = 5;
   const out = 6;
   const inn = out + acts;
-  const loop = new Loop(inn, 16, out, acts);
+  const loop = new Loop(inn, 16, out, acts, { encoder: true, slowEncoder: true, encoderMix: true, wake: true });
   const step = (obs: Float32Array, a: number) => {
     loop.assimilate(obs, 0.12);
     const x = new Float32Array(inn);
@@ -313,7 +318,7 @@ test("slow window scores one imagined latent step, not only the current code", (
   const acts = 5;
   const out = 6;
   const inn = out + acts;
-  const loop = new Loop(inn, 16, out, acts);
+  const loop = new Loop(inn, 16, out, acts, { encoder: true, slowEncoder: true, encoderMix: true });
   const step = (obs: Float32Array, a: number) => {
     loop.assimilate(obs, 0.12);
     const x = new Float32Array(inn);
@@ -626,7 +631,7 @@ test("slow encoder invents features on structure and stays put on noise", () => 
   const out = 6;
   const inn = out + acts;
   const hidden = 16;
-  const loop = new Loop(inn, hidden, out, acts);
+  const loop = new Loop(inn, hidden, out, acts, { slowEncoder: true, encoderMix: true });
   const start = Array.from(loop.exportBrain().slowProj ?? []);
   for (let t = 0; t < 400; t++) {
     const a = t % 2;
@@ -645,4 +650,32 @@ test("slow encoder invents features on structure and stays put on noise", () => 
   assert.ok(loop.slowEncoderSteps > 5, `slow encoder idle on structure: ${loop.slowEncoderSteps}`);
   const moved = Array.from(loop.exportBrain().slowProj ?? []).some((w, i) => Math.abs(w - start[i]) > 0.01);
   assert.ok(moved, "slow encoder did not move on structure");
+});
+
+test("feature flags default to the kept set and a shut encoder does not step", () => {
+  const open = new Loop(4, 8, 4);
+  assert.deepEqual(open.features, DEFAULT_LOOP_FEATURES);
+  const shut = new Loop(4, 8, 4, 5, { encoder: false, wake: false });
+  assert.equal(shut.features.encoder, false);
+  assert.equal(shut.features.wake, false);
+  assert.equal(shut.features.slowWindow, DEFAULT_LOOP_FEATURES.slowWindow);
+  for (let t = 0; t < 80; t++) {
+    const bit = t % 2;
+    const x = new Float32Array([bit, 1 - bit, bit, 1 - bit]);
+    shut.assimilate(x, 0.2);
+    shut.commit(x);
+  }
+  assert.equal(shut.encoderSteps, 0);
+  assert.equal(shut.slowWakes, 0);
+});
+
+test("food, stream, and band claims hold under a pinned init", () => {
+  Math.random = mulberry32(20261015);
+  const claims = evaluateClaims();
+  const byId = new Map(claims.map((claim) => [claim.id, claim]));
+  for (const id of ["G2", "S1", "S2", "S3", "C1", "C2"]) {
+    const claim = byId.get(id);
+    assert.ok(claim, `missing ${id}`);
+    assert.equal(claim.pass, true, `${id} ${claim.detail}`);
+  }
 });

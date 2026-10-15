@@ -1,4 +1,4 @@
-import { Loop } from "./loop.ts";
+import { Loop, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
 import { imagineScores, softmaxSample } from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
@@ -75,6 +75,8 @@ export type Snapshot = {
 export class Kernel {
   worldKind: WorldKind = "field";
   seed: number;
+  /** Resolved loop flags. resetBrain keeps this set. */
+  readonly features: LoopFeatures;
   cells: Uint8Array;
   scent: Float32Array;
   loop: Loop;
@@ -106,10 +108,11 @@ export class Kernel {
   private thinkCooldown = 0;
   private rand: () => number;
 
-  constructor(kind: WorldKind = "field", seed = 1) {
+  constructor(kind: WorldKind = "field", seed = 1, features?: Partial<LoopFeatures>) {
     this.seed = seed;
+    this.features = resolveLoopFeatures(features);
     this.rand = mulberry32(seed);
-    this.loop = new Loop(IN, HIDDEN, OUT, ACTS);
+    this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
     this.cells = new Uint8Array(SIZE * SIZE);
     this.scent = new Float32Array(SIZE * SIZE);
     this.setWorld(kind, seed);
@@ -147,7 +150,7 @@ export class Kernel {
   }
 
   resetBrain() {
-    this.loop = new Loop(IN, HIDDEN, OUT, ACTS);
+    this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
     this.loop.commit(this.encode(this.sense()));
     this.history = [];
     this.thoughts = [];
@@ -266,8 +269,9 @@ export class Kernel {
 
   private choose(obs: Float32Array): number {
     const hunger = Math.max(0, 1 - this.energy / 100);
-    const latentRho = this.loop.latentRho();
-    const slowRho = this.loop.slowRho();
+    const f = this.loop.features;
+    const latentRho = f.latentRho ? this.loop.latentRho() : 0;
+    const slowRho = f.slowRho ? this.loop.slowRho() : 0;
     imagineScores({
       acts: ACTS,
       curiosity: this.params.curiosity,
@@ -319,7 +323,15 @@ export class Kernel {
         const tx = R + DIRS[a].x;
         const ty = R + DIRS[a].y;
         const to = a === 4 ? from : ty * VIEW + tx;
-        return this.loop.scentRhoHat(from, to) + this.loop.latentRhoHat(a) + this.loop.slowRhoHat(a) + this.loop.slowWindowRhoHat(a) + this.loop.slowWindow2RhoHat(a) + this.loop.slowWindow3RhoHat(a) + this.loop.slowSelfWindowRhoHat(a) + this.loop.slowSelfWindow2RhoHat(a);
+        let bonus = this.loop.scentRhoHat(from, to);
+        if (f.latentRhoHat) bonus += this.loop.latentRhoHat(a);
+        if (f.slowRhoHat) bonus += this.loop.slowRhoHat(a);
+        if (f.slowWindow) bonus += this.loop.slowWindowRhoHat(a);
+        if (f.slowWindow2) bonus += this.loop.slowWindow2RhoHat(a);
+        if (f.slowWindow3) bonus += this.loop.slowWindow3RhoHat(a);
+        if (f.slowSelfWindow) bonus += this.loop.slowSelfWindowRhoHat(a);
+        if (f.slowSelfWindow2) bonus += this.loop.slowSelfWindow2RhoHat(a);
+        return bonus;
       },
     });
     let temp = this.params.temperature;
