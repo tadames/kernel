@@ -4,6 +4,8 @@
 import { Kernel, SIZE } from "./kernel.ts";
 import { runStream, StreamKernel } from "./stream.ts";
 import type { LoopFeatures } from "./loop.ts";
+import { CANONICAL_ENV } from "./env.ts";
+import { PROBE_EARLY_STEP, buildProbe } from "./probe.ts";
 
 export function g1Pass(early: number, late: number) {
   return late < early * 0.85 || late < 0.14;
@@ -41,11 +43,27 @@ export type Claim = {
 };
 
 export function gridSurprise(seed = 7, steps = 280, features?: Partial<LoopFeatures>) {
-  const k = new Kernel("field", seed, features);
-  for (let i = 0; i < 50; i++) k.step();
-  const early = k.ema;
-  for (let i = 0; i < steps - 50; i++) k.step();
-  return { early, late: k.ema, foods: k.foods, lives: k.lives, age: k.age };
+  const probe = buildProbe(CANONICAL_ENV.field);
+  const k = new Kernel("field", seed, features, { env: CANONICAL_ENV.field });
+  let early = 0;
+  let probeEarly = 0;
+  for (let i = 0; i < steps; i++) {
+    k.step();
+    if (i + 1 === PROBE_EARLY_STEP) probeEarly = k.frozenProbeError(probe);
+    if (i === 49) early = k.ema;
+  }
+  const probeLate = k.frozenProbeError(probe);
+  if (steps < 50) early = k.ema;
+  if (steps < PROBE_EARLY_STEP) probeEarly = probeLate;
+  return {
+    early,
+    late: k.ema,
+    probeEarly,
+    probeLate,
+    foods: k.foods,
+    lives: k.lives,
+    age: k.age,
+  };
 }
 
 /** Hungry body, food in the adjacent cell. Whiskers should take it. */
@@ -96,7 +114,7 @@ export function streamCommitment(kind: "structured" | "noise", seed = 3, steps =
  * The interior is the cheap edge-of-chaos proxy. Freeze is B≈1; a coin is B≈5.
  */
 export function fieldBand(seed = 7, steps = 280, features?: Partial<LoopFeatures>) {
-  const k = new Kernel("field", seed, features);
+  const k = new Kernel("field", seed, features, { env: CANONICAL_ENV.field });
   const H: number[] = [];
   const B: number[] = [];
   const E: number[] = [];
@@ -123,7 +141,7 @@ export function evaluateClaims(): Claim[] {
   const structureFalls = s1Pass(structured.early, structured.late);
   const noiseHolds = s2Pass(noise.late);
   const structuredBetter = s3Pass(structured.late, noise.late);
-  const gridFalls = g1Pass(grid.early, grid.late);
+  const gridFalls = g1Pass(grid.probeEarly, grid.probeLate);
   const tookFood = g2Pass(food.action, food.foods, food.x);
   const commitment = c1Pass(structC.early, structC.late, noiseC.late);
   const interior = c2Pass(band.meanB);
@@ -131,9 +149,9 @@ export function evaluateClaims(): Claim[] {
   return [
     {
       id: "G1",
-      claim: "On a structured grid, surprise falls. The compressor finds regularities.",
+      claim: "On a structured grid, held-out probe error falls. The compressor finds regularities it did not choose.",
       pass: gridFalls,
-      detail: `field ema ${grid.early.toFixed(3)} → ${grid.late.toFixed(3)}`,
+      detail: `probe ${grid.probeEarly.toFixed(3)} → ${grid.probeLate.toFixed(3)}; on-policy ema ${grid.early.toFixed(3)} → ${grid.late.toFixed(3)}`,
     },
     {
       id: "G2",

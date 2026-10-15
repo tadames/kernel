@@ -40,9 +40,10 @@ import { participation } from "./complexity.ts";
 
 /**
  * Curiosity terms stacked onto the cell loop. Each one can be shut off
- * without deleting the trace. Defaults are the kept set: a term stays on
- * only when an ablation on seeds 1..5 shows it earns its place.
- * See AGENTS.project.md.
+ * without deleting the trace. A term stays on only when a preregistered
+ * probe ablation says it beats its own absence. See AGENTS.project.md.
+ * The 2026-10-15 probe gate turned the noisy set off. None of them lowered
+ * held-out probe error.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -65,28 +66,25 @@ export type LoopFeatureKey = (typeof LOOP_FEATURE_KEYS)[number];
 export type LoopFeatures = Record<LoopFeatureKey, boolean>;
 
 /**
- * Kept set after the 2026-10-15 leave-one-out on seeds 1..5.
- * Improvement is (ema off − ema on) / ema off. A term stays on when its
- * noise band still crosses a gain and it does not raise Field lives or fail G2.
- * None cleared +5%. See JOURNAL.md.
- *   encoder, slowEncoder, latentRhoHat, slowWindow — band at or below zero
- *   slowWindow3 — measured null (spread under half a point)
- *   slowSelfWindow2 — Field lives rise
- *   encoderMix, wake, latentRho, slowRho, slowRhoHat, slowWindow2, slowSelfWindow — noisy, kept
+ * Shipped set after the 2026-10-15 probe gate (seeds 1–20, Field, held-out
+ * probe). Every previously noisy term failed: the paired CI of (off − on)
+ * did not lie above zero. encoderMix and wake were exact ties. latentRho
+ * and slowRhoHat made probe error worse. The code remains; the defaults
+ * are off. See JOURNAL.md.
  */
 export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   encoder: false,
   slowEncoder: false,
-  encoderMix: true,
-  wake: true,
-  latentRho: true,
+  encoderMix: false,
+  wake: false,
+  latentRho: false,
   latentRhoHat: false,
-  slowRho: true,
-  slowRhoHat: true,
+  slowRho: false,
+  slowRhoHat: false,
   slowWindow: false,
-  slowWindow2: true,
+  slowWindow2: false,
   slowWindow3: false,
-  slowSelfWindow: true,
+  slowSelfWindow: false,
   slowSelfWindow2: false,
 };
 

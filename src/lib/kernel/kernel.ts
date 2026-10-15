@@ -8,6 +8,14 @@ import {
   randomEmpty,
   type WorldKind,
 } from "./presets.ts";
+import { applyDrift, DEFAULT_ENV_PARAMS, type EnvParams, type EnvSpec } from "./env.ts";
+import {
+  RndCuriosity,
+  signalActionBonus,
+  signalProgressEma,
+  type CuriositySignal,
+  type SignalView,
+} from "./signals.ts";
 
 export const SIZE = 15;
 export const R = 2;
@@ -36,6 +44,18 @@ export type Params = {
   curiosity: number;
   goal: number;
   temperature: number;
+};
+
+export type KernelOptions = {
+  /** Which intrinsic term scores actions. Default is compression progress. */
+  signal?: CuriositySignal;
+  /**
+   * When set, the map is generated from this seed instead of the episode seed.
+   * Episode seed still inits weights and the policy RNG.
+   */
+  layoutSeed?: number;
+  /** Fixed environment, including reserved drift parameters. */
+  env?: EnvSpec;
 };
 
 export type Thought = { t: number; text: string };
@@ -77,6 +97,15 @@ export class Kernel {
   seed: number;
   /** Resolved loop flags. resetBrain keeps this set. */
   readonly features: LoopFeatures;
+  /** Curiosity baseline. `rho` is the historical compression signal. */
+  readonly signal: CuriositySignal;
+  /** Reserved environment parameters. Drift rate 0 is the static map. */
+  readonly envParams: EnvParams;
+  private readonly fixedLayout: number | null;
+  /** Visit counts for the count-based baseline. Not used by rho. */
+  readonly visitCounts: Uint32Array;
+  /** RND target and predictor. The target stays fixed for the episode. */
+  rnd: RndCuriosity;
   cells: Uint8Array;
   scent: Float32Array;
   loop: Loop;
@@ -108,13 +137,19 @@ export class Kernel {
   private thinkCooldown = 0;
   private rand: () => number;
 
-  constructor(kind: WorldKind = "field", seed = 1, features?: Partial<LoopFeatures>) {
+  constructor(kind: WorldKind = "field", seed = 1, features?: Partial<LoopFeatures>, options?: KernelOptions) {
     this.seed = seed;
     this.features = resolveLoopFeatures(features);
+    this.signal = options?.signal ?? "rho";
+    this.envParams = options?.env?.params ?? { ...DEFAULT_ENV_PARAMS };
+    this.fixedLayout = options?.env ? options.env.layoutSeed : (options?.layoutSeed ?? null);
+    if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
     this.cells = new Uint8Array(SIZE * SIZE);
     this.scent = new Float32Array(SIZE * SIZE);
+    this.visitCounts = new Uint32Array(SIZE * SIZE);
+    this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
     this.setWorld(kind, seed);
   }
 
@@ -126,8 +161,11 @@ export class Kernel {
     this.worldKind = kind;
     this.seed = seed;
     this.rand = mulberry32(seed);
-    this.cells = generateWorld(kind, SIZE, seed);
+    const layout = this.fixedLayout ?? seed;
+    this.cells = generateWorld(kind, SIZE, layout);
     this.scent.fill(0);
+    this.visitCounts.fill(0);
+    this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
     this.placeAgent();
     this.loop.commit(this.encode(this.sense()));
     this.age = 0;
@@ -163,6 +201,8 @@ export class Kernel {
     this.burnIn = 0;
     this.obsMean.fill(0);
     this.loop.baselineRate = 0.02;
+    this.visitCounts.fill(0);
+    this.rnd = new RndCuriosity(this.seed ^ 0x51ed, OBS);
   }
 
   get ema() {
@@ -238,13 +278,70 @@ export class Kernel {
     return into;
   }
 
-  private encode(obs: Float32Array, action = this.lastAction, muteNoise = false): Float32Array {
+  private encode(obs: Float32Array, action = this.lastAction, muteNoise = false, energy = this.energy): Float32Array {
     const x = new Float32Array(IN);
     if (muteNoise) this.loop.muteFamilies(obs, x);
     else x.set(obs);
     x[OBS + action] = 1;
-    x[OBS + ACTS] = Math.min(1, this.energy / 100);
+    x[OBS + ACTS] = Math.min(1, energy / 100);
     return x;
+  }
+
+  /**
+   * Prediction error of the current weights on a held-out probe.
+   * Forward only: the compressor is not stepped. Energy is fixed at 100 so
+   * the score is not the agent's hunger.
+   */
+  frozenProbeError(probe: { transitions: { action: number; obs: ArrayLike<number>; nextObs: ArrayLike<number> }[] }): number {
+    const into = new Float32Array(OBS);
+    const obs = new Float32Array(OBS);
+    let sum = 0;
+    let n = 0;
+    for (const tr of probe.transitions) {
+      obs.set(tr.obs);
+      this.loop.imagine(this.encode(obs, tr.action, false, 100), into);
+      for (let i = 0; i < OBS; i++) {
+        if (i % CH === 2) continue;
+        const d = into[i] - tr.nextObs[i];
+        sum += d * d;
+        n += 1;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  private signalView(): SignalView {
+    return {
+      loop: this.loop,
+      features: this.features,
+      counts: this.visitCounts,
+      rnd: this.rnd,
+      destGrid: (action) => {
+        const nx = this.x + DIRS[action].x;
+        const ny = this.y + DIRS[action].y;
+        const oob = nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE;
+        const blocked = action === 4 || oob || this.cells[ny * SIZE + nx] === 1;
+        if (blocked) return this.y * SIZE + this.x;
+        return ny * SIZE + nx;
+      },
+      scentPair: (action) => {
+        const from = (VIEW * VIEW) >> 1;
+        const tx = R + DIRS[action].x;
+        const ty = R + DIRS[action].y;
+        const to = action === 4 ? from : ty * VIEW + tx;
+        return { from, to };
+      },
+    };
+  }
+
+  private observeSignal() {
+    if (this.signal === "count") {
+      this.visitCounts[this.y * SIZE + this.x] += 1;
+    } else if (this.signal === "rnd") {
+      const obs = new Float32Array(OBS);
+      this.sense(obs);
+      this.rnd.train(obs);
+    }
   }
 
   private spawnFood() {
@@ -268,15 +365,21 @@ export class Kernel {
   }
 
   private choose(obs: Float32Array): number {
+    if (this.signal === "random") {
+      this.scores.fill(0);
+      this.policyEntropy = 1;
+      this.branching = ACTS;
+      this.edge = edgeIndex(1);
+      return (this.rand() * ACTS) | 0;
+    }
     const hunger = Math.max(0, 1 - this.energy / 100);
-    const f = this.loop.features;
-    const latentRho = f.latentRho ? this.loop.latentRho() : 0;
-    const slowRho = f.slowRho ? this.loop.slowRho() : 0;
+    const view = this.signalView();
     imagineScores({
       acts: ACTS,
       curiosity: this.params.curiosity,
       goal: this.params.goal,
-      progressEma: this.loop.progressEma + 0.35 * latentRho + 0.2 * slowRho,
+      progressEma: signalProgressEma(this.signal, view),
+      horizonRho: this.signal === "rho",
       ema: this.loop.ema,
       imagined: this.imagined,
       imagined2: this.imagined2,
@@ -318,21 +421,7 @@ export class Kernel {
           novelty: (1 - destScent) * scentW,
         };
       },
-      progressBonus: (a) => {
-        const from = (VIEW * VIEW) >> 1;
-        const tx = R + DIRS[a].x;
-        const ty = R + DIRS[a].y;
-        const to = a === 4 ? from : ty * VIEW + tx;
-        let bonus = this.loop.scentRhoHat(from, to);
-        if (f.latentRhoHat) bonus += this.loop.latentRhoHat(a);
-        if (f.slowRhoHat) bonus += this.loop.slowRhoHat(a);
-        if (f.slowWindow) bonus += this.loop.slowWindowRhoHat(a);
-        if (f.slowWindow2) bonus += this.loop.slowWindow2RhoHat(a);
-        if (f.slowWindow3) bonus += this.loop.slowWindow3RhoHat(a);
-        if (f.slowSelfWindow) bonus += this.loop.slowSelfWindowRhoHat(a);
-        if (f.slowSelfWindow2) bonus += this.loop.slowSelfWindow2RhoHat(a);
-        return bonus;
-      },
+      progressBonus: (a, pred) => signalActionBonus(this.signal, view, a, pred),
     });
     let temp = this.params.temperature;
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
@@ -415,6 +504,8 @@ export class Kernel {
       this.placeAgent();
       this.energy = 100;
     }
+    applyDrift(this.cells, this.envParams, this.rand);
+    this.observeSignal();
     this.maybeThink(action, ate, blocked, died);
     this.age += 1;
     this.loop.commit(this.encode(this.sense(), action));

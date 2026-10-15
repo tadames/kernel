@@ -7,38 +7,52 @@ Skip, every run: dev server, `startup.sh`, browser smoke, brand assets, PWA, og 
 ## One run, one experiment
 
 1. Read the newest entry under `# Journal` in `JOURNAL.md`. The **Next hypothesis** is the only experiment this run is allowed to start.
-2. Run `npm run bench:json` first, on fixed seeds **1, 2, 3, 4, 5**, before writing a new mechanism. That command ablates every `Loop` feature flag (on vs off, same seeds, same weight init).
-3. Apply the ablation before adding anything:
-   - Field late ema is better when it is **lower**.
-   - A flag earns its place only when on beats off by **≥ 5%** on mean Field late ema: `(off − on) / off ≥ 0.05`, and the seed band agrees (`mean − stdev ≥ 0.05`).
-   - **Remove** a term (default the flag off; keep the code) when its noise band is at or below zero, when it is a measured null (mean and spread both under half a point), when it drops the G2 pass count, or when it raises mean Field lives by ≥ 0.4. Prefer a net-negative diff over a flat one.
-   - **Keep and flag** a term when the band crosses a gain but does not clear 5%, and G2 and lives are not clearly worse. Say "noisy" in the journal. Do not delete it that night.
-4. Add a new mechanism only when every existing flag has a bench row. Put it behind a new boolean on `LoopFeatures`, defaulted so the ablation can turn it off, and measure it in the same run. One mechanism. No second idea.
-5. Do not commit when any of these are true. Write the failure in the journal instead, and stop:
+2. Run `npm run bench:json` first, on fixed seeds **1, 2, 3, 4, 5**, before writing a new mechanism. That command records every `Loop` feature flag (on vs off, same seeds, same weight init) on the canonical Field and Rooms maps. It does **not** decide whether a flag stays. The old 5% on-policy ema rule is retired.
+3. Preregister before any mechanism run. In `JOURNAL.md`, above the results, write `### Preregister <flag>` with `hypothesis`, `metric: probeLate`, `direction: lower`, and `threshold`. The metric is late held-out probe error on Field. Lower is better. The threshold is a paired 95% bootstrap CI, not a 5% ema cut.
+4. Run `npm run gate -- --flag <name> --seeds 20` (more seeds are allowed). The gate exits 0 only when, on identical seeds:
+   - probe late error is lower with the flag on, and the paired CI of (off − on) lies entirely above zero
+   - G2 and C2 do not lose a majority they held with the flag off
+   - Field lives do not rise (the paired CI of on − off does not lie entirely above zero)
+5. A flag that fails is reverted: default it off, leave the code, and journal the failure. A failed mechanism is a journal entry, not a fixture. Do not add a second mechanism in the same run.
+6. Do not commit when any of these are true. Write the failure in the journal instead, and stop:
    - `src/lib/kernel/loop.ts` is under 2 KB
    - `npm test` fails
    - `npm run bench:json` exits non-zero
-6. Journal the run or do not claim it happened. The new entry is the first `##` block under the `# Journal` heading (newest first). It includes a numbers table against the previous `bench/latest.json`. No numbers, no entry. Columns that matter: Field early ema, Field late ema, Field foods, Field lives, Rooms foods, Rooms lives, and G1 G2 S1 S2 S3 C1 C2.
-7. One commit. Author `Kernel Daily <kernel-daily@users.noreply.github.com>`. Branch `daily/YYYY-MM-DD`. Open one PR to `main`. The PR body has the hypothesis, the results table, what was kept and removed, and a link to the trend in `bench/history.csv`.
-8. If seven daily rows in `bench/history.csv` show no drop in Field late ema and no gain on G2 or lives, stop stacking curiosity terms. Take the next open problem in `RESEARCH.md` and say so in the journal.
+   - the preregistered gate was required and exits non-zero
+   - a hard claim (G2, S1, S2, S3, C1, C2) loses a majority of seeds
+7. Journal the run or do not claim it happened. The new entry is the first `##` block under the `# Journal` heading (newest first). It includes the preregistration, then a numbers table. No numbers, no entry. Columns that matter: Field probe early, Field probe late, Field on-policy ema, Field foods, Field lives, Rooms foods, Rooms lives, and G1 G2 S1 S2 S3 C1 C2. G1 is the probe claim. The on-policy ema is comparison only.
+8. One commit. Author `Kernel Daily <kernel-daily@users.noreply.github.com>`. Branch `daily/YYYY-MM-DD`. Open one PR to `main`. The PR body has the hypothesis, the results table, what was kept and removed, and a link to the trend in `bench/history.csv`.
+9. If seven daily rows show no drop in Field probe late error and no gain on G2 or lives, stop stacking curiosity terms. Take the next open problem in `RESEARCH.md` and say so in the journal.
 
 ## Bench
 
-`npm run bench:json` writes `bench/latest.json` and appends `bench/history.csv` (date, sha, config, metrics, pass flags). Seeds are 1..5. Field and Rooms run 280 steps. Streams run 220. Weight init is reseeded per episode so a flag flip is the only change.
+`npm run bench:json` writes `bench/latest.json` and appends `bench/history.csv` (date, sha, config, on-policy metrics, pass flags). Seeds are 1..5. They reseed weights and policy noise. The Field and Rooms **maps** are canonical (`layoutSeed` 1000 and 2000) so the held-out probe is the same environment the agent learns. Field and Rooms run 280 steps. Streams run 220. Weight init is reseeded per episode so a flag flip is the only change.
 
-G1 (Field surprise falls) does **not** pass on these seeds yet: late ema sits near 0.23 against a line of `0.85 × early` or `0.14`. Record it. Do not loosen the threshold in `src/lib/kernel/experiments.ts`. The bench exits non-zero when G2, S1, S2, S3, C1, or C2 loses a majority of seeds, or when `loop.ts` is under 2 KB. G1 is printed and stored either way.
+G1 is scored on the **probe**, not the on-policy ema. Late probe error must be `< 0.85 ×` early probe error, or late probe error `< 0.14`. The on-policy ema is stored beside it as `fieldEarly` / `fieldLate` and is not the claim. Do not loosen the threshold in `src/lib/kernel/experiments.ts`. The bench exits non-zero when G2, S1, S2, S3, C1, or C2 loses a majority of seeds, or when `loop.ts` is under 2 KB. G1 is printed and stored either way.
+
+The 5-seed table is descriptive. It does not keep or remove a flag. That decision is `npm run gate`.
+
+`npm run sweep` runs the curiosity signals (`random`, `count`, `surprise`, `rnd`, `rho`) on identical seeds and writes `bench/sweep.json`, `bench/sweep.csv`, and `bench/sweep.md` with means, 95% bootstrap CIs, and paired differences. Default is 20 seeds. `--seeds` can be raised into the thousands. Workers default to the machine's cores.
 
 `npm run bench:json -- --baseline-all` writes the fully-on stack to `bench/stack-ablation.json` and does not replace `latest.json`.
 
+## Probes
+
+`bench/probes/field.json` and `bench/probes/rooms.json` are generated once from probe seed `20261015`. Each file holds uniform-random-policy rollouts and uniformly sampled states. Checkpoints every 40 steps score them with frozen weights. A unit test fails if the files drift from the generator.
+
+## Signals
+
+`Kernel` takes `signal` in its options: `random`, `count` (1/√n), `surprise` (imagined forward error), `rnd` (frozen random target plus a predictor), `rho` (compression progress, the default). The world model is the same learner. Only the intrinsic term changes. `EnvSpec.params` reserves `learnability`, `driftRate`, and `distractorRelevance`. Drift above zero throws. That family is not built.
+
 ## Flags
 
-`Loop` takes `features` as its fifth argument. `Kernel` takes the same object as its third. Defaults live in `DEFAULT_LOOP_FEATURES`. A term that is off does not enter the progress bonus. Learning-side flags (`encoder`, `slowEncoder`, `encoderMix`, `wake`) skip that update. Calling the rho-hat method directly still runs the trace, so a unit test can opt in.
+`Loop` takes `features` as its fifth argument. `Kernel` takes the same object as its third, and options as its fourth. Defaults live in `DEFAULT_LOOP_FEATURES`. A term that is off does not enter the progress bonus. Learning-side flags (`encoder`, `slowEncoder`, `encoderMix`, `wake`) skip that update. Calling the rho-hat method directly still runs the trace, so a unit test can opt in.
 
 ## Claims
 
 | ID | Pass |
 |---|---|
-| G1 | Field late ema `< 0.85 ×` early, or late `< 0.14` |
+| G1 | Field probe late `< 0.85 ×` probe early, or probe late `< 0.14`. On-policy ema is reported and is not the claim. |
 | G2 | Adjacent food is taken (action east, a meal, or x = 6) |
 | S1 | Structured stream late `< 0.05` or `< 0.25 ×` early |
 | S2 | Noise late `> 0.15` |
@@ -46,6 +60,8 @@ G1 (Field surprise falls) does **not** pass on these seeds yet: late ema sits ne
 | C1 | Structured commitment grows; noise commitment stays low |
 | C2 | Field branching after burn-in is between 1.6 and 4.6 |
 
+S1–S3 and C1 stay on the exogenous streams. The agent does not choose those bits, so they are not dark-room scores. G1 is the grid compression claim and uses the probe.
+
 ## CI
 
-`.github/workflows/ci.yml` runs install, typecheck, `npm test`, and `npm run bench:json` on push and pull request. It also fails if `loop.ts` is under 2 KB. `npm test` is the TypeScript suite: kernel claims, auth, app-data. `npm run test:platform` is the App Builder script suite; several of those cases read the gitignored `.grok/` tree and are not the nightly gate. Branch protection on `main` that requires this check is a repository setting. This file cannot turn that on.
+`.github/workflows/ci.yml` runs install, typecheck, `npm test`, and `npm run bench:json` on push and pull request. It also fails if `loop.ts` is under 2 KB. Pull requests that touch a kernel mechanism file (`loop.ts`, `policy.ts`, `signals.ts`, `kernel.ts`, `scent-rho-hat.ts`, `horizon.ts`) run `npm run gate -- --ci`: every flag that still defaults on must already be preregistered and must pass the probe gate on 20 seeds. If no flag defaults on, that job passes. The nightly run uses the same gate on the proposed flag before commit. `npm test` is the TypeScript suite: kernel claims, probe, stats, auth, app-data. `npm run test:platform` is the App Builder script suite; several of those cases read the gitignored `.grok/` tree and are not the nightly gate. Branch protection on `main` that requires this check is a repository setting. This file cannot turn that on.
