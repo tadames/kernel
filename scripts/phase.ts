@@ -13,7 +13,7 @@ import { LEARNABILITY_GRID, closestRate } from "../src/lib/kernel/family.ts";
 import { type PhaseRequest, type PhaseResult } from "../src/lib/kernel/phase-run.ts";
 import { bootstrapMeanCI, pairedDifference, type Interval } from "../src/lib/kernel/stats.ts";
 import { runPool, workerCount } from "./pool.ts";
-import { drawText, fillRect, writePng } from "./png.ts";
+import { drawText, fillRect, scaleNearest, writePng } from "./png.ts";
 
 function arg(name: string, fallback: string) {
   const i = process.argv.indexOf(`--${name}`);
@@ -77,7 +77,12 @@ function short(n: number) {
   if (n === 0) return "0";
   if (n >= 0.1) return n.toFixed(2);
   if (n >= 0.01) return n.toFixed(3);
-  return n.toExponential(0);
+  return n.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function learnLabel(n: number) {
+  if (n === 0 || n === 1) return String(n);
+  return n.toFixed(2);
 }
 
 function drawTime(
@@ -90,21 +95,23 @@ function drawTime(
   const slice = summary.filter((row) => row.distractorRelevance === relevance);
   let max = 0.05;
   for (const row of slice) if (row.distractorFrac.mean > max) max = row.distractorFrac.mean;
-  const cell = 26;
-  const padL = 70;
-  const padB = 36;
+  const cell = 46;
+  const padL = 86;
+  const padB = 28;
   const panelW = drifts.length * cell;
   const panelH = learns.length * cell;
-  const width = padL + panelW + 16;
-  const height = 18 + signals.length * (panelH + 18) + padB;
+  const width = padL + panelW + 12;
+  const height = 18 + signals.length * (panelH + 16) + padB;
   const rgba = new Uint8Array(width * height * 4);
   rgba.fill(255);
   for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255;
   slice.sort((a, b) => a.learnability - b.learnability);
   signals.forEach((signal, s) => {
-    const top = 16 + s * (panelH + 18);
-    drawText(rgba, width, 4, top + 4, signal, SIGNAL_RGB[signal]);
+    const top = 16 + s * (panelH + 16);
+    drawText(rgba, width, 4, top + 2, signal, SIGNAL_RGB[signal]);
     learns.forEach((learn, yi) => {
+      const y = top + (learns.length - 1 - yi) * cell + 10;
+      drawText(rgba, width, 46, y, learnLabel(learn), [40, 40, 40]);
       drifts.forEach((drift, xi) => {
         const row = slice.find(
           (item) => item.signal === signal && item.driftRate === drift && Math.abs(item.learnability - learn) < 1e-9,
@@ -119,7 +126,8 @@ function drawTime(
     drawText(rgba, width, padL + xi * cell, labelY, short(drift), [40, 40, 40]);
   });
   drawText(rgba, width, 4, height - 16, "drift", [40, 40, 40]);
-  return { png: writePng(width, height, rgba), max };
+  const scaled = scaleNearest(rgba, width, height, 2);
+  return { png: writePng(scaled.width, scaled.height, scaled.rgba), max };
 }
 
 function drawWinner(
@@ -128,14 +136,15 @@ function drawWinner(
   learns: number[],
   relevance: number,
 ) {
-  const cell = 36;
-  const padL = 52;
-  const width = padL + drifts.length * cell + 120;
-  const height = 28 + learns.length * cell + 28;
+  const cell = 46;
+  const padL = 64;
+  const width = padL + drifts.length * cell + 130;
+  const height = 24 + learns.length * cell + 36;
   const rgba = new Uint8Array(width * height * 4);
   rgba.fill(255);
   for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255;
   learns.forEach((learn, yi) => {
+    drawText(rgba, width, 4, 24 + (learns.length - 1 - yi) * cell + 14, learnLabel(learn), [40, 40, 40]);
     drifts.forEach((drift, xi) => {
       const cellRows = summary.filter(
         (item) => item.distractorRelevance === relevance && item.driftRate === drift && Math.abs(item.learnability - learn) < 1e-9,
@@ -159,10 +168,26 @@ function drawWinner(
     fillRect(rgba, width, padL + drifts.length * cell + 12, y, 10, 10, SIGNAL_RGB[signal]);
     drawText(rgba, width, padL + drifts.length * cell + 26, y + 1, signal, [30, 30, 30]);
   });
-  return writePng(width, height, rgba);
+  const scaled = scaleNearest(rgba, width, height, 2);
+  return writePng(scaled.width, scaled.height, scaled.rgba);
 }
 
 async function main() {
+  if (process.argv.includes("--plots-only")) {
+    const saved = JSON.parse(readFileSync("bench/phase/phase.json", "utf8")) as {
+      summary: Parameters<typeof drawTime>[0];
+      driftRates: number[];
+      learnability: number[];
+    };
+    const time0 = drawTime(saved.summary, saved.driftRates, saved.learnability, 0);
+    const time1 = drawTime(saved.summary, saved.driftRates, saved.learnability, 1);
+    writeFileSync("bench/phase/heatmap-time-rel0.png", time0.png);
+    writeFileSync("bench/phase/heatmap-time-rel1.png", time1.png);
+    writeFileSync("bench/phase/heatmap-winner-rel0.png", drawWinner(saved.summary, saved.driftRates, saved.learnability, 0));
+    writeFileSync("bench/phase/heatmap-winner-rel1.png", drawWinner(saved.summary, saved.driftRates, saved.learnability, 1));
+    console.log("rewrote heatmaps");
+    return;
+  }
   const timescale = JSON.parse(readFileSync("bench/phase/timescale.json", "utf8")) as {
     tauUsed: number;
     driftRates: number[];

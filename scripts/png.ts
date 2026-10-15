@@ -3,6 +3,25 @@
  */
 import { crc32, deflateSync } from "node:zlib";
 
+export function scaleNearest(rgba: Uint8Array, width: number, height: number, factor: number) {
+  const w2 = width * factor;
+  const h2 = height * factor;
+  const out = new Uint8Array(w2 * h2 * 4);
+  for (let y = 0; y < h2; y++) {
+    const sy = (y / factor) | 0;
+    for (let x = 0; x < w2; x++) {
+      const sx = (x / factor) | 0;
+      const from = (sy * width + sx) * 4;
+      const to = (y * w2 + x) * 4;
+      out[to] = rgba[from]!;
+      out[to + 1] = rgba[from + 1]!;
+      out[to + 2] = rgba[from + 2]!;
+      out[to + 3] = rgba[from + 3]!;
+    }
+  }
+  return { rgba: out, width: w2, height: h2 };
+}
+
 export function writePng(width: number, height: number, rgba: Uint8Array | Buffer) {
   if (rgba.length !== width * height * 4) {
     throw new Error(`rgba length ${rgba.length} != ${width}×${height}×4`);
