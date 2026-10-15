@@ -510,8 +510,8 @@ async function main() {
   const westPooled = pooled(distRows, "west");
   const eastHist = addBins(distRows, "eastHist");
   const westHist = addBins(distRows, "westHist");
-  const eastNote = `mean ${eastPooled.mean.toFixed(3)} var ${eastPooled.variance.toFixed(4)} pos ${eastPooled.fracPositive.toFixed(2)}`;
-  const westNote = `mean ${westPooled.mean.toFixed(3)} var ${westPooled.variance.toFixed(4)} pos ${westPooled.fracPositive.toFixed(2)}`;
+  const eastNote = `pooled mean ${eastPooled.mean.toFixed(3)} var ${eastPooled.variance.toFixed(4)} pos ${eastPooled.fracPositive.toFixed(2)}`;
+  const westNote = `pooled mean ${westPooled.mean.toFixed(3)} var ${westPooled.variance.toFixed(4)} pos ${westPooled.fracPositive.toFixed(2)}`;
 
   const countRel1 = bySeed(select(rows, { signal: "count", distractorRelevance: 1 }), (row) => row.distractorFrac);
   const countRel0 = bySeed(select(rows, { signal: "count", distractorRelevance: 0 }), (row) => row.distractorFrac);

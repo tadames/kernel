@@ -27,7 +27,93 @@ Figures, written by the same run: `bench/noise/excess-vs-w.png` (log excess agai
 
 ### Results
 
-Not run.
+10800 episodes, 400 steps, 4 workers, 409 seconds. Source: `bench/noise/noise.json`. Seeds 1–20 of the shipped rho and random arms reproduce the phase-diagram contrast exactly: rho − random = 0.0905. That arm was not retuned.
+
+#### (r) Replication. Confirmed.
+
+200 seeds, drift 0, relevance 0, window 50, mean over learnability. Rho − random = 0.0713 [0.0564, 0.0863]. The interval lies entirely above 0.
+
+The 200-seed estimate is lower than the 20-seed point (0.0905). The old interval [0.0442, 0.1370] contains 0.0713. The new interval does not contain 0.0905. The sign replicates. The magnitude moved.
+
+| learnability | rho − random |
+|---|---|
+| 0 | 0.0761 [0.0470, 0.1050] |
+| 1/3 | 0.0671 [0.0395, 0.0959] |
+| 2/3 | 0.0651 [0.0394, 0.0921] |
+| 1 | 0.0771 [0.0482, 0.1049] |
+
+All four clear zero. Learnability 0 and 1 are only slightly higher. That split was not a pass bit.
+
+East-room fraction, same average:
+
+| signal | east fraction | minus random |
+|---|---|---|
+| random | 0.1457 [0.1345, 0.1566] | 0 |
+| count | 0.3033 [0.2954, 0.3120] | 0.1576 [0.1425, 0.1721] |
+| surprise | 0.2347 [0.2231, 0.2463] | 0.0890 [0.0736, 0.1051] |
+| rnd | 0.2182 [0.2074, 0.2296] | 0.0725 [0.0583, 0.0861] |
+| rho | 0.2171 [0.2061, 0.2285] | 0.0713 [0.0564, 0.0863] |
+
+Count, surprise, and RND are also above a random walk. Rho is not the most attracted. Those three contrasts were descriptive.
+
+#### (w) Window. Refuted.
+
+Seeds 1–100. Slope of log(excess) on log(W) is 0.056 [−0.062, 0.165]. The interval excludes −0.5 and includes 0. All six windows had positive excess, so none were dropped. 2000 of 2000 bootstrap draws fitted.
+
+| W | excess, seeds 1–100 |
+|---|---|
+| 12.5 | 0.0644 [0.0446, 0.0844] |
+| 25 | 0.0544 [0.0338, 0.0742] |
+| 50 | 0.0797 [0.0593, 0.0997] |
+| 100 | 0.0791 [0.0587, 0.0996] |
+| 200 | 0.0723 [0.0512, 0.0932] |
+| 400 | 0.0715 [0.0490, 0.0949] |
+
+The W = 50 row is seeds 1–100, so it is not the 200-seed replication number. The shortest windows are the smaller point estimates, not the larger ones. Excess time does not shrink as 1/sqrt(W).
+
+Figure: `bench/noise/excess-vs-w.png`.
+
+#### (d) Reward in the room. Refuted.
+
+Learnability 1, window 50, seeds 1–200. 170 seeds spent at least 8 steps in both rooms. East rectified mean minus west rectified mean = −0.0169 [−0.0192, −0.0145]. The noise room pays less positive progress than the learnable room.
+
+| room | seeds | mean | variance | fraction positive | rectified |
+|---|---:|---|---|---|---|
+| east (noise) | 170 | 0.0085 [0.0058, 0.0113] | 0.000849 [0.000791, 0.000910] | 0.597 [0.567, 0.625] | 0.0179 [0.0160, 0.0197] |
+| west (learnable) | 200 | 0.0214 [0.0207, 0.0221] | 0.00312 [0.00304, 0.00320] | 0.685 [0.680, 0.689] | 0.0348 [0.0342, 0.0354] |
+
+The noise-room mean is reliably above 0, and the fraction positive is reliably above one half, so the difference is not a symmetric mean-zero flicker. It is still the smaller of the two rooms. The preregistered claim was that the noise room pays more. It pays less.
+
+Figure: `bench/noise/progress-hist.png`. The annotation is pooled over steps (noise room: mean 0.010, variance 0.0011, fraction positive 0.62, on 17704 steps). The table is the mean across seeds. Those are not the same average.
+
+#### (s) Variance-corrected rho. Refuted.
+
+Held-out halves of 50, minus one standard error. Corrected excess = 0.0602 [0.0464, 0.0741]. Raw excess minus corrected excess = 0.0112 [−0.0024, 0.0249]. The corrected agent is still reliably above a random walk. The shrinkage does not clear zero. The penalty does not remove the attraction. The horizon residual drop and the uncertainty term were left in place, as preregistered.
+
+#### (n) Noise amplitude. Inconclusive.
+
+| amplitude | variance | excess |
+|---|---:|---|
+| 0.25 | 0.015625 | 0.0790 [0.0628, 0.0956] |
+| 0.5 | 0.0625 | 0.0745 [0.0595, 0.0901] |
+| 1 | 0.25 | 0.0713 [0.0567, 0.0860] |
+
+Excess at amplitude 1 minus excess at 0.25 = −0.0076 [−0.0190, 0.0042]. The point estimates fall as amplitude rises, and the middle value sits between them in that order. The interval includes 0, so the growth prediction is not confirmed and the reversal is not reliable enough to refute.
+
+#### (a3) Edible distractor. Confirmed.
+
+Count, drift 0, 200 seeds, relevance 1 minus relevance 0, mean over learnability: 0.0507 [0.0389, 0.0636]. The 20-seed result was 0.0309 [−0.0053, 0.0682], inconclusive. The same contrast at 200 seeds lies entirely above 0.
+
+| learnability | relevance 1 − 0 |
+|---|---|
+| 0 | 0.0329 [0.0076, 0.0607] |
+| 1/3 | 0.0611 [0.0363, 0.0857] |
+| 2/3 | 0.0551 [0.0314, 0.0789] |
+| 1 | 0.0536 [0.0306, 0.0779] |
+
+East meals, descriptive, not the test: relevance 0 is 0.37 [0.33, 0.41], relevance 1 is 84.9 [82.3, 87.3]. Relevance 0 does not place food in the east room. A meal taken on a step that began there is still charged to that step, which is the residual 0.37. Relevance 1 is edible.
+
+The progress-window account of why rho stays in stationary noise does not hold. Rho does stay there. So do count, surprise, and RND.
 
 ## 2026-10-15 phase diagram (America/New_York)
 
