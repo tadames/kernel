@@ -1,10 +1,11 @@
 /**
- * Environment seam. Field and Rooms are static maps. The parameter block is
- * the place a later family will hang learnability, drift, and distractors.
- * This file does not implement that family: a positive drift rate throws
- * so a caller cannot silently pretend the map is moving.
+ * Environment seam. Field and Rooms are static maps. The distractor family
+ * hangs off the same parameter block: learnability, drift, relevance.
+ * A positive drift rate without a family memory still throws, so a static
+ * probe cannot silently pretend the map is moving.
  */
 import { generateWorld, randomEmpty, type WorldKind } from "./presets.ts";
+import { allowsFoodSpawn, allowsRespawn, applyFamily, type FamilyMemory } from "./family.ts";
 
 /** Same order as Kernel `DIRS`: north, east, south, west, wait. */
 export const GRID_DIRS = [
@@ -57,13 +58,22 @@ const WALL = 1;
 const FOOD = 2;
 
 /**
- * Drift hook. Zero rate is a no-op. A positive rate is refused until the
- * drift family exists, so probes stay samples of a static map.
+ * Drift hook. Zero rate with no family is a no-op. A positive rate with no
+ * family memory is refused. With a family, the east room updates.
  */
-export function applyDrift(cells: Uint8Array, params: EnvParams, _rand: () => number) {
+export function applyDrift(
+  cells: Uint8Array,
+  params: EnvParams,
+  rand: () => number,
+  family?: FamilyMemory | null,
+) {
+  if (family) {
+    applyFamily(cells, family, params, rand);
+    return cells;
+  }
   if (params.driftRate <= 0) return cells;
   throw new Error(
-    `driftRate ${params.driftRate} is not implemented. The drift family is intentionally absent.`,
+    `driftRate ${params.driftRate} has no distractor family. Pass a family memory, or keep the rate at 0.`,
   );
 }
 
@@ -75,6 +85,7 @@ export function senseGrid(
   size: number,
   radius: number,
   into: Float32Array,
+  glow?: Uint8Array | null,
 ): Float32Array {
   const view = radius * 2 + 1;
   let k = 0;
@@ -83,9 +94,13 @@ export function senseGrid(
       const wx = x + dx;
       const wy = y + dy;
       const oob = wx < 0 || wy < 0 || wx >= size || wy >= size;
-      const wall = oob || cells[wy * size + wx] === WALL ? 1 : 0;
-      const food = !oob && cells[wy * size + wx] === FOOD ? 1 : 0;
-      const sc = oob ? 0 : scent[wy * size + wx];
+      const idx = oob ? -1 : wy * size + wx;
+      const wallCell = !oob && cells[idx] === WALL;
+      const foodCell = !oob && cells[idx] === FOOD;
+      const glowBit = !oob && !wallCell && !foodCell && glow && glow[idx] ? 1 : 0;
+      const wall = oob || wallCell ? 1 : glowBit;
+      const food = foodCell ? 1 : 0;
+      const sc = oob ? 0 : scent[idx];
       into[k++] = wall;
       into[k++] = food;
       into[k++] = sc;
@@ -95,14 +110,37 @@ export function senseGrid(
   return into;
 }
 
-function spawnFood(cells: Uint8Array, size: number, rand: () => number) {
-  const p = randomEmpty(cells, size, rand);
-  cells[p.y * size + p.x] = FOOD;
+function spawnFood(cells: Uint8Array, size: number, rand: () => number, family?: FamilyMemory | null) {
+  if (!family) {
+    const p = randomEmpty(cells, size, rand);
+    cells[p.y * size + p.x] = FOOD;
+    return;
+  }
+  const pool: number[] = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] === EMPTY && allowsFoodSpawn(family, i)) pool.push(i);
+  }
+  if (!pool.length) return;
+  cells[pool[(rand() * pool.length) | 0]!] = FOOD;
 }
+
+function respawnAt(cells: Uint8Array, size: number, rand: () => number, family?: FamilyMemory | null) {
+  if (!family) return randomEmpty(cells, size, rand);
+  const pool: number[] = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] === EMPTY && allowsRespawn(family, i)) pool.push(i);
+  }
+  if (!pool.length) return randomEmpty(cells, size, rand);
+  const i = pool[(rand() * pool.length) | 0]!;
+  return { x: i % size, y: (i / size) | 0 };
+}
+
+export type GridStep = { ate: boolean; died: boolean; blocked: boolean };
 
 /**
  * One grid transition. Mirrors Kernel.step's body (move, food, scent, death)
- * without learning. `params.driftRate` must be 0.
+ * without learning. A static map must keep `driftRate` at 0. A family memory
+ * updates the east room after the body moves.
  */
 export function stepGrid(
   body: GridBody,
@@ -111,12 +149,14 @@ export function stepGrid(
   size: number,
   rand: () => number,
   params: EnvParams = DEFAULT_ENV_PARAMS,
-) {
+  family?: FamilyMemory | null,
+): GridStep {
   const dir = GRID_DIRS[Math.max(0, Math.min(GRID_DIRS.length - 1, action | 0))];
   const nx = body.x + dir.x;
   const ny = body.y + dir.y;
   const oob = nx < 0 || ny < 0 || nx >= size || ny >= size;
   const blocked = oob || body.cells[ny * size + nx] === WALL;
+  let ate = false;
   if (!blocked) {
     body.x = nx;
     body.y = ny;
@@ -125,7 +165,8 @@ export function stepGrid(
     if (body.cells[i] === FOOD) {
       body.cells[i] = EMPTY;
       body.energy = Math.min(140, body.energy + 38);
-      if (kind !== "pulse" && kind !== "blank") spawnFood(body.cells, size, rand);
+      ate = true;
+      if (kind !== "pulse" && kind !== "blank") spawnFood(body.cells, size, rand, family);
     }
   } else {
     body.energy -= 1.6;
@@ -137,16 +178,19 @@ export function stepGrid(
     if (body.pulseClock >= 48) {
       body.pulseClock = 0;
       for (let i = 0; i < body.cells.length; i++) if (body.cells[i] === FOOD) body.cells[i] = EMPTY;
-      spawnFood(body.cells, size, rand);
+      spawnFood(body.cells, size, rand, family);
     }
   }
+  let died = false;
   if (body.energy <= 0) {
-    const p = randomEmpty(body.cells, size, rand);
+    died = true;
+    const p = respawnAt(body.cells, size, rand, family);
     body.x = p.x;
     body.y = p.y;
     body.energy = 100;
   }
-  applyDrift(body.cells, params, rand);
+  applyDrift(body.cells, params, rand, family);
+  return { ate, died, blocked };
 }
 
 export function makeBody(kind: WorldKind, size: number, layoutSeed: number, rand: () => number): GridBody {

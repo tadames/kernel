@@ -6,9 +6,20 @@ import { runStream, StreamKernel } from "./stream.ts";
 import type { LoopFeatures } from "./loop.ts";
 import { CANONICAL_ENV } from "./env.ts";
 import { PROBE_EARLY_STEP, buildProbe } from "./probe.ts";
+import { g1Baseline, normalizedSkill, type ProbeBaseline } from "./baselines.ts";
 
-export function g1Pass(early: number, late: number) {
-  return late < early * 0.85 || late < 0.14;
+export type { ProbeBaseline };
+export { g1Baseline, normalizedSkill };
+
+/**
+ * G1 passes only when late error is under that environment's per-cell-mean
+ * floor and has also fallen below 85% of the early probe. The old absolute
+ * 0.14 arm sat between the sigmoid prior and the mean floor, so clearing it
+ * only showed that the net had left 0.5. `meanFloor` defaults to Field.
+ */
+export function g1Pass(early: number, late: number, meanFloor?: number) {
+  const floor = meanFloor ?? g1Baseline("field").meanFloor;
+  return late < floor && late < early * 0.85;
 }
 
 export function g2Pass(action: number, foods: number, x: number) {
@@ -141,7 +152,7 @@ export function evaluateClaims(): Claim[] {
   const structureFalls = s1Pass(structured.early, structured.late);
   const noiseHolds = s2Pass(noise.late);
   const structuredBetter = s3Pass(structured.late, noise.late);
-  const gridFalls = g1Pass(grid.probeEarly, grid.probeLate);
+  const gridFalls = g1Pass(grid.probeEarly, grid.probeLate, g1Baseline("field").meanFloor);
   const tookFood = g2Pass(food.action, food.foods, food.x);
   const commitment = c1Pass(structC.early, structC.late, noiseC.late);
   const interior = c2Pass(band.meanB);

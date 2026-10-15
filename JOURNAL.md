@@ -1,5 +1,40 @@
 # Journal
 
+## 2026-10-15 phase diagram (America/New_York)
+
+Written before `npm run timescale`, before `npm run phase`, and before `npm run forget`. No outcome from those commands is in this block. The G1 rescore and the two sweeps are filled in underneath after they run.
+
+### Preregister G1
+
+- hypothesis: The absolute 0.14 arm is not a claim about learning the map. Constant 0.5 scores 0.250. The per-cell mean scores 0.098 on Field and 0.114 on Rooms. 0.14 sits between those, so a net that has only left the sigmoid prior passes. Replace it with a baseline-relative rule, computed per environment from the frozen probe: late error is under that environment's per-cell-mean floor, and late error is under 0.85 × early. Report normalized skill `(meanFloor − late) / (meanFloor − shiftCeiling)`, where the shift ceiling is the window-shift oracle (about 0.030 on Field and 0.039 on Rooms). Re-score the existing five signals on Field and Rooms, seeds 1–20, 280 steps. The learner is not changed.
+- metric: probeLate
+- direction: lower
+- threshold: late < mean floor of that environment AND late < 0.85 × early. Skill is reported and is not itself a pass bit. This is stricter than 0.14, not a loosening. Expectation, not a success criterion: most of the twenty-seed means sit above the mean floor, so most G1 fractions should fall. Count on Field was 0.097 against a floor of 0.098 and may be the only one close.
+
+### Preregister where rho fails
+
+Research question: where does learning-progress curiosity (rho) fail against random, count, surprise (ICM-style forward error), and RND?
+
+The map is a 15×15 grid. A wall at column 9 with one door splits a west room from an east room. The west room is the useful world: fixed walls, five foods, and a low-frequency glow. `learnability` is the fraction of non-wall west cells whose glow is that fixed pattern; the rest are iid bits, redrawn every step. The east room is the distractor, marked by the wall. `driftRate` 0 means stationary white noise: every east cell is a fresh iid bit every step, not a frozen picture. `driftRate` p > 0 means a low-frequency pattern that is fully redrawn with probability p each step, so the pattern's lifetime is 1/p steps. `distractorRelevance` 0 means those bits are not food and do not block motion. Relevance 1 means a bit of 1 is edible food. The policy's extrinsic term on this family reads true walls and true food, so a glow bit is not a meal and not a wall. Curiosity still scores the predicted window. The live probe is scored separately on west cells and on east cells. It does not train.
+
+Adaptation timescale, measured before the sweep and then locked. τ is the e-folding time of excess live probe error on one frozen east pattern (`patternHold`, learnability 1, relevance 0). The shipped transition learner (cell learning rate 4) takes one uniform transition per step inside that room. Scent is zero, so the curve is the compressor. Excess is error minus the mean of the last 15% of a 400-step curve. τ is the OLS slope of log(excess) on step, on the prefix where excess stays above 5% of the initial excess and step < 300. If that slope is not negative, τ is the step of the half-life divided by ln 2. A curve that never halves is censored at 400. The reported τ is the mean over seeds 1–8, with a 95% bootstrap CI. The drift grid is then 0 and (1/τ)×{1/16, 1/4, 1, 4, 16}, clipped below 0.95, duplicates dropped. Forgetting half-lives are τ×{0.5, 1, 2, 4, 8}, as multiplicative weight decay λ = 1 − exp(−ln 2 / half-life) on the cell net. The learning rate stays 4.
+
+Phase sweep, after the grid is locked: learnability {0, 1/3, 2/3, 1} × the drift grid × relevance {0, 1} × {random, count, surprise, rnd, rho} × seeds 1–20. Episodes are 400 steps. Recorded per episode: fraction of steps in the east room, west probe, east probe, useful-room coverage, foods, foods eaten in the east. Workers, not CI.
+
+Predictions, relevance 0 unless said otherwise. Paired 95% bootstrap CIs on seeds. A mean over learnability is the primary test; the per-learnability splits are reported and are not a second chance to pick a winner.
+
+- (a1) Stationary noise, drift 0. Surprise spends more time in the east room than rho (CI of surprise − rho entirely above 0). Rho does not: CI of rho − random lies entirely below 0. Both clauses are required. A CI that only includes zero is inconclusive for that clause, not a pass.
+- (a2) Drift nearest 1/τ. Rho spends more time in the east room than random, than count, and than surprise (each CI entirely above 0), and more than rho itself spends at drift 0 (CI entirely above 0). That is the noisy TV defeating the learning-progress fix: a pattern that turns over on the learner's own clock looks like progress forever. Very fast drift should look more like noise again; that comparison is descriptive, not a third pass bit.
+- (a3) Positive control, not a claim about rho. At drift 0, count spends more time in the east room when relevance is 1 than when it is 0 (CI entirely above 0), because the bits are food. If this fails, the room is not doing what the parameter says.
+
+Forgetting. The split map has two learnable rooms, distinct fixed patterns, food on both sides, no east-room noise. No replay. The knob is weight decay, which is the forgetting rate; the two rooms are the interference. Episode length 2000 steps. Seeds 1–20. Five signals. Each step records which room the body is in. The period is the spectral peak of that series between 20 steps and half the episode, kept only when its power is at least 3× the median power in the band. Otherwise the seed has no period. For each signal, a seed that has a period at 3 or more rates contributes one OLS slope of log(period) on log(λ). The reported slope is the mean of those seed slopes, with a 95% bootstrap CI.
+
+- (b) Rho's slope is negative and the CI lies entirely below 0: faster forgetting, shorter revisit cycles. If fewer than half the seeds (10 of 20) yield a slope, the call is inconclusive even if the remaining CI is tidy. The same fit is reported for the other four signals. If they scale the same way, the cycles are not specific to rho and (b) is not confirmed as a learning-progress result.
+
+### Results
+
+Not run yet.
+
 ## 2026-10-15 learner instrument (America/New_York)
 
 The probe late error near 0.235 is not a result about curiosity. The blocks below were written before `npm run gate` and before the 20-seed validation. The diagnosis numbers are from `scripts/diagnose-probe.ts` on this commit's parent learner (reconstruction commit, cell lr 0.035).

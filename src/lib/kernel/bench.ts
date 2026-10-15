@@ -19,8 +19,10 @@ import {
   adjacentFood,
   c1Pass,
   c2Pass,
+  g1Baseline,
   g1Pass,
   g2Pass,
+  normalizedSkill,
   s1Pass,
   s2Pass,
   s3Pass,
@@ -57,6 +59,7 @@ export type SeedMetrics = {
   g2Foods: number;
   g2x: number;
   g1: boolean;
+  fieldSkill: number;
   g2: boolean;
   s1: boolean;
   s2: boolean;
@@ -77,6 +80,7 @@ export type BenchMean = {
   structLate: number;
   noiseLate: number;
   meanB: number;
+  fieldSkill: number;
 };
 
 export type ConfigReport = {
@@ -177,7 +181,9 @@ export function measureSeed(seed: number, features: LoopFeatures): SeedMetrics {
   const structured = runStreamDetailed("structured", seed);
   const noise = runStreamDetailed("noise", seed);
   const food = withSeed(seed * 10007 + 11, () => adjacentFood(seed, features));
-  const g1 = g1Pass(field.probeEarly, field.probeLate);
+  const fieldBase = g1Baseline("field");
+  const g1 = g1Pass(field.probeEarly, field.probeLate, fieldBase.meanFloor);
+  const fieldSkill = normalizedSkill(field.probeLate, fieldBase);
   const g2 = g2Pass(food.action, food.foods, food.x);
   const s1 = s1Pass(structured.early, structured.late);
   const s2 = s2Pass(noise.late);
@@ -207,6 +213,7 @@ export function measureSeed(seed: number, features: LoopFeatures): SeedMetrics {
     g2Foods: food.foods,
     g2x: food.x,
     g1,
+    fieldSkill,
     g2,
     s1,
     s2,
@@ -247,6 +254,7 @@ export function summarize(name: string, features: LoopFeatures, seeds: SeedMetri
       structLate: meanOf((row) => row.structLate),
       noiseLate: meanOf((row) => row.noiseLate),
       meanB: meanOf((row) => row.meanB),
+      fieldSkill: meanOf((row) => row.fieldSkill),
     },
     passes,
     passCount,

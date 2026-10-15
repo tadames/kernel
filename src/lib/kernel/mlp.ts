@@ -108,6 +108,19 @@ export class MLP {
     return this.ha;
   }
 
+  /**
+   * Multiplicative decay toward 0. λ = 0 is a no-op. This is the forgetting
+   * knob: no replay, so a decayed weight has to be learned again.
+   */
+  decay(lambda: number) {
+    if (!(lambda > 0)) return;
+    const keep = 1 - lambda;
+    for (let i = 0; i < this.w1.length; i++) this.w1[i] *= keep;
+    for (let i = 0; i < this.b1.length; i++) this.b1[i] *= keep;
+    for (let i = 0; i < this.w2.length; i++) this.w2[i] *= keep;
+    for (let i = 0; i < this.b2.length; i++) this.b2[i] *= keep;
+  }
+
   /** Mean |w| of the first layer — a crude "how much has the mind written". */
   weightEnergy() {
     let s = 0;

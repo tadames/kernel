@@ -4,7 +4,7 @@ import test from "node:test";
 import { DIRS, Kernel, SIZE } from "./kernel.ts";
 import { applyDrift, CANONICAL_ENV, DEFAULT_ENV_PARAMS, GRID_DIRS, senseGrid } from "./env.ts";
 import { decideGate, readPreregister } from "./gate.ts";
-import { g1Pass } from "./experiments.ts";
+import { g1Baseline, g1Pass, normalizedSkill } from "./experiments.ts";
 import { runMeasuredEpisode } from "./measure.ts";
 import { buildProbe, probeFromJson, probeToJson, PROBE_ROLLOUT, PROBE_UNIFORM } from "./probe.ts";
 import { canonicalProbePath } from "./probe-file.ts";
@@ -83,11 +83,18 @@ test("drift rate above zero is refused and zero is a no-op", () => {
   assert.throws(() => applyDrift(cells, { ...DEFAULT_ENV_PARAMS, driftRate: 0.1 }, () => 0));
 });
 
-test("G1 thresholds are unchanged and apply to probe numbers", () => {
-  assert.equal(g1Pass(0.2, 0.16), true);
-  assert.equal(g1Pass(0.2, 0.18), false);
-  assert.equal(g1Pass(0.2, 0.13), true);
-  assert.equal(g1Pass(0.1, 0.14), false);
+test("G1 requires the mean floor and a relative drop", () => {
+  const field = g1Baseline("field");
+  const rooms = g1Baseline("rooms");
+  assert.ok(Math.abs(field.meanFloor - 0.098) < 0.004, `field mean ${field.meanFloor}`);
+  assert.ok(Math.abs(field.shiftCeiling - 0.03) < 0.004, `field shift ${field.shiftCeiling}`);
+  assert.ok(Math.abs(rooms.meanFloor - 0.114) < 0.005, `rooms mean ${rooms.meanFloor}`);
+  assert.ok(Math.abs(rooms.shiftCeiling - 0.039) < 0.005, `rooms shift ${rooms.shiftCeiling}`);
+  assert.equal(g1Pass(0.12, field.meanFloor - 0.02, field.meanFloor), true);
+  assert.equal(g1Pass(0.2, 0.13, field.meanFloor), false);
+  assert.equal(g1Pass(0.1, 0.09, field.meanFloor), false);
+  assert.ok(Math.abs(normalizedSkill(field.meanFloor, field)) < 1e-9);
+  assert.ok(Math.abs(normalizedSkill(field.shiftCeiling, field) - 1) < 1e-9);
 });
 
 test("bootstrap CI excludes zero for a real paired shift and includes it for a tie", () => {

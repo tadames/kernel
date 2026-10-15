@@ -61,11 +61,11 @@ The policy may not scan the current observation for food over a half-plane. It m
 
 ## Experimental protocol
 
-Run `npm test` (the kernel file), `npm run bench:json` (seeds 1..5, probe plus on-policy ema), `npm run sweep` (curiosity signals, default 20 seeds), or open **Bench**. The nightly contract is `AGENTS.project.md`. G1 is held-out probe error on Field. The threshold is unchanged. Do not loosen it.
+Run `npm test` (the kernel file), `npm run bench:json` (seeds 1..5, probe plus on-policy ema), `npm run sweep` (curiosity signals, default 20 seeds), or open **Bench**. The nightly contract is `AGENTS.project.md`. G1 is held-out probe error on Field. Late error must beat that map's per-cell-mean floor and fall below 85% of the early probe. The absolute 0.14 arm is retired. Do not bring it back.
 
 | ID | Claim | Falsifier |
 |---|---|---|
-| G1 | On Field, held-out probe error falls | probe late ≥ 85% of probe early and probe late ≥ 0.14 |
+| G1 | On Field, held-out probe error beats the per-cell mean and falls | probe late ≥ the mean floor, or probe late ≥ 85% of probe early |
 | G2 | Hungry body takes adjacent food | action is not east / no meal |
 | S1 | A repeating bit stream compresses | structured late not near 0 |
 | S2 | A fair coin does not compress | noise late collapses toward 0 |
