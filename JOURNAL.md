@@ -31,6 +31,31 @@ Forgetting. The split map has two learnable rooms, distinct fixed patterns, food
 
 - (b) Rho's slope is negative and the CI lies entirely below 0: faster forgetting, shorter revisit cycles. If fewer than half the seeds (10 of 20) yield a slope, the call is inconclusive even if the remaining CI is tidy. The same fit is reported for the other four signals. If they scale the same way, the cycles are not specific to rho and (b) is not confirmed as a learning-progress result.
 
+### Instrument lock
+
+Measured after the preregistration above and before either sweep. Source: `bench/phase/timescale.json`. Seeds 1–8, 400 uniform transitions on a frozen east pattern.
+
+| seed | τ | half-life | start | tail |
+|---|---:|---:|---:|---:|
+| 1 | 65.85 | 45.6 | 0.258 | 0.038 |
+| 2 | 99.29 | 68.8 | 0.270 | 0.059 |
+| 3 | 43.98 | 30.5 | 0.251 | 0.049 |
+| 4 | 90.17 | 62.5 | 0.252 | 0.044 |
+| 5 | 79.01 | 54.8 | 0.258 | 0.050 |
+| 6 | 53.72 | 37.2 | 0.256 | 0.057 |
+| 7 | 70.44 | 48.8 | 0.264 | 0.043 |
+| 8 | 38.76 | 26.9 | 0.251 | 0.048 |
+
+Mean τ = 67.65 steps, 95% bootstrap CI [53.66, 81.81]. No seed was censored. Every curve leaves the sigmoid prior and ends between 0.038 and 0.059.
+
+τ is steps of experience on the pattern. It is the clock while the body is in the room, not a count of steps spent elsewhere.
+
+Locked drift rates, probability per step: 0, 0.0009238, 0.003695, 0.01478, 0.05912, 0.2365. The rate nearest 1/τ is 0.01478, a pattern lifetime of about 68 steps. The neighbors are about 4× slower and 4× faster, then 16×.
+
+Locked forgetting rates λ, half-lives τ×{0.5, 1, 2, 4, 8}: 0.02028, 0.01019, 0.00511, 0.00256, 0.00128. Those half-lives are about 34, 68, 135, 271, and 542 steps.
+
+The phase sweep and the forgetting sweep have not been run. The five-signal G1 rescore has not been run.
+
 ### Results
 
 Not run yet.
