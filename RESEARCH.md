@@ -61,7 +61,7 @@ The policy may not scan the current observation for food over a half-plane. It m
 
 ## Experimental protocol
 
-Run `npm test` (the kernel file) or open **Bench**.
+Run `npm test` (the kernel file), `npm run bench:json` (seeds 1..5, each feature flag on and off), or open **Bench**. The nightly contract is `AGENTS.project.md`. G1 does not pass on seeds 1..5 yet; record that, do not loosen the threshold.
 
 | ID | Claim | Falsifier |
 |---|---|---|

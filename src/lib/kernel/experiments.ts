@@ -3,6 +3,35 @@
  */
 import { Kernel, SIZE } from "./kernel.ts";
 import { runStream, StreamKernel } from "./stream.ts";
+import type { LoopFeatures } from "./loop.ts";
+
+export function g1Pass(early: number, late: number) {
+  return late < early * 0.85 || late < 0.14;
+}
+
+export function g2Pass(action: number, foods: number, x: number) {
+  return action === 1 || foods > 0 || x === 6;
+}
+
+export function s1Pass(early: number, late: number) {
+  return late < 0.05 || late < early * 0.25;
+}
+
+export function s2Pass(late: number) {
+  return late > 0.15;
+}
+
+export function s3Pass(structuredLate: number, noiseLate: number) {
+  return structuredLate < noiseLate * 0.35;
+}
+
+export function c1Pass(structEarly: number, structLate: number, noiseLate: number) {
+  return structLate > 0.4 && structLate > structEarly * 1.8 && noiseLate < 0.25;
+}
+
+export function c2Pass(meanB: number) {
+  return meanB >= 1.6 && meanB <= 4.6;
+}
 
 export type Claim = {
   id: string;
@@ -11,17 +40,17 @@ export type Claim = {
   detail: string;
 };
 
-export function gridSurprise(seed = 7, steps = 280) {
-  const k = new Kernel("field", seed);
+export function gridSurprise(seed = 7, steps = 280, features?: Partial<LoopFeatures>) {
+  const k = new Kernel("field", seed, features);
   for (let i = 0; i < 50; i++) k.step();
   const early = k.ema;
   for (let i = 0; i < steps - 50; i++) k.step();
-  return { early, late: k.ema, foods: k.foods, age: k.age };
+  return { early, late: k.ema, foods: k.foods, lives: k.lives, age: k.age };
 }
 
 /** Hungry body, food in the adjacent cell. Whiskers should take it. */
-export function adjacentFood(seed = 2) {
-  const k = new Kernel("blank", seed);
+export function adjacentFood(seed = 2, features?: Partial<LoopFeatures>) {
+  const k = new Kernel("blank", seed, features);
   k.cells.fill(0);
   for (let i = 0; i < SIZE; i++) {
     k.cells[i] = 1;
@@ -66,8 +95,8 @@ export function streamCommitment(kind: "structured" | "noise", seed = 3, steps =
  * Policy band on Field after burn-in: entropy H ∈ [0,1], branching ∈ [1,5].
  * The interior is the cheap edge-of-chaos proxy. Freeze is B≈1; a coin is B≈5.
  */
-export function fieldBand(seed = 7, steps = 280) {
-  const k = new Kernel("field", seed);
+export function fieldBand(seed = 7, steps = 280, features?: Partial<LoopFeatures>) {
+  const k = new Kernel("field", seed, features);
   const H: number[] = [];
   const B: number[] = [];
   const E: number[] = [];
@@ -91,14 +120,13 @@ export function evaluateClaims(): Claim[] {
   const noiseC = streamCommitment("noise");
   const band = fieldBand();
 
-  const structureFalls = structured.late < 0.05 || structured.late < structured.early * 0.25;
-  const noiseHolds = noise.late > 0.15;
-  const structuredBetter = structured.late < noise.late * 0.35;
-  const gridFalls = grid.late < grid.early * 0.85 || grid.late < 0.14;
-  const tookFood = food.action === 1 || food.foods > 0 || food.x === 6;
-  const commitmentGrows = structC.late > 0.4 && structC.late > structC.early * 1.8;
-  const noiseStaysUncommitted = noiseC.late < 0.25;
-  const interior = band.meanB >= 1.6 && band.meanB <= 4.6;
+  const structureFalls = s1Pass(structured.early, structured.late);
+  const noiseHolds = s2Pass(noise.late);
+  const structuredBetter = s3Pass(structured.late, noise.late);
+  const gridFalls = g1Pass(grid.early, grid.late);
+  const tookFood = g2Pass(food.action, food.foods, food.x);
+  const commitment = c1Pass(structC.early, structC.late, noiseC.late);
+  const interior = c2Pass(band.meanB);
 
   return [
     {
@@ -134,7 +162,7 @@ export function evaluateClaims(): Claim[] {
     {
       id: "C1",
       claim: "Effective complexity grows on structure: predictions polarize (commitment rises). A fair coin does not earn a model.",
-      pass: commitmentGrows && noiseStaysUncommitted,
+      pass: commitment,
       detail: `commit structured ${structC.early.toFixed(3)} → ${structC.late.toFixed(3)}; noise late ${noiseC.late.toFixed(3)}`,
     },
     {
