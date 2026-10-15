@@ -15,8 +15,10 @@
  * can score a drop in code residual, not only cells. Cell prediction stays.
  * One level up, a slower loop predicts that latent code, not the cells.
  * The slow code invents its own features: a stop-grad encoder projects the
- * latent into the slow space. The encoder steps only when the slow code is
- * compressing, and the predictor cannot move the target it is scored against.
+ * latent into the slow space. The residual mix rises with participation so a
+ * high-dimensional code invents more aggressively. The encoder steps only when
+ * the slow code is compressing, and the predictor cannot move the target it is
+ * scored against.
  * Its progress pays only after both codes are compressing. A level-1 residual
  * above its ema wakes that slower step even when the latent gate is shut, so
  * a surprise downstairs can still move the slower code. The wake does not pay.
@@ -348,12 +350,16 @@ export class Loop {
   }
 
   private projectSlow(code: Float32Array, into: Float32Array) {
+    const part = participation(code);
+    // Residual mix. Identity init stays exact at mix=0. Mix rises with participation
+    // so a high-dimensional code invents features more aggressively; a already-low
+    // code stays closer to what the slow predictor already compresses.
+    const mix = 0.02 + 0.06 * Math.min(1, Math.max(0, (part - 2) / 8));
     for (let i = 0; i < this.hidden; i++) {
       let s = 0;
       const row = i * this.hidden;
       for (let j = 0; j < this.hidden; j++) s += this.slowProj[row + j] * code[j]!;
-      // Residual so the identity init is exact, and features are invented gradually.
-      const mixed = code[i]! + 0.01 * (s - code[i]!);
+      const mixed = code[i]! + mix * (s - code[i]!);
       into[i] = mixed < 0 ? 0 : mixed > 1 ? 1 : mixed;
     }
     return into;

@@ -210,3 +210,14 @@ One improvement: the slow code invents its own features. A stop-grad encoder pro
 
 ### Next hypothesis
 The residual mix is small so the encoder can invent without immediately rewriting the code the slow predictor already compresses. If Field late ema does not fall faster than the gated self-windows alone, the invented features are still decoration — keep the trace, drop the mix. If Field falls, raise the mix and let the slow encoder choose a lower-dimensional code so the hierarchy can compress one level up more aggressively.
+
+## 2026-10-14 evening (America/New_York)
+
+### What changed
+One improvement: the slow encoder’s residual mix is participation-adaptive. In `projectSlow` the mix starts at 0.02 and rises toward 0.08 as the participation ratio of the latent code increases, so a high-dimensional code invents features more aggressively while an already-low-dimensional code stays closer to what the slow predictor already compresses. Identity init remains exact at mix 0. The stop-grad gate is unchanged. Law 04, the Phase 1 note, and the act stage name the adaptive mix. Auth off. UI untouched.
+
+### Evidence
+`node --import jiti/register --test src/lib/kernel/kernel.test.ts src/lib/kernel/scent-novelty.test.ts` — 19/19 pass (prior plus the existing slow-encoder structure test still moves and steps). `tsc --noEmit` clean. Production build succeeded. Preview on :8081 returns 200. Browser smoke: page title Kernel, Lab/Bench/Laws/Loop present, canvas present, no console errors. Auth warnings empty.
+
+### Next hypothesis
+The adaptive mix lets the hierarchy invent a lower-dimensional code only when the latent is high-participation. If Field late ema does not fall faster than the fixed 0.01 mix, the adaptation is decoration — freeze the mix at 0.02 and keep the participation trace. If Field falls, let the slow encoder choose an explicit bottleneck size (slow code length < hidden) so the hierarchy compresses one level up more aggressively.
