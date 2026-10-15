@@ -1,4 +1,4 @@
-import { Loop, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
+import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
 import { imagineScores, softmaxSample } from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
@@ -146,6 +146,7 @@ export class Kernel {
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
+    if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
     this.cells = new Uint8Array(SIZE * SIZE);
     this.scent = new Float32Array(SIZE * SIZE);
     this.visitCounts = new Uint32Array(SIZE * SIZE);
@@ -168,6 +169,9 @@ export class Kernel {
     this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
     this.placeAgent();
     this.loop.commit(this.encode(this.sense()));
+    // The first real pair is (window, chosen action) → the window after the move.
+    // A commit of the spawn frame would train the net to copy that frame.
+    if (this.features.transition) this.loop.prevInput = null;
     this.age = 0;
     this.foods = 0;
     this.lives = 0;
@@ -189,7 +193,9 @@ export class Kernel {
 
   resetBrain() {
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
+    if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
     this.loop.commit(this.encode(this.sense()));
+    if (this.features.transition) this.loop.prevInput = null;
     this.history = [];
     this.thoughts = [];
     this.thinkCooldown = 0;
@@ -468,6 +474,10 @@ export class Kernel {
     if (this.history.length > HISTORY) this.history.shift();
     const action = this.choose(obs);
     this.lastAction = action;
+    // Held-out probe and imagination both ask M(window, action) for the next window.
+    // Commit that pair before the body moves. The historical commit stored the
+    // window after the move, so the loss was reconstruction and the probe could not fall.
+    const transitionInput = this.features.transition ? this.encode(raw, action) : null;
     const nx = this.x + DIRS[action].x;
     const ny = this.y + DIRS[action].y;
     const oob = nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE;
@@ -508,7 +518,7 @@ export class Kernel {
     this.observeSignal();
     this.maybeThink(action, ate, blocked, died);
     this.age += 1;
-    this.loop.commit(this.encode(this.sense(), action));
+    this.loop.commit(transitionInput ?? this.encode(this.sense(), action));
   }
 
   snapshot(): Snapshot {

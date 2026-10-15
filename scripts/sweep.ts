@@ -174,11 +174,11 @@ async function main() {
   for (const env of envs) {
     md.push(`## ${env}`);
     md.push("");
-    md.push("| signal | probe late | on-policy ema | distinct cells | state entropy | foods | G1 |");
-    md.push("|---|---:|---:|---:|---:|---:|---:|");
+    md.push("| signal | probe early | probe late | on-policy ema | distinct cells | state entropy | foods | G1 |");
+    md.push("|---|---:|---:|---:|---:|---:|---:|---:|");
     for (const row of summary.filter((item) => item.env === env)) {
       md.push(
-        `| ${row.signal} | ${fmt(row.probeLate)} | ${fmt(row.onPolicyLate)} | ${fmt(row.distinctCells, 2)} | ${fmt(row.stateEntropy, 2)} | ${fmt(row.foods, 2)} | ${row.g1} |`,
+        `| ${row.signal} | ${fmt(row.probeEarly)} | ${fmt(row.probeLate)} | ${fmt(row.onPolicyLate)} | ${fmt(row.distinctCells, 2)} | ${fmt(row.stateEntropy, 2)} | ${fmt(row.foods, 2)} | ${row.g1} |`,
       );
     }
     md.push("");

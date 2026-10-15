@@ -43,7 +43,8 @@ import { participation } from "./complexity.ts";
  * without deleting the trace. A term stays on only when a preregistered
  * probe ablation says it beats its own absence. See AGENTS.project.md.
  * The 2026-10-15 probe gate turned the noisy set off. None of them lowered
- * held-out probe error.
+ * held-out probe error. `transition` is the cell learner, not a bonus term:
+ * the same gate kept it because probe error fell.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -59,6 +60,7 @@ export const LOOP_FEATURE_KEYS = [
   "slowWindow3",
   "slowSelfWindow",
   "slowSelfWindow2",
+  "transition",
 ] as const;
 
 export type LoopFeatureKey = (typeof LOOP_FEATURE_KEYS)[number];
@@ -86,7 +88,17 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   slowWindow3: false,
   slowSelfWindow: false,
   slowSelfWindow2: false,
+  /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
+  transition: true,
 };
+
+/**
+ * Cell-step size used when `transition` is on. 0.035 never leaves the
+ * sigmoid prior in 280 steps (probe stays ~0.235). 4 is the pilot rate
+ * at which probe error falls through the mean and count separates from
+ * random. The ablation gate is the test of that choice.
+ */
+export const TRANSITION_LR = 4;
 
 export function resolveLoopFeatures(partial?: Partial<LoopFeatures>): LoopFeatures {
   const out: LoopFeatures = { ...DEFAULT_LOOP_FEATURES };
