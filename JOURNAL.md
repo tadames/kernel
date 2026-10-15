@@ -1,5 +1,34 @@
 # Journal
 
+## 2026-10-15 noise progress (America/New_York)
+
+Written before `npm run noise`. No outcome from that command is in this block. The results section is filled in after the run.
+
+### Preregister noise progress
+
+Phase diagram (a1) found that rho spends more time in a stationary white-noise east room than a random walk: rho − random = 0.0905 [0.0442, 0.1370], 20 seeds, relevance 0, mean over learnability, strongest at learnability 0 and 1. That clause had been preregistered to lie entirely below 0. It did not. This run asks why.
+
+Hypothesis. Rho's progress is a difference of two noisy error estimates. On noise the difference has mean near zero, but the policy keeps only the positive part, so sampling variance makes progress spuriously rewarding and the agent stays. A longer window averages that variance down. The excess time in the noise room, rho minus random, should then shrink roughly as 1/sqrt(W).
+
+The shipped estimator is unchanged at window 50. `progress = ema − surprise`, then the ema updates. The ema time constant is W = 50 steps (rate 0.02). Surprise is one step. The ema is the other estimate. The policy scales curiosity by max(0, progressEma). That outer smoother stays at rate 0.05 and is not the window under test. Confidence keeps the shipped ema at rate 0.02 even when W changes. A window other than 50 has its own baseline, updated at rate 1/W, started at the same 0.25. At W = 50 the baseline is the confidence ema, so the shipped agent is the phase-diagram agent. The map, the doorway, the 400-step episode, and the seed stream match that study.
+
+The grid is six log-spaced windows from 4× below 50 to 8× above it: 12.5, 25, 50, 100, 200, 400.
+
+Calls use a paired 95% percentile bootstrap, 2000 resamples, fixed salts in `scripts/noise.ts`. A mean over learnability {0, 1/3, 2/3, 1} is the primary test. Per-learnability splits are reported and are not a second chance to pick a winner. Drift is 0. Relevance is 0 unless a call says otherwise.
+
+- (r) Replication. Seeds 1–200. Signals rho, random, count, surprise, RND. Each learnability. Window 50, ema estimator, noise amplitude 1. Primary: mean over learnability of east-room fraction, rho minus random. Confirmed if that CI lies entirely above 0. Refuted if it lies entirely below 0. A CI that includes 0 is inconclusive. The other three signals versus random are descriptive.
+- (w) Window. Seeds 1–100, the same seeds as the replication, rho only. Random is the replication random walk and does not depend on W. Excess at a window is the mean over learnability of (rho − random), one number per seed. Fit OLS of log(excess) on log(W). A window whose mean excess is not positive is dropped, because the log is undefined. Confirmed if at least 4 windows remain, at least 80% of bootstrap draws can fit, and the slope CI contains −0.5 and lies entirely below 0. Refuted if that CI excludes −0.5. Inconclusive if the CI contains both −0.5 and 0, or the fit is not defined. The point estimates and their CIs are reported either way.
+- (d) Reward inside the room. At learnability 1, window 50, seeds 1–200, raw progress is ema − surprise on the step the body is in that room. Rectified reward is max(0, raw progress). A seed counts only if it spent at least 8 steps in each room. If half the seeds or fewer qualify, the call is inconclusive. Confirmed if the CI of (east rectified mean − west rectified mean) lies entirely above 0: the noise room pays more positive progress than the learnable room. Refuted if that CI lies entirely below 0. Otherwise inconclusive. Mean, variance, and fraction positive of the raw difference are reported for both rooms, with CIs across seeds. The pooled histogram is the figure. The same rectified means at the other windows are descriptive, not a second slope.
+- (s) Variance-corrected rho. Same episodes as the replication, seeds 1–200, but progress is a held-out split: the older W errors versus the latest W, minus one standard error of that difference of means. W = 50, so each half is 50 and the buffer is 100. The two halves share no samples. Until the buffer is full the progress is 0, and those steps count. The horizon residual drop and the uncertainty term are not rewritten. This correction removes the attraction only if the replication itself found one. Confirmed if the replication CI lies entirely above 0 and the corrected excess does not: either the corrected CI lies entirely below 0, or it is not entirely above 0 and the CI of (raw excess − corrected excess) lies entirely above 0. Refuted if the corrected CI lies entirely above 0. Inconclusive if the replication did not clear, or the corrected excess is not a reliable attraction and did not reliably shrink.
+- (n) Noise amplitude. Three levels, 0.25, 0.5, and 1. Amplitude 1 is the replication. The east glow bit is scaled by the amplitude in the wall channel. West glow is not scaled. Variance of a fair bit is amplitude²/4, so the levels are 0.015625, 0.0625, and 0.25. Seeds 1–200, rho and random, each learnability, drift 0, relevance 0. Excess is again rho minus random, mean over learnability, one number per seed. Confirmed if the CI of (excess at 1 − excess at 0.25) lies entirely above 0 and the amplitude-0.5 point estimate sits between the other two. Refuted if that CI lies entirely below 0. Otherwise inconclusive.
+- (a3) Edible distractor, the original positive control, redone at the same size as the replication. Count, drift 0, seeds 1–200, each learnability. Relevance 1 minus relevance 0, mean over learnability, east-room fraction. Confirmed if that CI lies entirely above 0. Refuted if it lies entirely below 0. Otherwise inconclusive. East food counts are descriptive. They are not the test.
+
+Figures, written by the same run: `bench/noise/excess-vs-w.png` (log excess against log W, the fit, and a reference slope of −0.5) and `bench/noise/progress-hist.png` (raw progress in the noise room and in the learnable room at learnability 1). The sweep is `npm run noise`. It is not part of CI.
+
+### Results
+
+Not run.
+
 ## 2026-10-15 phase diagram (America/New_York)
 
 Written before `npm run timescale`, before `npm run phase`, and before `npm run forget`. No outcome from those commands is in this block. The G1 rescore and the two sweeps are filled in underneath after they run.

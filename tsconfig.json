@@ -38,6 +38,8 @@
     "scripts/pool.ts",
     "scripts/episode-worker.ts",
     "scripts/diagnose-probe.ts",
-    "scripts/instrument.ts"
+    "scripts/instrument.ts",
+    "scripts/noise.ts",
+    "scripts/noise-worker.ts"
   ]
 }

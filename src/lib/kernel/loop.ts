@@ -37,6 +37,7 @@
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
+import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from "./progress.ts";
 
 /**
  * Curiosity terms stacked onto the cell loop. Each one can be shut off
@@ -187,6 +188,19 @@ export class Loop {
   progressEma = 0;
   compression = 0;
   baselineRate = 0.02;
+  /**
+   * Steps in the progress baseline. 50 is the shipped EMA (rate 0.02).
+   * Confidence keeps `baselineRate`. Only a window other than 50 uses
+   * `progressBaseline`, so the shipped update stays the ema line below.
+   */
+  progressWindow = SHIPPED_PROGRESS_WINDOW;
+  /** `ema` is baseline minus current error. `se` subtracts one standard error. */
+  progressMode: ProgressMode = "ema";
+  /** Baseline used when `progressWindow` is not the shipped 50. */
+  progressBaseline = 0.25;
+  private surpriseRing: Float64Array | null = null;
+  private surpriseFill = 0;
+  private surpriseAt = 0;
   commitment = 0;
   participation = 0;
 
@@ -978,11 +992,17 @@ export class Loop {
     }
     for (let f = 0; f < 3; f++) this.familyResidual[f] = famN[f] ? famErr[f] / famN[f] : 0;
     this.surprise = n ? s / n : 0;
-    this.progress = this.ema - this.surprise;
+    if (this.progressMode === "se") this.progress = this.seProgress(this.surprise);
+    else if (this.progressWindow === SHIPPED_PROGRESS_WINDOW) this.progress = this.ema - this.surprise;
+    else this.progress = this.progressBaseline - this.surprise;
     this.progressEma = 0.95 * this.progressEma + 0.05 * this.progress;
     if (this.progress > 0) this.compression += this.progress;
     const a = this.baselineRate;
     this.ema = (1 - a) * this.ema + a * this.surprise;
+    if (this.progressMode === "ema" && this.progressWindow !== SHIPPED_PROGRESS_WINDOW) {
+      const p = 1 / this.progressWindow;
+      this.progressBaseline = (1 - p) * this.progressBaseline + p * this.surprise;
+    }
     this.commitment = 1 - (commitDen ? (commitMass / commitDen) * 4 : 1);
     this.trackScent(target);
     this.project(target, this.latentNow);
@@ -995,6 +1015,27 @@ export class Loop {
     this.net.train(this.prevInput, trainTarget, lr);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
+  }
+
+  /**
+   * Held-out progress. Older W errors versus the latest W, minus one
+   * standard error. Zero until both halves are full, so an empty buffer
+   * does not pay.
+   */
+  private seProgress(surprise: number): number {
+    const w = Math.max(2, Math.round(this.progressWindow));
+    const cap = w * 2;
+    if (!this.surpriseRing || this.surpriseRing.length !== cap) {
+      this.surpriseRing = new Float64Array(cap);
+      this.surpriseFill = 0;
+      this.surpriseAt = 0;
+    }
+    const ring = this.surpriseRing;
+    ring[this.surpriseAt] = surprise;
+    this.surpriseAt = (this.surpriseAt + 1) % cap;
+    this.surpriseFill = Math.min(cap, this.surpriseFill + 1);
+    if (this.surpriseFill < cap) return 0;
+    return heldOutProgressRing(ring, this.surpriseAt, w);
   }
 
   /** Predict into `into` without learning. */

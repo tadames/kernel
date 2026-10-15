@@ -133,4 +133,5 @@ test("CI does not run the phase or forgetting sweeps", () => {
   assert.equal(yml.includes("npm run phase"), false);
   assert.equal(yml.includes("npm run forget"), false);
   assert.equal(yml.includes("npm run timescale"), false);
+  assert.equal(yml.includes("npm run noise"), false);
 });
