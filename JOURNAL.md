@@ -1,5 +1,120 @@
 # Journal
 
+## 2026-10-15 learner instrument (America/New_York)
+
+The probe late error near 0.235 is not a result about curiosity. The blocks below were written before `npm run gate` and before the 20-seed validation. The diagnosis numbers are from `scripts/diagnose-probe.ts` on this commit's parent learner (reconstruction commit, cell lr 0.035).
+
+### Diagnosis
+
+Probe error is mean squared error on the wall and food channels of the next 5×5 window. Targets are 0 or 1.
+
+| baseline | Field | Rooms |
+|---|---:|---:|
+| constant 0.5 (untrained sigmoid) | 0.250 | 0.250 |
+| constant 0 | 0.124 | 0.187 |
+| predict each cell's mean | 0.098 | 0.114 |
+| copy the current window | 0.090 | 0.072 |
+| shift the visible window; unseen strip uses the mean | 0.030 | 0.039 |
+| untrained MLP | 0.253 | 0.253 |
+| shipped learner, 280 steps, random policy, seed 1 | 0.240 | — |
+
+0.235 is the sigmoid prior. Constant 0.5 scores 0.250 exactly, because every target is 0 or 1. The shipped mean sits about 0.015 under that and about 0.14 above predicting the mean. It has not reached the copy baseline, and it is nowhere near the shift baseline.
+
+The shift baseline is the interesting ceiling. About 16% of scored cells are the new row or column that the egocentric window cannot see. Those cells, predicted by their mean, cost ~0.12 each. The overlapping cells are nearly deterministic (overlap MSE 0.014 on Field: the window shift, plus food being eaten). A local window cannot drive probe error to 0. It can drive it near 0.03 on Field and 0.04 on Rooms. 0.235 is not that floor.
+
+Same architecture, offline, correct transition target (Field probe):
+
+| data | lr | steps | probe |
+|---|---:|---:|---:|
+| uniform | 0.035 | 280 | 0.236 |
+| uniform | 0.035 | 8000 | 0.103 |
+| uniform | 1 | 280 | 0.102 |
+| uniform | 1 | 8000 | 0.063 |
+| uniform | 2 | 8000 | 0.058 |
+| one random walk | 1 | 4000 | 0.078 |
+
+Capacity is enough: at lr 1 the same MLP passes the mean (0.098) and heads toward the shift ceiling (0.030). The shipped rate does not. At lr 0.035 the output-bias step is about `0.035 * (2/75) * 0.25 ≈ 0.0002` logits while the prediction sits at 0.5, so 280 steps cannot leave the prior. An 8000-step run at that rate only just reaches the mean. The run length is short only relative to that rate.
+
+The training pair was also wrong. `Kernel.step` committed the window *after* the move, so the loss reconstructed an observation already in the input. The probe, and the policy's imagination, both ask for the next window. With the rate raised and the pair left wrong (lr 1, 280 steps, seed 1): on-policy ema 0.084, probe 0.116. The ema falls by copying the input; the probe stalls near the copy baseline (0.090). With the pair corrected at the same budget: probe 0.104, ema 0.110. They match, and both are still falling at 8000 steps (probe 0.064).
+
+An 8-seed pilot, not the gate, separated the two edits. Alignment at lr 0.035 leaves probe at ~0.233. Raising the rate without alignment drops probe and the count-versus-random interval includes zero. Both together, at cell lr 4, drop probe through the mean and the count-versus-random interval excludes zero. That is the locked flag. G1's thresholds are unchanged.
+
+### Preregister transition
+
+- hypothesis: On Field, seeds 1–20, rho, committing the pre-move window and stepping the cell net at lr 4 lowers late held-out probe error versus the historical commit at lr 0.035.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+### Preregister instrument
+
+- hypothesis: With transition on and the cell rate fixed at 4, count-based data beats a random walk on the Field probe, and uniform data beats random-walk data. Seeds 1–20. Count versus random is the paired probe late error of the two policies. Uniform versus walk trains the same MLP from the same init: one pass over a 280-step random walk, versus one pass over 4000 uniform transitions on the canonical Field.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (random − count) lies entirely above zero, and paired CI of (walk − uniform) lies entirely above zero. G1 thresholds are not changed.
+
+### Results
+
+Gate, Field, rho, seeds 1–20, 280 steps. Source: `bench/gate.json`.
+
+| arm | probe late | G2 | C2 | lives (on − off) |
+|---|---:|---|---|---|
+| transition off (reconstruct, lr 0.035) | 0.2348 | 20/20 | 20/20 | |
+| transition on (next window, lr 4) | 0.1114 | 20/20 | 20/20 | −0.15 [−0.35, 0.05] |
+| off − on | 0.1234 [0.1150, 0.1307] | | | |
+
+The flag stays on. Lives did not rise. G2 and C2 stayed unanimous.
+
+Instrument, same cell MLP, same init, Field, seeds 1–20. Walk is one pass over 280 random-walk transitions. Uniform is one pass over 4000 uniform transitions. Source: `bench/instrument.json`.
+
+| data | probe late |
+|---|---|
+| random walk | 0.126 (seed mean; range 0.097–0.182) |
+| uniform | 0.059 [about 0.058–0.061] |
+| walk − uniform | 0.0670 [0.0553, 0.0784] |
+
+The validation criterion passes. Count versus random is in the sweep table below: Field probe late (random − count) is 0.0130 [0.0022, 0.0236].
+
+Five signals, the fixed learner, 20 seeds, 280 steps. Probe error is lower-better. G1 is unchanged: late < 0.85 × early, or late < 0.14. Source: `bench/sweep.md`.
+
+| env | signal | probe early | probe late | distinct cells | foods | G1 |
+|---|---|---:|---:|---:|---:|---|
+| field | random | 0.131 [0.121, 0.141] | 0.110 [0.103, 0.119] | 53.5 [48.7, 58.5] | 3.85 [2.95, 4.75] | 19/20 |
+| field | count | 0.123 [0.116, 0.129] | 0.097 [0.093, 0.104] | 115.8 [108.6, 122.6] | 13.25 [11.45, 15.15] | 19/20 |
+| field | surprise | 0.119 [0.112, 0.127] | 0.107 [0.102, 0.113] | 84.2 [78.0, 90.0] | 8.55 [7.50, 9.60] | 19/20 |
+| field | rnd | 0.123 [0.117, 0.130] | 0.110 [0.102, 0.119] | 74.3 [69.7, 78.7] | 8.80 [7.65, 9.95] | 19/20 |
+| field | rho | 0.126 [0.118, 0.136] | 0.111 [0.104, 0.120] | 71.4 [66.9, 75.9] | 7.35 [6.20, 8.50] | 18/20 |
+| rooms | random | 0.144 [0.138, 0.151] | 0.123 [0.115, 0.131] | 54.4 [50.5, 58.5] | 4.75 [4.10, 5.40] | 16/20 |
+| rooms | count | 0.136 [0.131, 0.140] | 0.098 [0.094, 0.103] | 114.4 [106.8, 121.0] | 13.70 [11.95, 15.35] | 20/20 |
+| rooms | surprise | 0.136 [0.132, 0.140] | 0.114 [0.107, 0.120] | 79.9 [73.7, 86.3] | 9.05 [7.85, 10.35] | 18/20 |
+| rooms | rnd | 0.140 [0.136, 0.145] | 0.112 [0.106, 0.119] | 68.6 [64.0, 73.1] | 7.10 [6.30, 8.05] | 19/20 |
+| rooms | rho | 0.140 [0.135, 0.146] | 0.118 [0.111, 0.125] | 66.2 [61.3, 70.7] | 7.05 [6.20, 7.95] | 19/20 |
+
+Count is the only signal that beats every other signal on probe late, on both maps (every paired CI excludes zero). Rho does not beat random on Field (difference −0.001, CI includes zero). On Rooms, rho beats RND only. Coverage still ranks the same way it did when the probe was stuck: count, then surprise, then RND, then rho, then random. The probe now agrees that count's data is better.
+
+Mean probe by checkpoint (20 seeds):
+
+| env | signal | 40 | 80 | 120 | 160 | 200 | 240 | 280 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| field | random | 0.131 | 0.127 | 0.124 | 0.120 | 0.123 | 0.123 | 0.110 |
+| field | count | 0.123 | 0.110 | 0.115 | 0.113 | 0.109 | 0.107 | 0.097 |
+| field | rho | 0.126 | 0.119 | 0.115 | 0.123 | 0.119 | 0.106 | 0.111 |
+| rooms | random | 0.144 | 0.150 | 0.145 | 0.132 | 0.122 | 0.120 | 0.123 |
+| rooms | count | 0.136 | 0.128 | 0.126 | 0.121 | 0.111 | 0.105 | 0.098 |
+| rooms | rho | 0.140 | 0.136 | 0.132 | 0.130 | 0.124 | 0.123 | 0.118 |
+
+The curves fall. They are not monotone: a 280-step online run is still noisy. Count is the steady one.
+
+G1, read honestly, thresholds untouched. Field rho late 0.111 is not below 0.85 × early (0.85 × 0.126 = 0.107). It is below 0.14, and that is the arm that passes 18 of 20 seeds. Field count late 0.097 is below both 0.85 × 0.123 = 0.105 and 0.14 (19/20). The 0.14 line sits between the sigmoid prior (0.250) and the predict-the-mean floor (0.098 on Field). Clearing it means the net left the prior. It does not mean the net learned the shift. The shift ceiling on Field is about 0.030. On-policy ema is no longer a copy of the probe: Field rho ema is 0.076 against a probe of 0.111, because the visited states are easier than the held-out set.
+
+Five-seed bench, rho, transition on: probe 0.122 → 0.108, on-policy ema 0.164 → 0.070, foods 5.60, lives 0.80, rooms foods 7.00, rooms lives 0.40, G1 5/5, G2 5/5, S1–S3 C1 C2 all pass. Source: `bench/latest.json`. `npm test` and `tsc --noEmit` pass.
+
+`EnvSpec.params` still reserves learnability, drift rate, and distractor relevance. Drift above zero still throws. That family was not built.
+
+### Next hypothesis
+
+The probe now moves, and it moves more when the data covers the map. Do not add another curiosity term on the strength of the old ema. The next run can gate one change — longer credit assignment, or the reserved environment family — on this same probe. If Field probe late does not fall below the predict-the-mean floor (0.098) under rho, the cell net is still only learning the marginal, and the shift of the window is the open problem.
+
 ## 2026-10-15 probe instrument (America/New_York)
 
 The 5% on-policy ema rule is retired before this run. G1 moves to a fixed held-out probe. The blocks below are the preregistration. They were written before `npm run gate`. Results are filled in after that command, not before.

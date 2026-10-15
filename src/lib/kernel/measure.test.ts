@@ -159,6 +159,66 @@ test("preregister parser requires hypothesis and threshold", () => {
   assert.equal(readPreregister(journal, "wake"), null);
 });
 
+function readCommit(input: Float32Array | null, n: number) {
+  assert.ok(input);
+  return Array.from(input.subarray(0, n));
+}
+
+test("transition commits the window from before the move", () => {
+  Math.random = mulberry32(8);
+  const k = new Kernel("blank", 1, { transition: true }, { signal: "random" });
+  k.cells.fill(0);
+  for (let i = 0; i < SIZE; i++) {
+    k.cells[i] = 1;
+    k.cells[(SIZE - 1) * SIZE + i] = 1;
+    k.cells[i * SIZE] = 1;
+    k.cells[i * SIZE + SIZE - 1] = 1;
+  }
+  k.x = 7;
+  k.y = 7;
+  k.loop.prevInput = null;
+  let moved = false;
+  for (let t = 0; t < 12; t++) {
+    const before = Array.from(k.sense());
+    const x = k.x;
+    const y = k.y;
+    k.step();
+    const committed = readCommit(k.loop.prevInput, before.length);
+    assert.deepEqual(committed, before);
+    if (k.x !== x || k.y !== y) {
+      assert.notDeepEqual(committed, Array.from(k.sense()));
+      moved = true;
+      break;
+    }
+  }
+  assert.equal(moved, true);
+
+  Math.random = mulberry32(8);
+  const copy = new Kernel("blank", 1, { transition: false }, { signal: "random" });
+  copy.cells.fill(0);
+  for (let i = 0; i < SIZE; i++) {
+    copy.cells[i] = 1;
+    copy.cells[(SIZE - 1) * SIZE + i] = 1;
+    copy.cells[i * SIZE] = 1;
+    copy.cells[i * SIZE + SIZE - 1] = 1;
+  }
+  copy.x = 7;
+  copy.y = 7;
+  let copyMoved = false;
+  for (let t = 0; t < 12; t++) {
+    const before = Array.from(copy.sense());
+    copy.step();
+    const after = Array.from(copy.sense());
+    const stored = readCommit(copy.loop.prevInput, before.length);
+    assert.deepEqual(stored, after);
+    if (before.join() !== after.join()) {
+      copyMoved = true;
+      break;
+    }
+  }
+  assert.equal(copyMoved, true);
+});
+
 test("a two-step episode reports a finite probe and coverage", () => {
   Math.random = mulberry32(21);
   const row = runMeasuredEpisode(
