@@ -78,8 +78,10 @@ function valueOf(
   confidence: number,
   rhoHat = 0,
   residualWeight?: (i: number) => number,
+  uncertainty = true,
 ): number {
-  const residual = expectedResidual(pred, residualWeight);
+  // Uncertainty is the Bernoulli residual. Off leaves visit-scent as the only explore term.
+  const residual = uncertainty ? expectedResidual(pred, residualWeight) : 0;
   const explore = 0.7 * residual + 0.3 * v.novelty;
   const prog = Math.max(0, learning) + 0.55 * Math.max(0, rhoHat);
   const curious =
@@ -114,6 +116,11 @@ export function imagineScores(opts: {
    * Omitted means on, which is the historical rho path.
    */
   horizonRho?: boolean;
+  /**
+   * Bernoulli expected residual in the explore mix. Omitted means on.
+   * Off is a measurement arm: progress still scales whatever explore remains.
+   */
+  uncertainty?: boolean;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -122,6 +129,7 @@ export function imagineScores(opts: {
   const emaGate = opts.horizon3Ema ?? 0.12;
   const threeStep = twoStep && Boolean(opts.imagined3) && opts.ema < emaGate;
   const horizonRho = opts.horizonRho !== false;
+  const uncertainty = opts.uncertainty !== false;
 
   for (let a = 0; a < opts.acts; a++) {
     const pred = opts.predict(a, opts.imagined[a]);
@@ -137,7 +145,7 @@ export function imagineScores(opts: {
       for (let a1 = 0; a1 < opts.acts; a1++) {
         const pred2 = opts.predictFrom!(pred, a1, into2);
         const v2 = opts.readPred!(pred2, a1);
-        const s2 = valueOf(v2, pred2, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight);
+        const s2 = valueOf(v2, pred2, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight, uncertainty);
         if (s2 > best2) {
           best2 = s2;
           bestRes2 = expectedResidual(pred2, opts.residualWeight);
@@ -156,7 +164,7 @@ export function imagineScores(opts: {
         for (let a2 = 0; a2 < opts.acts; a2++) {
           const pred3 = opts.predictFrom!(bestPred2, a2, into3);
           const v3 = opts.readPred!(pred3, a2);
-          const s3 = valueOf(v3, pred3, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight);
+          const s3 = valueOf(v3, pred3, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight, uncertainty);
           if (s3 > best3v) {
             best3v = s3;
             bestRes3 = expectedResidual(pred3, opts.residualWeight);
@@ -165,10 +173,10 @@ export function imagineScores(opts: {
         best3 = best3v;
         if (horizonRho) rhoHat += Math.max(0, bestRes2 - bestRes3);
       }
-      const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
+      const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty);
       opts.scores[a] = score1 + disc * confidence * best2 + disc * disc * confidence * best3;
     } else {
-      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight);
+      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty);
     }
   }
   return opts.scores;

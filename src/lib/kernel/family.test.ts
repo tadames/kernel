@@ -128,9 +128,147 @@ test("drift and forgetting grids bracket 1/tau and stay inside (0, 1)", () => {
   }
 });
 
+test("a frozen target room keeps its picture and burns the same draws", () => {
+  const params = { learnability: 0, driftRate: 0, distractorRelevance: 0 };
+  const noise = createFamily("distractor", 15, 3000, params, false);
+  const frozen = createFamily(
+    "distractor",
+    15,
+    3000,
+    { ...params, roomContent: "static", staticSeed: 4 },
+    false,
+  );
+  assert.equal(noise.family.freezeTarget, false);
+  assert.equal(frozen.family.freezeTarget, true);
+  assert.notDeepEqual(Array.from(noise.family.glow), Array.from(frozen.family.glow));
+  const again = createFamily(
+    "distractor",
+    15,
+    3000,
+    { ...params, roomContent: "static", staticSeed: 4 },
+    false,
+  );
+  assert.deepEqual(Array.from(again.family.glow), Array.from(frozen.family.glow));
+  const other = createFamily(
+    "distractor",
+    15,
+    3000,
+    { ...params, roomContent: "static", staticSeed: 5 },
+    false,
+  );
+  assert.notDeepEqual(Array.from(other.family.glow), Array.from(frozen.family.glow));
+  const tagged = createFamily("distractor", 15, 3000, { ...params, staticSeed: 4 }, false);
+  assert.deepEqual(Array.from(tagged.family.glow), Array.from(noise.family.glow));
+
+  const step = (built: ReturnType<typeof createFamily>) => {
+    let n = 0;
+    const before = built.family.glow.slice();
+    applyFamily(built.cells, built.family, params, () => {
+      n += 1;
+      return 0.1;
+    });
+    let changed = 0;
+    for (let i = 0; i < before.length; i++) {
+      if (built.family.region[i] === 1 && before[i] !== built.family.glow[i]) changed += 1;
+    }
+    return { n, changed };
+  };
+  const noiseStep = step(noise);
+  const frozenStep = step(frozen);
+  assert.equal(noiseStep.n, frozenStep.n);
+  assert.ok(noiseStep.n > 0);
+  assert.ok(noiseStep.changed > 0);
+  assert.equal(frozenStep.changed, 0);
+});
+
+test("mirroring swaps the target room and keeps the shell", () => {
+  const params = { learnability: 1, driftRate: 0, distractorRelevance: 0 };
+  const east = createFamily("distractor", 15, 3000, params, false);
+  const west = createFamily("distractor", 15, 3000, { ...params, mirrorRooms: true }, false);
+  assert.equal(east.family.dividerX, 9);
+  assert.equal(west.family.dividerX, 5);
+  assert.equal(east.family.mirrored, false);
+  assert.equal(west.family.mirrored, true);
+  const size = 15;
+  let eastCells = 0;
+  let westCells = 0;
+  let foodsE = 0;
+  let foodsW = 0;
+  for (let i = 0; i < east.cells.length; i++) {
+    const x = i % size;
+    const y = (i / size) | 0;
+    const j = y * size + (size - 1 - x);
+    assert.equal(west.cells[j], east.cells[i]);
+    assert.equal(west.family.region[j], east.family.region[i]);
+    if (east.family.region[i] === 1) eastCells += 1;
+    if (west.family.region[i] === 1) westCells += 1;
+    if (east.cells[i] === 2) foodsE += 1;
+    if (west.cells[i] === 2) foodsW += 1;
+  }
+  assert.equal(eastCells, 52);
+  assert.equal(westCells, 52);
+  assert.equal(foodsE, 5);
+  assert.equal(foodsW, 5);
+  let door = 0;
+  for (let y = 0; y < size; y++) {
+    if (west.cells[y * size + west.family.dividerX] !== 1) door += 1;
+  }
+  assert.equal(door, 7);
+  assert.equal(west.family.region[west.family.doorY * size + west.family.dividerX], 0);
+});
+
+test("the body still starts in the large room after a mirror", () => {
+  const params = { learnability: 1, driftRate: 0, distractorRelevance: 0 };
+  const east = new Kernel("distractor", 3, undefined, {
+    env: distractorSpec(params),
+    signal: "random",
+  });
+  const west = new Kernel("distractor", 3, undefined, {
+    env: distractorSpec({ ...params, mirrorRooms: true }),
+    signal: "random",
+  });
+  assert.equal(east.regionAt(), 0);
+  assert.ok(east.family);
+  assert.ok(west.family);
+  assert.ok(east.x <= east.family.dividerX);
+  assert.equal(west.regionAt(), 0);
+  assert.ok(west.x >= west.family.dividerX);
+  assert.notEqual(east.regionAt(east.family.dividerX + 1, east.family.doorY), 0);
+  assert.equal(west.regionAt(west.family.dividerX - 1, west.family.doorY), 1);
+});
+
+test("a random walk ignores the frozen picture", () => {
+  const walk = (content: "noise" | "static", mirror: boolean, learnability: number) => {
+    const k = new Kernel("distractor", 8, undefined, {
+      env: distractorSpec({
+        learnability,
+        driftRate: 0,
+        distractorRelevance: 0,
+        ...(content === "static" ? { roomContent: "static" as const, staticSeed: 8 } : {}),
+        ...(mirror ? { mirrorRooms: true } : {}),
+      }),
+      signal: "random",
+    });
+    const pos: number[] = [];
+    for (let t = 0; t < 40; t++) {
+      pos.push(k.x * 15 + k.y);
+      k.step();
+    }
+    return pos;
+  };
+  for (const mirror of [false, true]) {
+    for (const learnability of [0, 1]) {
+      assert.deepEqual(walk("noise", mirror, learnability), walk("static", mirror, learnability));
+    }
+  }
+});
+
 test("CI does not run the phase or forgetting sweeps", () => {
   const yml = readFileSync(".github/workflows/ci.yml", "utf8");
   assert.equal(yml.includes("npm run phase"), false);
   assert.equal(yml.includes("npm run forget"), false);
   assert.equal(yml.includes("npm run timescale"), false);
+  assert.equal(yml.includes("npm run noise"), false);
+  assert.equal(yml.includes("npm run matched-room"), false);
+  assert.equal(yml.includes("npm run policy-terms"), false);
 });

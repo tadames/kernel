@@ -8,7 +8,8 @@ import {
   randomEmpty,
   type WorldKind,
 } from "./presets.ts";
-import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid, type EnvParams, type EnvSpec, type GridBody } from "./env.ts";
+import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid, type EnvParams, type EnvSpec, type GlowGain, type GridBody } from "./env.ts";
+import { SHIPPED_PROGRESS_WINDOW, type ProgressMode } from "./progress.ts";
 import {
   cloneFamily,
   createFamily,
@@ -74,6 +75,24 @@ export type KernelOptions = {
    * stationary white noise.
    */
   patternHold?: boolean;
+  /**
+   * Progress-baseline window in steps. 50 is the shipped EMA.
+   * Confidence stays on baselineRate. Only the progress difference moves.
+   */
+  progressWindow?: number;
+  /** `se` replaces the progress difference with a held-out split minus one standard error. */
+  progressMode?: ProgressMode;
+  /**
+   * Measurement-only cuts in the curiosity score. Omitted means the shipped
+   * score: uncertainty on, and the horizon residual drop on for rho.
+   * Not a Loop feature flag. The default agent does not change.
+   */
+  curiosityScore?: {
+    /** Bernoulli expected residual in the explore mix. Default on. */
+    uncertainty?: boolean;
+    /** Imagined residual drop across later windows. Default on. */
+    horizonDrop?: boolean;
+  };
 };
 
 export type Thought = { t: number; text: string };
@@ -125,6 +144,11 @@ export class Kernel {
   family: FamilyMemory | null = null;
   private readonly patternHold: boolean;
   private readonly fixedLayout: number | null;
+  readonly progressWindow: number;
+  readonly progressMode: ProgressMode;
+  /** Shipped score keeps both. The noise study turns them off per arm. */
+  readonly scoreUncertainty: boolean;
+  readonly scoreHorizonDrop: boolean;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -168,6 +192,13 @@ export class Kernel {
     this.forgettingRate = options?.forgettingRate ?? 0;
     this.patternHold = options?.patternHold ?? false;
     this.fixedLayout = options?.env ? options.env.layoutSeed : (options?.layoutSeed ?? null);
+    if (options?.progressWindow != null && !(options.progressWindow > 0)) {
+      throw new Error("progressWindow must be positive");
+    }
+    this.progressWindow = options?.progressWindow ?? SHIPPED_PROGRESS_WINDOW;
+    this.progressMode = options?.progressMode ?? "ema";
+    this.scoreUncertainty = options?.curiosityScore?.uncertainty !== false;
+    this.scoreHorizonDrop = options?.curiosityScore?.horizonDrop !== false;
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
@@ -177,6 +208,20 @@ export class Kernel {
     this.visitCounts = new Uint32Array(SIZE * SIZE);
     this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
     this.setWorld(kind, seed);
+    this.applyProgress();
+  }
+
+  /** Re-apply after the loop is rebuilt. Confidence rate stays 0.02. */
+  private applyProgress() {
+    this.loop.progressWindow = this.progressWindow;
+    this.loop.progressMode = this.progressMode;
+    this.loop.progressBaseline = this.loop.ema;
+  }
+
+  private glowGain(): GlowGain | null {
+    const amplitude = this.envParams.noiseAmplitude ?? 1;
+    if (!this.family || amplitude === 1) return null;
+    return { region: this.family.region, amplitude };
   }
 
   rebuildWorld(kind: WorldKind = this.worldKind, seed = this.seed) {
@@ -279,7 +324,7 @@ export class Kernel {
       const x = index % SIZE;
       const y = (index / SIZE) | 0;
       const action = (rand() * ACTS) | 0;
-      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow);
+      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow, this.glowGain());
       this.loop.imagine(this.encode(obs, action, false, 100), into);
       const body: GridBody = {
         cells: this.cells.slice(),
@@ -293,7 +338,7 @@ export class Kernel {
       const stepRand = mulberry32((probeSeed + s * 997 + region * 13) >>> 0);
       stepGrid(body, this.worldKind, action, SIZE, stepRand, this.envParams, family);
       const next = new Float32Array(OBS);
-      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow);
+      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain());
       for (let i = 0; i < OBS; i++) {
         if (i % CH === 2) continue;
         const d = into[i]! - next[i]!;
@@ -320,6 +365,7 @@ export class Kernel {
     this.burnIn = 0;
     this.obsMean.fill(0);
     this.loop.baselineRate = 0.02;
+    this.applyProgress();
     this.visitCounts.fill(0);
     this.rnd = new RndCuriosity(this.seed ^ 0x51ed, OBS);
   }
@@ -380,7 +426,7 @@ export class Kernel {
   }
 
   sense(into: Float32Array = new Float32Array(OBS), ox = this.x, oy = this.y): Float32Array {
-    return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null);
+    return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null, this.glowGain());
   }
 
   private encode(obs: Float32Array, action = this.lastAction, muteNoise = false, energy = this.energy): Float32Array {
@@ -484,7 +530,8 @@ export class Kernel {
       curiosity: this.params.curiosity,
       goal: this.params.goal,
       progressEma: signalProgressEma(this.signal, view),
-      horizonRho: this.signal === "rho",
+      horizonRho: this.signal === "rho" && this.scoreHorizonDrop,
+      uncertainty: this.scoreUncertainty,
       ema: this.loop.ema,
       imagined: this.imagined,
       imagined2: this.imagined2,

@@ -1,5 +1,301 @@
 # Journal
 
+## 2026-10-16 matched room (America/New_York)
+
+Written before `npm run matched-room`. No target-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The policy-terms entry did not name a next hypothesis. The noise-room attraction is still measured against a random walk. This run is the geometry-matched control for that comparison. It adds no curiosity term and no Loop flag.
+
+### Preregister matched room
+
+The noise study, seeds 1–200, found that every directed explorer spends more time in the stationary white-noise east room than a random walk: count 0.1576, surprise 0.0890, RND 0.0725, rho 0.0713, each interval entirely above 0. The sampling-variance account was refuted. The policy-terms ablation left pure-progress rho above a random walk as well, 0.0514 [0.0366, 0.0659]. Those contrasts share a walk that does not know which room is which. The extra time could be the room: it is the small one, the far one, the one without food, and it sits on the east.
+
+Hypothesis. The extra time is a preference for the noise. Replace the noise with one frozen fair-bit picture of the same cells, and reflect the map so the room also sits on the west. Each directed explorer still spends more time in the noise room than in that frozen room.
+
+The frozen picture is one iid draw per seed, `mulberry32(seed ^ 0x5a17)`, written into region 1 after the shell is built and then held. The constant is `STATIC_DRAW_SALT`. The noise room keeps the shipped process: a fresh fair bit on every region-1 cell every step. The static arm still draws those bits and discards them, so the episode RNG stays aligned. A random walk ignores observations, so it walks the same path in both arms. Count novelty is the visit count of those same cells, so it matches at the first visit. An untrained predictor at one half gives the same expected error to any fair-bit window, so first-visit surprise matches in distribution. The pictures are not paired pixel for pixel. Pairing them would make the static image depend on when the agent arrived.
+
+A low-frequency pattern was the other static room on offer. A 5×5 window sees its period, so the first glance is already easier than white noise. That mixes compressibility with stationarity. The frozen fair-bit picture keeps the single-frame marginal and changes only the time axis. If 400 steps cannot learn that picture, the contrast can come out null. That is a result this design accepts. It is not a reason to switch patterns after the run.
+
+The two rooms of one map are not the same size. Region 1 is four interior columns. The other room is eight, with the five foods and the interior walls. The door is the same seven rows, centered. Unmirrored, the divider is x = 9 and region 1 is east. Mirrored, the divider is x = 5 and region 1 is west. Spawn stays in region 0, the large room, doorway included. The contrast does not need the two rooms to match each other. Noise and static share one room by identity, and the mirror counterbalances which side that room is on.
+
+The map otherwise matches the noise study. Layout seed 3000. Drift 0. Relevance 0. Amplitude 1. Window 50. Estimator ema. Learnability {0, 1/3, 2/3, 1}. Episodes are 400 steps. Seeds 1–200. The other room's learnability mix is unchanged.
+
+Explorers. Random, count, surprise, RND, shipped rho, and pure-progress rho. Pure-progress rho is the policy-terms arm `progress`: uncertainty off, horizon residual drop off, progress kept as the shipped rectified ema − surprise. Random is the negative control. The other five are the directed set. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the probe rule and is not this claim.
+
+Primary metric. Target-room fraction, the fraction of steps that began in region 1. For each seed, explorer, and orientation, average that fraction over the four learnabilities. Excess at an orientation is noise minus static on that seed. The test excess averages the two orientations, still one number per seed. Paired 95% percentile bootstrap, 2000 resamples. Salts are fixed in `scripts/matched.ts`: test excess 3101 random, 3102 count, 3103 surprise, 3104 RND, 3105 shipped rho, 3106 pure-progress. East salts are 3111 through 3116 in that order. West salts are 3121 through 3126. Per-learnability salts are 3200 + 10 × explorer index + learnability index, with the same explorer order and learnability index 0, 1, 2, 3. Fraction intervals use salts 3401 upward and are not a test. The surprise diagnostic uses salt 3501.
+
+Calls use `matchedContentCall`, which is the same rule as `greaterCall`. Confirmed if the CI lies entirely above 0: the explorer prefers the noise room to the matched static room. Refuted if the CI lies entirely below 0: it prefers the static room. A CI that includes 0, including a CI of [0, 0], is inconclusive. The test excess is the only pass bit. East, west, and the four learnabilities are reported and are not a second chance. A disagreement between the two orientations does not void the average. The average is the counterbalanced estimate.
+
+Negative control. Random's test excess. A walk that ignores observations has nothing to prefer, and the aligned RNG makes the two paths the same, so the excess is zero and the CI is [0, 0]. That interval does not exclude 0. `greaterCall` on it is inconclusive, which is the right call, and the control is not confounded. If the CI does exclude 0, content moved a walk that does not read it. The summary is then confounded, and no directed call is interpreted as a content effect. The calls are still printed.
+
+Summary label, from `matchedSummary`, not a second test. Confounded if the random CI excludes 0. Otherwise, if every directed call is confirmed: noise. If every directed call is refuted: static. If every directed call is inconclusive: inconclusive. Any other mix: mixed. The per-explorer calls are the result in every case.
+
+Surprise diagnostic, shipped rho only, not a call. Training surprise on steps that began in the target room. A cell with no such step on either arm is skipped. A seed's number is the mean of the remaining (noise − static) cells across both orientations and the four learnabilities. A seed with no remaining cell is dropped. The CI uses salt 3501. Report n. It cannot rescue or overturn a primary call.
+
+Figure: `bench/matched/excess-by-explorer.png`. Both orientations and the paired average, per explorer, with the CIs. Source: `bench/matched/matched.json`. The sweep is `npm run matched-room`. It is not part of CI.
+
+### Results
+
+19200 episodes, 400 steps, 4 workers, 886 seconds. Source: `bench/matched/matched.json`. The unmirrored noise arm is the noise-study episode: all 4000 shipped rows match `bench/noise/noise.csv`.
+
+#### Summary. Inconclusive.
+
+Every directed call includes 0. The random control is a point mass at 0, so the summary is not confounded. The hypothesis, that each directed explorer still prefers the noise room, is not confirmed. It is not refuted either: no directed interval lies entirely below 0.
+
+Test excess, noise minus static, mean of the two orientations:
+
+| explorer | excess | call |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.0014 [−0.0056, 0.0085] | inconclusive |
+| surprise | 0.0012 [−0.0072, 0.0099] | inconclusive |
+| rnd | 0.0035 [−0.0020, 0.0093] | inconclusive |
+| rho | −0.0019 [−0.0079, 0.0043] | inconclusive |
+| progress | 0.0005 [−0.0029, 0.0041] | inconclusive |
+
+The intervals sit on zero. Their upper ends are all below 0.01. The excesses versus a random walk in the noise study were 0.1576, 0.0890, 0.0725, and 0.0713, and pure-progress was 0.0514. Those gaps are not a preference for noise over the same room frozen. That comparison was not a second pass bit. It is what these intervals exclude.
+
+Orientations, reported and not a pass bit. East is the historical side. West is the mirror.
+
+| explorer | east | west |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| count | 0.0013 [−0.0090, 0.0119] | 0.0014 [−0.0093, 0.0119] |
+| surprise | −0.0074 [−0.0184, 0.0037] | 0.0098 [−0.0021, 0.0213] |
+| rnd | 0.0047 [−0.0042, 0.0137] | 0.0023 [−0.0063, 0.0109] |
+| rho | −0.0009 [−0.0102, 0.0086] | −0.0029 [−0.0123, 0.0060] |
+| progress | 0.0010 [−0.0037, 0.0057] | 0.0000 [−0.0053, 0.0057] |
+
+Surprise is the only explorer whose two orientations point opposite ways. Both intervals include 0, and the average includes 0. The mirror did not have to agree. The average is the test.
+
+Target-room fraction, mean over learnability. These are not a test. Random on the east reproduces the noise-study base rate, 0.1457. On the west the same walk sits at 0.1375 [0.1260, 0.1485]. The two intervals overlap. Within each side, noise and static are the same path, so the content excess is zero.
+
+| explorer | noise east | static east | noise west | static west |
+|---|---|---|---|---|
+| random | 0.1457 [0.1347, 0.1572] | 0.1457 [0.1347, 0.1570] | 0.1375 [0.1260, 0.1485] | 0.1375 [0.1260, 0.1491] |
+| count | 0.3033 [0.2945, 0.3115] | 0.3020 [0.2935, 0.3107] | 0.2997 [0.2914, 0.3079] | 0.2983 [0.2893, 0.3073] |
+| surprise | 0.2347 [0.2229, 0.2460] | 0.2421 [0.2305, 0.2549] | 0.2359 [0.2232, 0.2490] | 0.2261 [0.2138, 0.2388] |
+| rnd | 0.2182 [0.2071, 0.2299] | 0.2136 [0.2024, 0.2250] | 0.2097 [0.1957, 0.2229] | 0.2074 [0.1954, 0.2206] |
+| rho | 0.2171 [0.2053, 0.2291] | 0.2179 [0.2058, 0.2302] | 0.2044 [0.1925, 0.2169] | 0.2073 [0.1948, 0.2193] |
+| progress | 0.1971 [0.1851, 0.2097] | 0.1961 [0.1833, 0.2087] | 0.2005 [0.1883, 0.2125] | 0.2005 [0.1891, 0.2116] |
+
+Count, surprise, RND, rho, and pure-progress rho all sit above the random walk in the frozen room as well as in the noise room. The gap versus the walk is the room.
+
+Per learnability, orientation-averaged, not a pass bit. Three cells exclude zero. Count at learnability 0 is 0.0155 [0.0012, 0.0293]. Surprise at learnability 0 is −0.0164 [−0.0298, −0.0028]. Pure-progress at learnability 1/3 is −0.0084 [−0.0160, −0.0015]. The other seventeen include zero. The mean is the test, and the mean does not move.
+
+Surprise diagnostic, shipped rho, not a call. Noise minus static, on steps that began in the target room, n = 200 of 200: 0.0085 [0.0076, 0.0095]. The noise room is reliably more surprising. The content swap is visible to the learner. It does not move occupancy.
+
+Figure: `bench/matched/excess-by-explorer.png`.
+
+No mechanism was added. The default agent is unchanged. Both curiosity terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, sha of the preregistration commit, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the stricter probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes.
+
+### Next hypothesis
+
+The excess over a random walk survived a frozen picture of the same room, on both sides of the map. It is not the noise. The next measurement should ask what about the room it is. The small room has no food and about half the cells. Give that room the same five foods as the large room, still with relevance 0 so the bits are not meals, and measure the excess over a random walk again. If the foods close the gap, the attractor was an empty room. If they do not, equalize the cell counts before adding another curiosity term.
+
+## 2026-10-15 policy terms (America/New_York)
+
+Written before `npm run policy-terms`. No east-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+### Preregister policy terms
+
+The noise-progress study, seeds 1–200, found that rho spends more time in the stationary white-noise east room than a random walk: rho − random = 0.0713 [0.0564, 0.0863]. The sampling-variance account was refuted. Call (s) left two non-progress terms in the curiosity score: the horizon residual drop and the uncertainty term.
+
+Hypothesis. Stationary-noise attraction is driven by those terms, not by progress itself. Removing both from the curiosity score, and keeping progress as the shipped rectified ema − surprise, reduces or eliminates rho's excess east-room time versus random on the same distractor map.
+
+The map matches the noise study. Drift 0. Relevance 0. Window 50. Estimator ema. Noise amplitude 1. Learnability {0, 1/3, 2/3, 1}. Episodes are 400 steps. Seeds 1–200. The seed stream is `runNoiseEpisode`, so a shipped rho episode is the noise-study episode. A mismatch against `bench/noise/noise.csv` aborts the run.
+
+Shipped curiosity score, unchanged and still the default:
+
+- residual = expected residual of the predicted window (Bernoulli variance, times 4). That is the uncertainty term.
+- explore = 0.7 × residual + 0.3 × visit-scent novelty.
+- rho-hat starts at the scent and latent bonuses. Latent flags stay off. Scent rho-hat stays as shipped and is zero when its gate is shut.
+- Horizon residual drop, added only when the signal is rho: max(0, residual at step 1 − residual of the best later window), and the same drop from that window to the third when the third window runs.
+- prog = max(0, progressEma) + 0.55 × max(0, rho-hat).
+- curious = curiosity × (0.75 × explore × (0.35 + 12 × prog) + 0.2 × explore).
+
+Progress is ema − surprise. The policy rectifies the smoothed value, max(0, progressEma). That line stays. Progress does not rank actions by itself. It scales explore. Goal, cost, confidence, and the discounted follow-up values stay. Horizon-2 and horizon-3 planning still run.
+
+Joint arm `progress`. Two deletions and nothing else:
+
+- Uncertainty off. Residual is not added to explore, so explore = 0.3 × novelty. The 0.35 floor and the 0.2 × explore term stay, and they apply only to what remains.
+- Horizon drop off. The two max(0, residual drop) additions are not added to rho-hat. Planning still runs. Follow-up scores use the same uncertainty switch.
+
+The horizon drop changes a score only by increasing prog, and prog is multiplied by explore. If novelty is shut and uncertainty is off, explore is 0 and the drop cannot move the policy. The split is still read by the rule below. It is not re-interpreted after seeing which arm moved.
+
+This is a measurement arm, `Kernel` option `curiosityScore`. It is not a Loop feature flag. The default is both terms on. The shipped agent stays window-50 rho. No probe gate is required to keep a default, because the default does not change. Field probeLate from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit.
+
+Primary metric. East-room fraction, mean over the four learnabilities, one number per seed. Excess versus random is that number minus the random walk on the same seed. Paired 95% percentile bootstrap, 2000 resamples. Salts are fixed in `scripts/policy-terms.ts`: shipped − random 2101, progress − random 2102, shipped − progress 2103. Per-learnability salts start at 2110. Split salts are 2201 through 2204, and the per-learnability split salts start at 2210 and 2250.
+
+- (j) Joint. Shipped rho, progress-only rho, and random. Seeds 1–200. S is shipped − random. A is progress − random. D is shipped − progress. Confirmed if S lies entirely above 0 and either A does not lie entirely above 0 or D lies entirely above 0. Refuted if A lies entirely above 0 and D does not lie entirely above 0. Inconclusive if S does not lie entirely above 0. Per-learnability splits are reported and are not a second chance.
+- (split) Only if (j) is confirmed. Same seeds. `no-horizon` keeps uncertainty and removes the horizon drop. `no-uncertainty` removes uncertainty and keeps the horizon drop. Each arm is judged by the same rule as (j), with shipped as the uncut agent. Both confirmed: both terms reduce the attraction. Only `no-horizon` confirmed: the horizon residual drop carries it. Only `no-uncertainty` confirmed: the uncertainty term carries it. Both refuted: neither term alone carries it, and the conjunction does. That is still this dissection, not a new mechanism. Any other mix is inconclusive for the split, and the joint call stands. If (j) is refuted or inconclusive, the split is not run.
+
+Figure: `bench/policy/excess-by-arm.png`. Source: `bench/policy/policy.json`. The sweep is `npm run policy-terms`. It is not part of CI.
+
+### Results
+
+4000 episodes, 400 steps, 4 workers, 158 seconds. Source: `bench/policy/policy.json`. Shipped rho and random match `bench/noise/noise.csv` on all 1600 rows, so the shipped mean is the noise-study mean. The interval endpoints are this run's salts.
+
+#### (j) Joint. Confirmed.
+
+The reduction clears zero. The elimination does not. Progress-only rho is still reliably above a random walk.
+
+| contrast | east excess |
+|---|---|
+| shipped − random | 0.0713 [0.0558, 0.0862] |
+| progress − random | 0.0514 [0.0366, 0.0659] |
+| shipped − progress | 0.0200 [0.0055, 0.0348] |
+
+The two terms together remove a reliable slice of the excess, 0.0200 of 0.0713, and leave 0.0514 [0.0366, 0.0659]. That remainder is still an attraction. This run does not name a further mechanism for it.
+
+East-room fraction, mean over learnability:
+
+| arm | east fraction |
+|---|---|
+| random | 0.1457 [0.1346, 0.1565] |
+| shipped | 0.2171 [0.2057, 0.2295] |
+| progress | 0.1971 [0.1851, 0.2098] |
+
+Per learnability, reported and not a pass bit. Shipped − random at 0, 1/3, 2/3, and 1 is 0.0761 [0.0473, 0.1051], 0.0671 [0.0387, 0.0932], 0.0651 [0.0385, 0.0914], 0.0771 [0.0483, 0.1048]. Progress − random is 0.0539 [0.0239, 0.0836], 0.0465 [0.0199, 0.0713], 0.0587 [0.0274, 0.0896], 0.0463 [0.0197, 0.0721]. Shipped − progress is 0.0221 [−0.0063, 0.0503], 0.0206 [−0.0060, 0.0476], 0.0065 [−0.0225, 0.0342], 0.0308 [0.0038, 0.0586]. Only learnability 1 clears on the reduction. The mean is the test.
+
+#### (split) Both. Each term reduces the attraction. Neither removes it.
+
+The joint call was confirmed, so the split ran on the same seeds.
+
+| arm | minus random | shipped minus arm |
+|---|---|---|
+| no-horizon | 0.0545 [0.0394, 0.0698] | 0.0169 [0.0043, 0.0291] |
+| no-uncertainty | 0.0530 [0.0386, 0.0677] | 0.0183 [0.0046, 0.0329] |
+
+Both single deletions are confirmed by the joint rule: the excess versus random stays entirely above 0, and the gap versus shipped is entirely above 0. The written call is that both terms reduce the attraction. The two gaps, 0.0169 and 0.0183, are each close to the joint gap of 0.0200. They are not a sum. That overlap was not a separate test.
+
+East fraction: no-horizon 0.2002 [0.1888, 0.2113], no-uncertainty 0.1987 [0.1864, 0.2113].
+
+Per learnability, not a pass bit. Removing the horizon drop at learnability 2/3 raises the point estimate (shipped − no-horizon = −0.0216 [−0.0475, 0.0048]). The interval includes 0. The other three horizon gaps are 0.0277 [−0.0004, 0.0559], 0.0261 [0.0016, 0.0517], and 0.0353 [0.0072, 0.0609]. The uncertainty gaps are 0.0138 [−0.0146, 0.0453], 0.0203 [−0.0056, 0.0471], 0.0215 [−0.0069, 0.0507], and 0.0177 [−0.0077, 0.0439]. None of those four clears zero. The mean does.
+
+Figure: `bench/policy/excess-by-arm.png`.
+
+The default agent is unchanged. Both terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the stricter probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes.
+
+## 2026-10-15 noise progress (America/New_York)
+
+Written before `npm run noise`. No outcome from that command is in this block. The results section is filled in after the run.
+
+### Preregister noise progress
+
+Phase diagram (a1) found that rho spends more time in a stationary white-noise east room than a random walk: rho − random = 0.0905 [0.0442, 0.1370], 20 seeds, relevance 0, mean over learnability, strongest at learnability 0 and 1. That clause had been preregistered to lie entirely below 0. It did not. This run asks why.
+
+Hypothesis. Rho's progress is a difference of two noisy error estimates. On noise the difference has mean near zero, but the policy keeps only the positive part, so sampling variance makes progress spuriously rewarding and the agent stays. A longer window averages that variance down. The excess time in the noise room, rho minus random, should then shrink roughly as 1/sqrt(W).
+
+The shipped estimator is unchanged at window 50. `progress = ema − surprise`, then the ema updates. The ema time constant is W = 50 steps (rate 0.02). Surprise is one step. The ema is the other estimate. The policy scales curiosity by max(0, progressEma). That outer smoother stays at rate 0.05 and is not the window under test. Confidence keeps the shipped ema at rate 0.02 even when W changes. A window other than 50 has its own baseline, updated at rate 1/W, started at the same 0.25. At W = 50 the baseline is the confidence ema, so the shipped agent is the phase-diagram agent. The map, the doorway, the 400-step episode, and the seed stream match that study.
+
+The grid is six log-spaced windows from 4× below 50 to 8× above it: 12.5, 25, 50, 100, 200, 400.
+
+Calls use a paired 95% percentile bootstrap, 2000 resamples, fixed salts in `scripts/noise.ts`. A mean over learnability {0, 1/3, 2/3, 1} is the primary test. Per-learnability splits are reported and are not a second chance to pick a winner. Drift is 0. Relevance is 0 unless a call says otherwise.
+
+- (r) Replication. Seeds 1–200. Signals rho, random, count, surprise, RND. Each learnability. Window 50, ema estimator, noise amplitude 1. Primary: mean over learnability of east-room fraction, rho minus random. Confirmed if that CI lies entirely above 0. Refuted if it lies entirely below 0. A CI that includes 0 is inconclusive. The other three signals versus random are descriptive.
+- (w) Window. Seeds 1–100, the same seeds as the replication, rho only. Random is the replication random walk and does not depend on W. Excess at a window is the mean over learnability of (rho − random), one number per seed. Fit OLS of log(excess) on log(W). A window whose mean excess is not positive is dropped, because the log is undefined. Confirmed if at least 4 windows remain, at least 80% of bootstrap draws can fit, and the slope CI contains −0.5 and lies entirely below 0. Refuted if that CI excludes −0.5. Inconclusive if the CI contains both −0.5 and 0, or the fit is not defined. The point estimates and their CIs are reported either way.
+- (d) Reward inside the room. At learnability 1, window 50, seeds 1–200, raw progress is ema − surprise on the step the body is in that room. Rectified reward is max(0, raw progress). A seed counts only if it spent at least 8 steps in each room. If half the seeds or fewer qualify, the call is inconclusive. Confirmed if the CI of (east rectified mean − west rectified mean) lies entirely above 0: the noise room pays more positive progress than the learnable room. Refuted if that CI lies entirely below 0. Otherwise inconclusive. Mean, variance, and fraction positive of the raw difference are reported for both rooms, with CIs across seeds. The pooled histogram is the figure. The same rectified means at the other windows are descriptive, not a second slope.
+- (s) Variance-corrected rho. Same episodes as the replication, seeds 1–200, but progress is a held-out split: the older W errors versus the latest W, minus one standard error of that difference of means. W = 50, so each half is 50 and the buffer is 100. The two halves share no samples. Until the buffer is full the progress is 0, and those steps count. The horizon residual drop and the uncertainty term are not rewritten. This correction removes the attraction only if the replication itself found one. Confirmed if the replication CI lies entirely above 0 and the corrected excess does not: either the corrected CI lies entirely below 0, or it is not entirely above 0 and the CI of (raw excess − corrected excess) lies entirely above 0. Refuted if the corrected CI lies entirely above 0. Inconclusive if the replication did not clear, or the corrected excess is not a reliable attraction and did not reliably shrink.
+- (n) Noise amplitude. Three levels, 0.25, 0.5, and 1. Amplitude 1 is the replication. The east glow bit is scaled by the amplitude in the wall channel. West glow is not scaled. Variance of a fair bit is amplitude²/4, so the levels are 0.015625, 0.0625, and 0.25. Seeds 1–200, rho and random, each learnability, drift 0, relevance 0. Excess is again rho minus random, mean over learnability, one number per seed. Confirmed if the CI of (excess at 1 − excess at 0.25) lies entirely above 0 and the amplitude-0.5 point estimate sits between the other two. Refuted if that CI lies entirely below 0. Otherwise inconclusive.
+- (a3) Edible distractor, the original positive control, redone at the same size as the replication. Count, drift 0, seeds 1–200, each learnability. Relevance 1 minus relevance 0, mean over learnability, east-room fraction. Confirmed if that CI lies entirely above 0. Refuted if it lies entirely below 0. Otherwise inconclusive. East food counts are descriptive. They are not the test.
+
+Figures, written by the same run: `bench/noise/excess-vs-w.png` (log excess against log W, the fit, and a reference slope of −0.5) and `bench/noise/progress-hist.png` (raw progress in the noise room and in the learnable room at learnability 1). The sweep is `npm run noise`. It is not part of CI.
+
+### Results
+
+10800 episodes, 400 steps, 4 workers, 409 seconds. Source: `bench/noise/noise.json`. Seeds 1–20 of the shipped rho and random arms reproduce the phase-diagram contrast exactly: rho − random = 0.0905. That arm was not retuned.
+
+#### (r) Replication. Confirmed.
+
+200 seeds, drift 0, relevance 0, window 50, mean over learnability. Rho − random = 0.0713 [0.0564, 0.0863]. The interval lies entirely above 0.
+
+The 200-seed estimate is lower than the 20-seed point (0.0905). The old interval [0.0442, 0.1370] contains 0.0713. The new interval does not contain 0.0905. The sign replicates. The magnitude moved.
+
+| learnability | rho − random |
+|---|---|
+| 0 | 0.0761 [0.0470, 0.1050] |
+| 1/3 | 0.0671 [0.0395, 0.0959] |
+| 2/3 | 0.0651 [0.0394, 0.0921] |
+| 1 | 0.0771 [0.0482, 0.1049] |
+
+All four clear zero. Learnability 0 and 1 are only slightly higher. That split was not a pass bit.
+
+East-room fraction, same average:
+
+| signal | east fraction | minus random |
+|---|---|---|
+| random | 0.1457 [0.1345, 0.1566] | 0 |
+| count | 0.3033 [0.2954, 0.3120] | 0.1576 [0.1425, 0.1721] |
+| surprise | 0.2347 [0.2231, 0.2463] | 0.0890 [0.0736, 0.1051] |
+| rnd | 0.2182 [0.2074, 0.2296] | 0.0725 [0.0583, 0.0861] |
+| rho | 0.2171 [0.2061, 0.2285] | 0.0713 [0.0564, 0.0863] |
+
+Count, surprise, and RND are also above a random walk. Rho is not the most attracted. Those three contrasts were descriptive.
+
+#### (w) Window. Refuted.
+
+Seeds 1–100. Slope of log(excess) on log(W) is 0.056 [−0.062, 0.165]. The interval excludes −0.5 and includes 0. All six windows had positive excess, so none were dropped. 2000 of 2000 bootstrap draws fitted.
+
+| W | excess, seeds 1–100 |
+|---|---|
+| 12.5 | 0.0644 [0.0446, 0.0844] |
+| 25 | 0.0544 [0.0338, 0.0742] |
+| 50 | 0.0797 [0.0593, 0.0997] |
+| 100 | 0.0791 [0.0587, 0.0996] |
+| 200 | 0.0723 [0.0512, 0.0932] |
+| 400 | 0.0715 [0.0490, 0.0949] |
+
+The W = 50 row is seeds 1–100, so it is not the 200-seed replication number. The shortest windows are the smaller point estimates, not the larger ones. Excess time does not shrink as 1/sqrt(W).
+
+Figure: `bench/noise/excess-vs-w.png`.
+
+#### (d) Reward in the room. Refuted.
+
+Learnability 1, window 50, seeds 1–200. 170 seeds spent at least 8 steps in both rooms. East rectified mean minus west rectified mean = −0.0169 [−0.0192, −0.0145]. The noise room pays less positive progress than the learnable room.
+
+| room | seeds | mean | variance | fraction positive | rectified |
+|---|---:|---|---|---|---|
+| east (noise) | 170 | 0.0085 [0.0058, 0.0113] | 0.000849 [0.000791, 0.000910] | 0.597 [0.567, 0.625] | 0.0179 [0.0160, 0.0197] |
+| west (learnable) | 200 | 0.0214 [0.0207, 0.0221] | 0.00312 [0.00304, 0.00320] | 0.685 [0.680, 0.689] | 0.0348 [0.0342, 0.0354] |
+
+The noise-room mean is reliably above 0, and the fraction positive is reliably above one half, so the difference is not a symmetric mean-zero flicker. It is still the smaller of the two rooms. The preregistered claim was that the noise room pays more. It pays less.
+
+Figure: `bench/noise/progress-hist.png`. The annotation is pooled over steps (noise room: mean 0.010, variance 0.0011, fraction positive 0.62, on 17704 steps). The table is the mean across seeds. Those are not the same average.
+
+#### (s) Variance-corrected rho. Refuted.
+
+Held-out halves of 50, minus one standard error. Corrected excess = 0.0602 [0.0464, 0.0741]. Raw excess minus corrected excess = 0.0112 [−0.0024, 0.0249]. The corrected agent is still reliably above a random walk. The shrinkage does not clear zero. The penalty does not remove the attraction. The horizon residual drop and the uncertainty term were left in place, as preregistered.
+
+#### (n) Noise amplitude. Inconclusive.
+
+| amplitude | variance | excess |
+|---|---:|---|
+| 0.25 | 0.015625 | 0.0790 [0.0628, 0.0956] |
+| 0.5 | 0.0625 | 0.0745 [0.0595, 0.0901] |
+| 1 | 0.25 | 0.0713 [0.0567, 0.0860] |
+
+Excess at amplitude 1 minus excess at 0.25 = −0.0076 [−0.0190, 0.0042]. The point estimates fall as amplitude rises, and the middle value sits between them in that order. The interval includes 0, so the growth prediction is not confirmed and the reversal is not reliable enough to refute.
+
+#### (a3) Edible distractor. Confirmed.
+
+Count, drift 0, 200 seeds, relevance 1 minus relevance 0, mean over learnability: 0.0507 [0.0389, 0.0636]. The 20-seed result was 0.0309 [−0.0053, 0.0682], inconclusive. The same contrast at 200 seeds lies entirely above 0.
+
+| learnability | relevance 1 − 0 |
+|---|---|
+| 0 | 0.0329 [0.0076, 0.0607] |
+| 1/3 | 0.0611 [0.0363, 0.0857] |
+| 2/3 | 0.0551 [0.0314, 0.0789] |
+| 1 | 0.0536 [0.0306, 0.0779] |
+
+East meals, descriptive, not the test: relevance 0 is 0.37 [0.33, 0.41], relevance 1 is 84.9 [82.3, 87.3]. Relevance 0 does not place food in the east room. A meal taken on a step that began there is still charged to that step, which is the residual 0.37. Relevance 1 is edible.
+
+The progress-window account of why rho stays in stationary noise does not hold. Rho does stay there. So do count, surprise, and RND.
+
 ## 2026-10-15 phase diagram (America/New_York)
 
 Written before `npm run timescale`, before `npm run phase`, and before `npm run forget`. No outcome from those commands is in this block. The G1 rescore and the two sweeps are filled in underneath after they run.

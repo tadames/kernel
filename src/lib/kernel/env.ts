@@ -23,6 +23,29 @@ export type EnvParams = {
   driftRate: number;
   /** 0 = no distractor channel. Reserved. */
   distractorRelevance: number;
+  /**
+   * Scale of east-room white-noise glow in the wall channel.
+   * 1 is the historical 0/1 bit. Omitted means 1. West glow is not scaled.
+   */
+  noiseAmplitude?: number;
+  /**
+   * Target-room content. Omitted and `noise` are the shipped white-noise room.
+   * `static` freezes one fair-bit picture. Measurement only.
+   */
+  roomContent?: "noise" | "static";
+  /** Reflect the distractor map so the target room sits on the west. */
+  mirrorRooms?: boolean;
+  /**
+   * Seed for the frozen target-room picture. Ignored unless `roomContent`
+   * is `static`. The policy RNG is a different stream.
+   */
+  staticSeed?: number;
+};
+
+/** East-room glow scale. Absent when the historical 0/1 bit is in force. */
+export type GlowGain = {
+  region: Uint8Array;
+  amplitude: number;
 };
 
 export const DEFAULT_ENV_PARAMS: EnvParams = {
@@ -86,8 +109,10 @@ export function senseGrid(
   radius: number,
   into: Float32Array,
   glow?: Uint8Array | null,
+  glowGain?: GlowGain | null,
 ): Float32Array {
   const view = radius * 2 + 1;
+  const scaleEast = Boolean(glowGain && glowGain.amplitude !== 1);
   let k = 0;
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
@@ -97,8 +122,11 @@ export function senseGrid(
       const idx = oob ? -1 : wy * size + wx;
       const wallCell = !oob && cells[idx] === WALL;
       const foodCell = !oob && cells[idx] === FOOD;
-      const glowBit = !oob && !wallCell && !foodCell && glow && glow[idx] ? 1 : 0;
-      const wall = oob || wallCell ? 1 : glowBit;
+      let glowVal = 0;
+      if (!oob && !wallCell && !foodCell && glow && glow[idx]) {
+        glowVal = scaleEast && glowGain!.region[idx] === 1 ? glowGain!.amplitude : 1;
+      }
+      const wall = oob || wallCell ? 1 : glowVal;
       const food = foodCell ? 1 : 0;
       const sc = oob ? 0 : scent[idx];
       into[k++] = wall;
