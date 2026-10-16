@@ -54,6 +54,40 @@ export function spuriousCall(eastMinusWest: Ends, nSeeds: number, nEligible: num
   return greaterCall(eastMinusWest);
 }
 
+/**
+ * Joint ablation of the horizon residual drop and the uncertainty term.
+ * Confirmed when shipped rho was attracted and the ablated excess is not
+ * itself entirely above 0, or the shipped excess reliably exceeds the
+ * ablated excess. Refuted when the ablated agent is still attracted and
+ * that gap does not clear. Inconclusive when the shipped attraction did
+ * not clear.
+ */
+export function policyTermsCall(shipped: Ends, ablated: Ends, shippedMinusAblated: Ends): Call {
+  if (!(shipped.lo > 0)) return "inconclusive";
+  const removed = !(ablated.lo > 0);
+  const reduced = shippedMinusAblated.lo > 0;
+  if (removed || reduced) return "confirmed";
+  if (ablated.lo > 0 && !reduced) return "refuted";
+  return "inconclusive";
+}
+
+export type SplitCall = "both" | "horizon" | "uncertainty" | "conjunction" | "inconclusive";
+
+/**
+ * Which single deletion carries a confirmed joint ablation.
+ * A term carries it when removing that term alone is confirmed by
+ * policyTermsCall. Both refuted means only the conjunction carries it.
+ */
+export function policySplitCall(horizon: Call, uncertainty: Call): SplitCall {
+  const horizonCarries = horizon === "confirmed";
+  const uncertaintyCarries = uncertainty === "confirmed";
+  if (horizonCarries && uncertaintyCarries) return "both";
+  if (horizonCarries) return "horizon";
+  if (uncertaintyCarries) return "uncertainty";
+  if (horizon === "refuted" && uncertainty === "refuted") return "conjunction";
+  return "inconclusive";
+}
+
 export type SlopeFit = {
   slope: number;
   intercept: number;

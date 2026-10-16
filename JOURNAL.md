@@ -1,5 +1,91 @@
 # Journal
 
+## 2026-10-15 policy terms (America/New_York)
+
+Written before `npm run policy-terms`. No east-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+### Preregister policy terms
+
+The noise-progress study, seeds 1–200, found that rho spends more time in the stationary white-noise east room than a random walk: rho − random = 0.0713 [0.0564, 0.0863]. The sampling-variance account was refuted. Call (s) left two non-progress terms in the curiosity score: the horizon residual drop and the uncertainty term.
+
+Hypothesis. Stationary-noise attraction is driven by those terms, not by progress itself. Removing both from the curiosity score, and keeping progress as the shipped rectified ema − surprise, reduces or eliminates rho's excess east-room time versus random on the same distractor map.
+
+The map matches the noise study. Drift 0. Relevance 0. Window 50. Estimator ema. Noise amplitude 1. Learnability {0, 1/3, 2/3, 1}. Episodes are 400 steps. Seeds 1–200. The seed stream is `runNoiseEpisode`, so a shipped rho episode is the noise-study episode. A mismatch against `bench/noise/noise.csv` aborts the run.
+
+Shipped curiosity score, unchanged and still the default:
+
+- residual = expected residual of the predicted window (Bernoulli variance, times 4). That is the uncertainty term.
+- explore = 0.7 × residual + 0.3 × visit-scent novelty.
+- rho-hat starts at the scent and latent bonuses. Latent flags stay off. Scent rho-hat stays as shipped and is zero when its gate is shut.
+- Horizon residual drop, added only when the signal is rho: max(0, residual at step 1 − residual of the best later window), and the same drop from that window to the third when the third window runs.
+- prog = max(0, progressEma) + 0.55 × max(0, rho-hat).
+- curious = curiosity × (0.75 × explore × (0.35 + 12 × prog) + 0.2 × explore).
+
+Progress is ema − surprise. The policy rectifies the smoothed value, max(0, progressEma). That line stays. Progress does not rank actions by itself. It scales explore. Goal, cost, confidence, and the discounted follow-up values stay. Horizon-2 and horizon-3 planning still run.
+
+Joint arm `progress`. Two deletions and nothing else:
+
+- Uncertainty off. Residual is not added to explore, so explore = 0.3 × novelty. The 0.35 floor and the 0.2 × explore term stay, and they apply only to what remains.
+- Horizon drop off. The two max(0, residual drop) additions are not added to rho-hat. Planning still runs. Follow-up scores use the same uncertainty switch.
+
+The horizon drop changes a score only by increasing prog, and prog is multiplied by explore. If novelty is shut and uncertainty is off, explore is 0 and the drop cannot move the policy. The split is still read by the rule below. It is not re-interpreted after seeing which arm moved.
+
+This is a measurement arm, `Kernel` option `curiosityScore`. It is not a Loop feature flag. The default is both terms on. The shipped agent stays window-50 rho. No probe gate is required to keep a default, because the default does not change. Field probeLate from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit.
+
+Primary metric. East-room fraction, mean over the four learnabilities, one number per seed. Excess versus random is that number minus the random walk on the same seed. Paired 95% percentile bootstrap, 2000 resamples. Salts are fixed in `scripts/policy-terms.ts`: shipped − random 2101, progress − random 2102, shipped − progress 2103. Per-learnability salts start at 2110. Split salts are 2201 through 2204, and the per-learnability split salts start at 2210 and 2250.
+
+- (j) Joint. Shipped rho, progress-only rho, and random. Seeds 1–200. S is shipped − random. A is progress − random. D is shipped − progress. Confirmed if S lies entirely above 0 and either A does not lie entirely above 0 or D lies entirely above 0. Refuted if A lies entirely above 0 and D does not lie entirely above 0. Inconclusive if S does not lie entirely above 0. Per-learnability splits are reported and are not a second chance.
+- (split) Only if (j) is confirmed. Same seeds. `no-horizon` keeps uncertainty and removes the horizon drop. `no-uncertainty` removes uncertainty and keeps the horizon drop. Each arm is judged by the same rule as (j), with shipped as the uncut agent. Both confirmed: both terms reduce the attraction. Only `no-horizon` confirmed: the horizon residual drop carries it. Only `no-uncertainty` confirmed: the uncertainty term carries it. Both refuted: neither term alone carries it, and the conjunction does. That is still this dissection, not a new mechanism. Any other mix is inconclusive for the split, and the joint call stands. If (j) is refuted or inconclusive, the split is not run.
+
+Figure: `bench/policy/excess-by-arm.png`. Source: `bench/policy/policy.json`. The sweep is `npm run policy-terms`. It is not part of CI.
+
+### Results
+
+4000 episodes, 400 steps, 4 workers, 158 seconds. Source: `bench/policy/policy.json`. Shipped rho and random match `bench/noise/noise.csv` on all 1600 rows, so the shipped mean is the noise-study mean. The interval endpoints are this run's salts.
+
+#### (j) Joint. Confirmed.
+
+The reduction clears zero. The elimination does not. Progress-only rho is still reliably above a random walk.
+
+| contrast | east excess |
+|---|---|
+| shipped − random | 0.0713 [0.0558, 0.0862] |
+| progress − random | 0.0514 [0.0366, 0.0659] |
+| shipped − progress | 0.0200 [0.0055, 0.0348] |
+
+The two terms together remove a reliable slice of the excess, 0.0200 of 0.0713, and leave 0.0514 [0.0366, 0.0659]. That remainder is still an attraction. This run does not name a further mechanism for it.
+
+East-room fraction, mean over learnability:
+
+| arm | east fraction |
+|---|---|
+| random | 0.1457 [0.1346, 0.1565] |
+| shipped | 0.2171 [0.2057, 0.2295] |
+| progress | 0.1971 [0.1851, 0.2098] |
+
+Per learnability, reported and not a pass bit. Shipped − random at 0, 1/3, 2/3, and 1 is 0.0761 [0.0473, 0.1051], 0.0671 [0.0387, 0.0932], 0.0651 [0.0385, 0.0914], 0.0771 [0.0483, 0.1048]. Progress − random is 0.0539 [0.0239, 0.0836], 0.0465 [0.0199, 0.0713], 0.0587 [0.0274, 0.0896], 0.0463 [0.0197, 0.0721]. Shipped − progress is 0.0221 [−0.0063, 0.0503], 0.0206 [−0.0060, 0.0476], 0.0065 [−0.0225, 0.0342], 0.0308 [0.0038, 0.0586]. Only learnability 1 clears on the reduction. The mean is the test.
+
+#### (split) Both. Each term reduces the attraction. Neither removes it.
+
+The joint call was confirmed, so the split ran on the same seeds.
+
+| arm | minus random | shipped minus arm |
+|---|---|---|
+| no-horizon | 0.0545 [0.0394, 0.0698] | 0.0169 [0.0043, 0.0291] |
+| no-uncertainty | 0.0530 [0.0386, 0.0677] | 0.0183 [0.0046, 0.0329] |
+
+Both single deletions are confirmed by the joint rule: the excess versus random stays entirely above 0, and the gap versus shipped is entirely above 0. The written call is that both terms reduce the attraction. The two gaps, 0.0169 and 0.0183, are each close to the joint gap of 0.0200. They are not a sum. That overlap was not a separate test.
+
+East fraction: no-horizon 0.2002 [0.1888, 0.2113], no-uncertainty 0.1987 [0.1864, 0.2113].
+
+Per learnability, not a pass bit. Removing the horizon drop at learnability 2/3 raises the point estimate (shipped − no-horizon = −0.0216 [−0.0475, 0.0048]). The interval includes 0. The other three horizon gaps are 0.0277 [−0.0004, 0.0559], 0.0261 [0.0016, 0.0517], and 0.0353 [0.0072, 0.0609]. The uncertainty gaps are 0.0138 [−0.0146, 0.0453], 0.0203 [−0.0056, 0.0471], 0.0215 [−0.0069, 0.0507], and 0.0177 [−0.0077, 0.0439]. None of those four clears zero. The mean does.
+
+Figure: `bench/policy/excess-by-arm.png`.
+
+The default agent is unchanged. Both terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the stricter probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes.
+
 ## 2026-10-15 noise progress (America/New_York)
 
 Written before `npm run noise`. No outcome from that command is in this block. The results section is filled in after the run.

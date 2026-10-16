@@ -87,6 +87,85 @@ test("horizon 3 stays off until ema is under the gate", () => {
   assert.ok(low3[0][0] > 0.8 || low3[1][0] > 0.8, "calibrated run must write the third window");
 });
 
+test("uncertainty off removes the Bernoulli term and progress still scales novelty", () => {
+  const score = (uncertainty: boolean, progressEma: number, novelty: number) => {
+    const scores = new Float32Array(2);
+    imagineScores({
+      acts: 2,
+      curiosity: 1,
+      goal: 0,
+      progressEma,
+      ema: 0.2,
+      uncertainty,
+      horizonRho: false,
+      imagined: [new Float32Array(2), new Float32Array(2)],
+      scores,
+      predict: (a, into) => {
+        if (a === 0) {
+          into[0] = 0.5;
+          into[1] = 0.5;
+        } else {
+          into[0] = 0.99;
+          into[1] = 0.01;
+        }
+        return into;
+      },
+      read: () => ({ reward: 0, cost: 0, novelty }),
+    });
+    return [scores[0]!, scores[1]!];
+  };
+  const on = score(true, 0.05, 0);
+  assert.ok(on[0] > on[1], `uncertain action should win: ${on[0]} vs ${on[1]}`);
+  const off = score(false, 0.05, 0);
+  assert.ok(Math.abs(off[0]) < 1e-12 && Math.abs(off[1]) < 1e-12, `curiosity should be zero: ${off}`);
+  const scaled = score(false, 0.05, 1);
+  const flat = score(false, 0, 1);
+  assert.ok(scaled[0] > flat[0], `progress should scale novelty: ${scaled[0]} vs ${flat[0]}`);
+  assert.ok(Math.abs(scaled[0] - scaled[1]) < 1e-12, "equal novelty should tie once residual is gone");
+});
+
+test("horizon residual drop can be removed without changing a flat residual", () => {
+  const run = (horizonRho: boolean) => {
+    const into2 = [new Float32Array(2), new Float32Array(2)];
+    const scores = new Float32Array(2);
+    imagineScores({
+      acts: 2,
+      curiosity: 1,
+      goal: 0,
+      progressEma: 0,
+      ema: 0.2,
+      uncertainty: true,
+      horizonRho,
+      horizon3Ema: 0.12,
+      imagined: [new Float32Array(2), new Float32Array(2)],
+      imagined2: into2,
+      scores,
+      predict: (_a, into) => {
+        into[0] = 0.5;
+        into[1] = 0.5;
+        return into;
+      },
+      predictFrom: (_pred, _a1, into) => {
+        if (into === into2[0]) {
+          into[0] = 0.99;
+          into[1] = 0.01;
+        } else {
+          into[0] = 0.5;
+          into[1] = 0.5;
+        }
+        return into;
+      },
+      read: () => ({ reward: 0, cost: 0, novelty: 0 }),
+      readPred: () => ({ reward: 0, cost: 0, novelty: 0 }),
+    });
+    return [scores[0]!, scores[1]!];
+  };
+  const on = run(true);
+  const off = run(false);
+  assert.ok(on[0] > off[0], `drop should raise the falling action: ${on[0]} vs ${off[0]}`);
+  assert.ok(Math.abs(on[1] - off[1]) < 1e-12, `flat residual must not move: ${on[1]} vs ${off[1]}`);
+});
+
 test("latent loop compresses hidden state on structure and refuses noise", () => {
   const run = (noise: boolean) => {
     const loop = new Loop(6, 16, 6);

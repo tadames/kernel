@@ -82,6 +82,17 @@ export type KernelOptions = {
   progressWindow?: number;
   /** `se` replaces the progress difference with a held-out split minus one standard error. */
   progressMode?: ProgressMode;
+  /**
+   * Measurement-only cuts in the curiosity score. Omitted means the shipped
+   * score: uncertainty on, and the horizon residual drop on for rho.
+   * Not a Loop feature flag. The default agent does not change.
+   */
+  curiosityScore?: {
+    /** Bernoulli expected residual in the explore mix. Default on. */
+    uncertainty?: boolean;
+    /** Imagined residual drop across later windows. Default on. */
+    horizonDrop?: boolean;
+  };
 };
 
 export type Thought = { t: number; text: string };
@@ -135,6 +146,9 @@ export class Kernel {
   private readonly fixedLayout: number | null;
   readonly progressWindow: number;
   readonly progressMode: ProgressMode;
+  /** Shipped score keeps both. The noise study turns them off per arm. */
+  readonly scoreUncertainty: boolean;
+  readonly scoreHorizonDrop: boolean;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -183,6 +197,8 @@ export class Kernel {
     }
     this.progressWindow = options?.progressWindow ?? SHIPPED_PROGRESS_WINDOW;
     this.progressMode = options?.progressMode ?? "ema";
+    this.scoreUncertainty = options?.curiosityScore?.uncertainty !== false;
+    this.scoreHorizonDrop = options?.curiosityScore?.horizonDrop !== false;
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
@@ -514,7 +530,8 @@ export class Kernel {
       curiosity: this.params.curiosity,
       goal: this.params.goal,
       progressEma: signalProgressEma(this.signal, view),
-      horizonRho: this.signal === "rho",
+      horizonRho: this.signal === "rho" && this.scoreHorizonDrop,
+      uncertainty: this.scoreUncertainty,
       ema: this.loop.ema,
       imagined: this.imagined,
       imagined2: this.imagined2,

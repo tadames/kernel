@@ -2,7 +2,7 @@
  * One distractor episode for the noise-room study. The seed stream matches
  * the phase sweep, so a shipped rho episode is the same episode.
  */
-import { Kernel, SIZE } from "./kernel.ts";
+import { Kernel, SIZE, type KernelOptions } from "./kernel.ts";
 import { distractorSpec } from "./family.ts";
 import { mulberry32 } from "./presets.ts";
 import type { CuriositySignal } from "./signals.ts";
@@ -17,6 +17,18 @@ import {
   type RoomProgress,
 } from "./progress.ts";
 
+/** Measurement arms. `shipped` is window-50 rho with both policy terms on. */
+export const POLICY_ARMS = ["shipped", "progress", "no-horizon", "no-uncertainty"] as const;
+export type PolicyArm = (typeof POLICY_ARMS)[number];
+
+/** Cuts for one arm. Shipped keeps uncertainty and the horizon residual drop. */
+export function curiosityScoreForArm(arm: PolicyArm): { uncertainty: boolean; horizonDrop: boolean } {
+  if (arm === "progress") return { uncertainty: false, horizonDrop: false };
+  if (arm === "no-horizon") return { uncertainty: true, horizonDrop: false };
+  if (arm === "no-uncertainty") return { uncertainty: false, horizonDrop: true };
+  return { uncertainty: true, horizonDrop: true };
+}
+
 export type NoiseRequest = {
   id: number;
   seed: number;
@@ -30,6 +42,11 @@ export type NoiseRequest = {
   noiseAmplitude: number;
   /** Histogram of raw progress. Room means are always recorded for rho. */
   traceHist: boolean;
+  /**
+   * Curiosity-score arm. Omitted is shipped, so the noise-progress episodes
+   * stay the phase-diagram episodes.
+   */
+  policyArm?: PolicyArm;
 };
 
 export type NoiseResult = {
@@ -43,6 +60,7 @@ export type NoiseResult = {
   progressWindow: number;
   progressMode: ProgressMode;
   noiseAmplitude: number;
+  policyArm: PolicyArm;
   distractorFrac: number;
   foods: number;
   distractorFoods: number;
@@ -70,13 +88,17 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
     distractorRelevance: req.distractorRelevance,
     noiseAmplitude: req.noiseAmplitude,
   });
+  const policyArm = req.policyArm ?? "shipped";
+  const curiosityScore = curiosityScoreForArm(policyArm);
   return withSeed(req.seed * 10007 + 31, () => {
-    const k = new Kernel("distractor", req.seed, undefined, {
+    const options: KernelOptions = {
       env: spec,
       signal: req.signal,
       progressWindow: req.progressWindow,
       progressMode: req.progressMode,
-    });
+      curiosityScore,
+    };
+    const k = new Kernel("distractor", req.seed, undefined, options);
     let inEast = 0;
     let eastFood = 0;
     const eastAcc = emptyAccum();
@@ -114,6 +136,7 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
       progressWindow: req.progressWindow,
       progressMode: req.progressMode,
       noiseAmplitude: req.noiseAmplitude,
+      policyArm,
       distractorFrac: req.steps ? inEast / req.steps : 0,
       foods: k.foods,
       distractorFoods: eastFood,

@@ -11,9 +11,12 @@ import {
   amplitudeCall,
   greaterCall,
   logExcessSlope,
+  policySplitCall,
+  policyTermsCall,
   seRemovalCall,
   spuriousCall,
 } from "./noise.ts";
+import { curiosityScoreForArm } from "./noise-run.ts";
 import { heldOutProgressRing, PROGRESS_WINDOWS, SHIPPED_PROGRESS_WINDOW } from "./progress.ts";
 import { mulberry32 } from "./presets.ts";
 
@@ -87,6 +90,39 @@ test("call rules match the preregistration", () => {
   assert.equal(spuriousCall({ lo: 0.01, hi: 0.02 }, 20, 11), "confirmed");
   assert.equal(spuriousCall({ lo: 0.01, hi: 0.02 }, 20, 10), "inconclusive");
   assert.equal(spuriousCall({ lo: -0.05, hi: -0.01 }, 20, 20), "refuted");
+
+  const shipped = { lo: 0.04, hi: 0.1 };
+  assert.equal(policyTermsCall(shipped, { lo: -0.01, hi: 0.02 }, { lo: 0.02, hi: 0.08 }), "confirmed");
+  assert.equal(policyTermsCall(shipped, { lo: 0.01, hi: 0.05 }, { lo: 0.02, hi: 0.06 }), "confirmed");
+  assert.equal(policyTermsCall(shipped, { lo: 0.01, hi: 0.05 }, { lo: -0.01, hi: 0.02 }), "refuted");
+  assert.equal(policyTermsCall({ lo: -0.01, hi: 0.02 }, { lo: -0.02, hi: 0.01 }, { lo: 0.01, hi: 0.04 }), "inconclusive");
+  assert.equal(policySplitCall("confirmed", "confirmed"), "both");
+  assert.equal(policySplitCall("confirmed", "refuted"), "horizon");
+  assert.equal(policySplitCall("refuted", "confirmed"), "uncertainty");
+  assert.equal(policySplitCall("refuted", "refuted"), "conjunction");
+  assert.equal(policySplitCall("confirmed", "inconclusive"), "horizon");
+  assert.equal(policySplitCall("inconclusive", "refuted"), "inconclusive");
+});
+
+test("the default kernel keeps both curiosity terms", () => {
+  const shipped = new Kernel("field", 2);
+  assert.equal(shipped.scoreUncertainty, true);
+  assert.equal(shipped.scoreHorizonDrop, true);
+  const cut = new Kernel("field", 2, undefined, {
+    curiosityScore: { uncertainty: false, horizonDrop: false },
+  });
+  assert.equal(cut.scoreUncertainty, false);
+  assert.equal(cut.scoreHorizonDrop, false);
+  const dropOnly = new Kernel("field", 2, undefined, { curiosityScore: { horizonDrop: false } });
+  assert.equal(dropOnly.scoreUncertainty, true);
+  assert.equal(dropOnly.scoreHorizonDrop, false);
+});
+
+test("policy arms cut only the named terms and shipped cuts nothing", () => {
+  assert.deepEqual(curiosityScoreForArm("shipped"), { uncertainty: true, horizonDrop: true });
+  assert.deepEqual(curiosityScoreForArm("progress"), { uncertainty: false, horizonDrop: false });
+  assert.deepEqual(curiosityScoreForArm("no-horizon"), { uncertainty: true, horizonDrop: false });
+  assert.deepEqual(curiosityScoreForArm("no-uncertainty"), { uncertainty: false, horizonDrop: true });
 });
 
 test("noise amplitude scales east glow and leaves west glow alone", () => {
@@ -168,6 +204,25 @@ test("a shipped noise episode matches the phase episode", () => {
   assert.equal(noise.distractorFoods, phase.distractorFoods);
   assert.equal(noise.lives, phase.lives);
   assert.ok(noise.east.n + noise.west.n === 80);
+  assert.equal(noise.policyArm, "shipped");
+
+  const explicit = runNoiseEpisode({
+    id: 0,
+    seed: 1,
+    signal: "rho",
+    steps: 80,
+    learnability: 1,
+    driftRate: 0,
+    distractorRelevance: 0,
+    progressWindow: 50,
+    progressMode: "ema",
+    noiseAmplitude: 1,
+    traceHist: false,
+    policyArm: "shipped",
+  });
+  assert.equal(explicit.distractorFrac, noise.distractorFrac);
+  assert.equal(explicit.foods, noise.foods);
+  assert.equal(explicit.lives, noise.lives);
 });
 
 test("CI does not run the noise sweep", () => {
