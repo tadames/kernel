@@ -20,6 +20,7 @@
     "noise": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/noise.ts",
     "policy-terms": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/policy-terms.ts",
     "matched-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/matched.ts",
+    "fed-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/fed.ts",
     "timescale": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/timescale.ts",
     "phase": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/phase.ts",
     "forget": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/forget.ts",

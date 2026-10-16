@@ -11,6 +11,13 @@
  * roomContent static instead freezes one fair-bit picture in region 1, and
  * mirrorRooms reflects the shell. Both default off.
  *
+ * targetFoods marks five open cells in region 1. The draw is the same one
+ * that places the large room's five meals, and it runs after those meals,
+ * so the meals stay where they were. A marker is food in the observation
+ * and nothing else: it is not eaten, it pays no body reward, and it is not
+ * a wall. The noise bit is still drawn and then discarded, so the episode
+ * RNG matches the empty room. Default off.
+ *
  * distractorRelevance: 0 means the east bits are not food. 1 means an east
  * bit of 1 is edible food. The split world ignores this and puts real food
  * in both rooms.
@@ -45,6 +52,11 @@ export type FamilyMemory = {
   eastLatent: number;
   dividerX: number;
   doorY: number;
+  /**
+   * 1 on a non-edible food marker. The cell itself stays empty, so the
+   * body does not eat it. Observation food channel reads this mask.
+   */
+  decoy: Uint8Array;
   /**
    * Hold region 1's glow. The noise draw still runs, so the episode RNG
    * stays aligned with the unfrozen room. Default off.
@@ -176,6 +188,18 @@ export function createFamily(
   };
   placeFood(5, 0);
   if (kind === "split") placeFood(4, 1);
+  const decoy = new Uint8Array(size * size);
+  if (params.targetFoods && kind === "distractor") {
+    const pool: number[] = [];
+    for (let i = 0; i < cells.length; i++) if (region[i] === 1 && cells[i] === 0) pool.push(i);
+    let left = 5;
+    while (left > 0 && pool.length > 0) {
+      const j = (rand() * pool.length) | 0;
+      decoy[pool[j]!] = 1;
+      pool.splice(j, 1);
+      left -= 1;
+    }
+  }
 
   const family: FamilyMemory = {
     mode: modeOf(kind, params, patternHold),
@@ -187,6 +211,7 @@ export function createFamily(
     eastLatent,
     dividerX: div,
     doorY: door,
+    decoy,
     freezeTarget: false,
     mirrored: false,
   };
@@ -195,7 +220,7 @@ export function createFamily(
   if (params.roomContent === "static") {
     const draw = mulberry32(((params.staticSeed ?? layoutSeed) ^ STATIC_DRAW_SALT) >>> 0);
     for (let i = 0; i < cells.length; i++) {
-      if (family.region[i] !== 1 || cells[i] === 1) continue;
+      if (family.region[i] !== 1 || cells[i] === 1 || family.decoy[i] === 1) continue;
       family.glow[i] = draw() < 0.5 ? 1 : 0;
     }
     family.freezeTarget = true;
@@ -219,6 +244,7 @@ export function reflectFamily(cells: Uint8Array, family: FamilyMemory) {
   family.region = flip(family.region);
   family.stochastic = flip(family.stochastic);
   family.fixedGlow = flip(family.fixedGlow);
+  family.decoy = flip(family.decoy);
   family.dividerX = size - 1 - family.dividerX;
   family.mirrored = true;
 }
@@ -230,6 +256,7 @@ export function cloneFamily(family: FamilyMemory): FamilyMemory {
     region: family.region,
     stochastic: family.stochastic,
     fixedGlow: family.fixedGlow,
+    decoy: family.decoy.slice(),
   };
 }
 
@@ -263,6 +290,8 @@ export function applyFamily(cells: Uint8Array, family: FamilyMemory, params: Env
         family.glow[i] = 0;
       } else if (family.mode === "split") {
         family.glow[i] = cells[i] === 2 ? 0 : bit;
+      } else if (family.decoy[i] === 1) {
+        family.glow[i] = 0;
       } else {
         if (cells[i] === 2) cells[i] = 0;
         family.glow[i] = bit;

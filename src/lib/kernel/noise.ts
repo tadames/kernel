@@ -92,6 +92,37 @@ export type MatchedSummary = "noise" | "static" | "mixed" | "confounded" | "inco
  * All five inconclusive: the contrast does not resolve.
  * Anything else is mixed, and the per-explorer calls are the result.
  */
+export type FedCall = "closed" | "open" | "inconclusive";
+
+/**
+ * Foods close the empty-room gap when that gap was entirely above the
+ * walk and the fed excess is not. The gap stays open when the fed excess
+ * is entirely above the walk. Otherwise there was no gap to close.
+ * A fed interval of [0, 0] is closed when the empty gap was real.
+ */
+export function fedRoomCall(empty: Ends, fed: Ends): FedCall {
+  if (fed.lo > 0) return "open";
+  if (empty.lo > 0) return "closed";
+  return "inconclusive";
+}
+
+export type FedSummary = "empty" | "not-empty" | "mixed" | "confounded" | "inconclusive";
+
+/**
+ * All five directed gaps closed: the attractor was the empty room.
+ * All five still open: the foods did not close it.
+ * Random excluding 0 means the markers moved a walk that does not read
+ * observations, so the label is confounded and the directed calls are
+ * not an empty-room effect.
+ */
+export function fedRoomSummary(randomExcludesZero: boolean, directed: FedCall[]): FedSummary {
+  if (randomExcludesZero) return "confounded";
+  if (directed.length === 0 || directed.every((call) => call === "inconclusive")) return "inconclusive";
+  if (directed.every((call) => call === "closed")) return "empty";
+  if (directed.every((call) => call === "open")) return "not-empty";
+  return "mixed";
+}
+
 export function matchedSummary(randomExcludesZero: boolean, directed: Call[]): MatchedSummary {
   if (randomExcludesZero) return "confounded";
   if (directed.length === 0 || directed.every((call) => call === "inconclusive")) return "inconclusive";

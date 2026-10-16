@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { Kernel } from "./kernel.ts";
+import { CENTER, Kernel } from "./kernel.ts";
 import { applyFamily, createFamily, distractorSpec, driftRatesFromTau, forgettingRatesFromTau, patternBit, splitSpec } from "./family.ts";
-import { applyDrift, DEFAULT_ENV_PARAMS } from "./env.ts";
+import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid } from "./env.ts";
 import { fitTau } from "./phase-run.ts";
 import { acfPeriod, spectralPeriod } from "./period.ts";
 import { mulberry32 } from "./presets.ts";
@@ -271,4 +271,106 @@ test("CI does not run the phase or forgetting sweeps", () => {
   assert.equal(yml.includes("npm run noise"), false);
   assert.equal(yml.includes("npm run matched-room"), false);
   assert.equal(yml.includes("npm run policy-terms"), false);
+  assert.equal(yml.includes("npm run fed-room"), false);
+});
+
+test("target foods are five non-edible markers and do not move a random walk", () => {
+  const params = { learnability: 0, driftRate: 0, distractorRelevance: 0 };
+  const empty = createFamily("distractor", 15, 3000, params, false);
+  const fed = createFamily("distractor", 15, 3000, { ...params, targetFoods: true }, false);
+  const size = 15;
+  let decoys = 0;
+  let meals = 0;
+  let region1Meals = 0;
+  for (let i = 0; i < fed.cells.length; i++) {
+    assert.equal(fed.cells[i], empty.cells[i]);
+    if (fed.family.decoy[i] !== 1) assert.equal(fed.family.glow[i], empty.family.glow[i]);
+    if (fed.cells[i] === 2) meals += 1;
+    if (fed.family.decoy[i] === 1) {
+      decoys += 1;
+      assert.equal(fed.family.region[i], 1);
+      assert.equal(fed.cells[i], 0);
+      assert.equal(fed.family.glow[i], 0);
+    } else {
+      assert.equal(fed.family.decoy[i], 0);
+    }
+    if (fed.family.region[i] === 1 && fed.cells[i] === 2) region1Meals += 1;
+    assert.equal(empty.family.decoy[i], 0);
+  }
+  assert.equal(decoys, 5);
+  assert.equal(meals, 5);
+  assert.equal(region1Meals, 0);
+
+  const spot = fed.family.decoy.indexOf(1);
+  const x = spot % size;
+  const y = (spot / size) | 0;
+  const into = new Float32Array(5 * 5 * 3);
+  senseGrid(
+    fed.cells,
+    new Float32Array(fed.cells.length),
+    x,
+    y,
+    size,
+    2,
+    into,
+    fed.family.glow,
+    null,
+    fed.family.decoy,
+  );
+  assert.equal(into[CENTER], 0);
+  assert.equal(into[CENTER + 1], 1);
+
+  const body = {
+    cells: fed.cells,
+    scent: new Float32Array(fed.cells.length),
+    x,
+    y,
+    energy: 100,
+    pulseClock: 0,
+  };
+  const stepped = stepGrid(body, "distractor", 4, size, () => 0.5, { ...params, targetFoods: true }, fed.family);
+  assert.equal(stepped.ate, false);
+  assert.equal(body.energy, 99);
+  assert.equal(body.cells[spot], 0);
+  assert.equal(fed.family.decoy[spot], 1);
+  assert.equal(fed.family.glow[spot], 0);
+
+  const mirrored = createFamily("distractor", 15, 3000, { ...params, targetFoods: true, mirrorRooms: true }, false);
+  let mirroredDecoys = 0;
+  for (let i = 0; i < fed.cells.length; i++) {
+    const mx = i % size;
+    const my = (i / size) | 0;
+    const j = my * size + (size - 1 - mx);
+    assert.equal(mirrored.family.decoy[j], fed.family.decoy[i]);
+    if (mirrored.family.decoy[i] === 1) {
+      mirroredDecoys += 1;
+      assert.equal(mirrored.family.region[i], 1);
+      assert.equal(mirrored.cells[i], 0);
+    }
+  }
+  assert.equal(mirroredDecoys, 5);
+
+  const walk = (foods: boolean, mirror: boolean) => {
+    const k = new Kernel("distractor", 8, undefined, {
+      env: distractorSpec({
+        ...params,
+        ...(foods ? { targetFoods: true } : {}),
+        ...(mirror ? { mirrorRooms: true } : {}),
+      }),
+      signal: "random",
+    });
+    const pos: number[] = [];
+    for (let t = 0; t < 80; t++) {
+      pos.push(k.x * size + k.y);
+      k.step();
+    }
+    return { pos, foods: k.foods, lives: k.lives };
+  };
+  for (const mirror of [false, true]) {
+    const plain = walk(false, mirror);
+    const marked = walk(true, mirror);
+    assert.deepEqual(marked.pos, plain.pos);
+    assert.equal(marked.foods, plain.foods);
+    assert.equal(marked.lives, plain.lives);
+  }
 });

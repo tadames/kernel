@@ -11,6 +11,8 @@ import {
   amplitudeCall,
   greaterCall,
   logExcessSlope,
+  fedRoomCall,
+  fedRoomSummary,
   matchedContentCall,
   matchedSummary,
   policySplitCall,
@@ -118,6 +120,24 @@ test("call rules match the preregistration", () => {
     "mixed",
   );
   assert.equal(matchedSummary(false, []), "inconclusive");
+
+  const gap = { lo: 0.04, hi: 0.1 };
+  assert.equal(fedRoomCall(gap, { lo: -0.01, hi: 0.02 }), "closed");
+  assert.equal(fedRoomCall(gap, { lo: 0, hi: 0 }), "closed");
+  assert.equal(fedRoomCall(gap, { lo: -0.04, hi: -0.01 }), "closed");
+  assert.equal(fedRoomCall(gap, { lo: 0.01, hi: 0.05 }), "open");
+  assert.equal(fedRoomCall({ lo: -0.01, hi: 0.02 }, { lo: -0.01, hi: 0.02 }), "inconclusive");
+  assert.equal(fedRoomCall({ lo: -0.05, hi: -0.01 }, { lo: 0.01, hi: 0.04 }), "open");
+  const closedFive = ["closed", "closed", "closed", "closed", "closed"] as const;
+  assert.equal(fedRoomSummary(true, [...closedFive]), "confounded");
+  assert.equal(fedRoomSummary(false, [...closedFive]), "empty");
+  assert.equal(fedRoomSummary(false, ["open", "open", "open", "open", "open"]), "not-empty");
+  assert.equal(
+    fedRoomSummary(false, ["inconclusive", "inconclusive", "inconclusive", "inconclusive", "inconclusive"]),
+    "inconclusive",
+  );
+  assert.equal(fedRoomSummary(false, ["closed", "open", "closed", "open", "inconclusive"]), "mixed");
+  assert.equal(fedRoomSummary(false, []), "inconclusive");
 
   assert.equal(policySplitCall("confirmed", "confirmed"), "both");
   assert.equal(policySplitCall("confirmed", "refuted"), "horizon");
@@ -246,6 +266,38 @@ test("a shipped noise episode matches the phase episode", () => {
   assert.equal(explicit.distractorFrac, noise.distractorFrac);
   assert.equal(explicit.foods, noise.foods);
   assert.equal(explicit.lives, noise.lives);
+});
+
+test("target foods leave a random noise episode on the empty-room path", () => {
+  const base = {
+    id: 0,
+    seed: 3,
+    signal: "random" as const,
+    steps: 60,
+    learnability: 1,
+    driftRate: 0,
+    distractorRelevance: 0,
+    progressWindow: 50,
+    progressMode: "ema" as const,
+    noiseAmplitude: 1,
+    traceHist: false,
+  };
+  const empty = runNoiseEpisode(base);
+  const off = runNoiseEpisode({ ...base, targetFoods: false });
+  const fed = runNoiseEpisode({ ...base, targetFoods: true });
+  const emptyMirror = runNoiseEpisode({ ...base, mirror: true });
+  const fedMirror = runNoiseEpisode({ ...base, targetFoods: true, mirror: true });
+  assert.equal(empty.targetFoods, false);
+  assert.equal(off.targetFoods, false);
+  assert.equal(off.distractorFrac, empty.distractorFrac);
+  assert.equal(fed.targetFoods, true);
+  assert.equal(fed.distractorFrac, empty.distractorFrac);
+  assert.equal(fed.foods, empty.foods);
+  assert.equal(fed.lives, empty.lives);
+  assert.equal(fed.distractorFoods, empty.distractorFoods);
+  assert.equal(fedMirror.distractorFrac, emptyMirror.distractorFrac);
+  assert.equal(fedMirror.foods, emptyMirror.foods);
+  assert.equal(fedMirror.lives, emptyMirror.lives);
 });
 
 test("CI does not run the noise sweep", () => {

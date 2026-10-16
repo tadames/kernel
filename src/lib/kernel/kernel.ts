@@ -324,7 +324,7 @@ export class Kernel {
       const x = index % SIZE;
       const y = (index / SIZE) | 0;
       const action = (rand() * ACTS) | 0;
-      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow, this.glowGain());
+      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow, this.glowGain(), this.family.decoy);
       this.loop.imagine(this.encode(obs, action, false, 100), into);
       const body: GridBody = {
         cells: this.cells.slice(),
@@ -338,7 +338,7 @@ export class Kernel {
       const stepRand = mulberry32((probeSeed + s * 997 + region * 13) >>> 0);
       stepGrid(body, this.worldKind, action, SIZE, stepRand, this.envParams, family);
       const next = new Float32Array(OBS);
-      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain());
+      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
       for (let i = 0; i < OBS; i++) {
         if (i % CH === 2) continue;
         const d = into[i]! - next[i]!;
@@ -426,7 +426,7 @@ export class Kernel {
   }
 
   sense(into: Float32Array = new Float32Array(OBS), ox = this.x, oy = this.y): Float32Array {
-    return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null, this.glowGain());
+    return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null, this.glowGain(), this.family?.decoy ?? null);
   }
 
   private encode(obs: Float32Array, action = this.lastAction, muteNoise = false, energy = this.energy): Float32Array {

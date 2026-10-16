@@ -51,6 +51,11 @@ export type NoiseRequest = {
   content?: "noise" | "static";
   /** Reflect the map so region 1 is on the west. Omitted leaves the east room. */
   mirror?: boolean;
+  /**
+   * Five non-edible food markers in region 1. Omitted leaves that room
+   * empty, which is the noise-study episode when the room is also unmirrored.
+   */
+  targetFoods?: boolean;
 };
 
 export type NoiseResult = {
@@ -67,6 +72,7 @@ export type NoiseResult = {
   policyArm: PolicyArm;
   content: "noise" | "static";
   mirror: boolean;
+  targetFoods: boolean;
   distractorFrac: number;
   /** Mean training surprise on steps that began in the target room. Null if none. */
   targetSurprise: number | null;
@@ -92,6 +98,7 @@ function withSeed<T>(seed: number, fn: () => T): T {
 export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
   const content = req.content ?? "noise";
   const mirror = req.mirror ?? false;
+  const targetFoods = req.targetFoods ?? false;
   const spec = distractorSpec({
     learnability: req.learnability,
     driftRate: req.driftRate,
@@ -99,6 +106,7 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
     noiseAmplitude: req.noiseAmplitude,
     ...(content === "static" ? { roomContent: "static" as const, staticSeed: req.seed } : {}),
     ...(mirror ? { mirrorRooms: true } : {}),
+    ...(targetFoods ? { targetFoods: true } : {}),
   });
   const policyArm = req.policyArm ?? "shipped";
   const curiosityScore = curiosityScoreForArm(policyArm);
@@ -155,6 +163,7 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
       policyArm,
       content,
       mirror,
+      targetFoods,
       distractorFrac: req.steps ? inEast / req.steps : 0,
       targetSurprise: surpriseN ? surpriseSum / surpriseN : null,
       foods: k.foods,

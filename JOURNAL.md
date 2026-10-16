@@ -1,5 +1,114 @@
 # Journal
 
+## 2026-10-16 fed room (America/New_York)
+
+Written before `npm run fed-room`. No target-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The matched-room entry found that the excess over a random walk survives a frozen picture of the same room, on both sides of the map. It is not the noise. This run asks whether it is the empty room. It adds no curiosity term and no Loop flag.
+
+### Preregister fed room
+
+Hypothesis. The excess target-room time over a random walk is the empty room. Five food-shaped markers in region 1, placed by the same rule as the large room's five meals and not edible, close that excess.
+
+The markers are not meals. An edible meal would pay the body, clear the cell, and spend the episode RNG on a respawn. That is a second attractor, and it moves a random walk. Relevance stays 0, so the noise bits are not meals either. The claim is about the empty room, not about calories.
+
+`targetFoods` defaults off. After the large room's five meals are placed, the same draw marks five open region-1 cells. Those meals stay on their cells. A marker is food in the observation: food channel 1, glow 0, the channels a real meal occupies. The cell stays empty. It is walkable, it is not a wall, it is not eaten, and the body reward does not see it. The noise bit on that cell is still drawn and discarded, so the episode RNG matches the empty room. The mirror reflects the markers with the shell. The split world does not use this flag.
+
+The map otherwise matches the noise study. Layout seed 3000. Drift 0. Relevance 0. Amplitude 1. Window 50. Estimator ema. Learnability {0, 1/3, 2/3, 1}. Episodes are 400 steps. Seeds 1–200. Content is stationary noise. Both orientations, so the side of the map is not the contrast. Spawn stays in the large room.
+
+Explorers. Random, count, surprise, RND, shipped rho, and pure-progress rho. Pure-progress rho is the policy-terms arm `progress`. Random is the negative control. The other five are the directed set. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the probe rule and is not this claim.
+
+Primary metric. Target-room fraction, the fraction of steps that began in region 1. For each seed, explorer, and arm, average that fraction over the four learnabilities and the two orientations. Empty excess is that number minus the random walk on the empty arm, same seed. Fed excess is the same contrast on the fed arm. Reduction is empty excess minus fed excess. Positive reduction means the foods lowered the excess. Paired 95% percentile bootstrap, 2000 resamples.
+
+Salts are fixed in `scripts/fed.ts`. Fed excess, the test: 4101 random, 4102 count, 4103 surprise, 4104 RND, 4105 shipped rho, 4106 pure-progress. Empty excess: 4111 through 4116 in that order. Reduction: 4121 through 4126. East fed: 4131 through 4136. West fed: 4141 through 4146. East empty: 4151 through 4156. West empty: 4161 through 4166. The random arm gap, fed fraction minus empty fraction, uses salt 4501. Per-learnability fed excess uses 4200 + 10 × explorer index + learnability index. Per-learnability reduction uses 4300 + 10 × explorer index + learnability index. Explorer index follows the order above. Learnability index is 0, 1, 2, 3. Fraction intervals use salts 4401 upward, explorer then arm (empty, fed) then side (east, west), and are not a test.
+
+Calls use `fedRoomCall`. Open if the fed excess lies entirely above 0: the room still attracts, and the foods did not close the gap. Closed if the empty excess lies entirely above 0 and the fed excess does not, including a fed interval of [0, 0]: the gap was real and it does not survive the foods. Otherwise inconclusive: there was no empty-room gap to close. The orientation-averaged fed excess is the only pass bit. East, west, the four learnabilities, and the reduction are reported and are not a second chance. A reliable shrink that leaves the fed excess entirely above 0 is still open.
+
+Negative control. Random's fed fraction minus its empty fraction. A walk that ignores observations has nothing to prefer, and the markers do not move the episode RNG, the meals, or the walls, so the gap is zero and the CI is [0, 0]. That interval does not exclude 0. If the CI does exclude 0, the markers moved a walk that does not read them. The summary is then confounded, and no directed call is interpreted as an empty-room effect. The calls are still printed. The sweep aborts before any call if an unmirrored empty episode disagrees with `bench/noise/noise.csv`, or if any random-walk fraction, meal count, or life count differs across the two arms.
+
+Summary label, from `fedRoomSummary`, not a second test. Confounded if the random arm CI excludes 0. Otherwise, if every directed call is closed: empty. The attractor was an empty room. If every directed call is open: not-empty. The foods did not close the gap. The next measurement equalizes the cell counts before adding another curiosity term. If every directed call is inconclusive: inconclusive. Any other mix: mixed. The per-explorer calls are the result in every case.
+
+Figure: `bench/fed/excess-by-explorer.png`. Empty excess and fed excess, per explorer, with the CIs. Source: `bench/fed/fed.json`. The sweep is `npm run fed-room`. It is not part of CI.
+
+### Results
+
+19200 episodes, 400 steps, 4 workers, 1048 seconds. Source: `bench/fed/fed.json`. The unmirrored empty arm is the noise-study episode: all 4000 shipped rows match `bench/noise/noise.csv`. The random walk is the same path on both arms, meals and lives included, so the arm gap is a point mass at 0. The summary is not confounded.
+
+#### Summary. Not-empty.
+
+The foods did not close the gap. Every directed call is open. The empty-room hypothesis is refuted.
+
+Fed excess, target room minus random, mean of the two orientations. Reduction is empty excess minus fed excess. It is not a pass bit.
+
+| explorer | empty | fed | reduction | call |
+|---|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.1599 [0.1502, 0.1694] | 0.1606 [0.1509, 0.1701] | −0.0007 [−0.0073, 0.0056] | open |
+| surprise | 0.0937 [0.0831, 0.1039] | 0.0967 [0.0857, 0.1078] | −0.0030 [−0.0091, 0.0028] | open |
+| rnd | 0.0724 [0.0624, 0.0818] | 0.0728 [0.0634, 0.0820] | −0.0004 [−0.0047, 0.0040] | open |
+| rho | 0.0691 [0.0592, 0.0787] | 0.0722 [0.0628, 0.0812] | −0.0031 [−0.0076, 0.0016] | open |
+| progress | 0.0572 [0.0481, 0.0665] | 0.0571 [0.0477, 0.0660] | 0.0001 [−0.0038, 0.0039] | open |
+
+The reductions sit on zero. None of the five directed intervals excludes it. The fed excesses are the empty-room excesses. Count remains near 0.16. Rho remains near 0.07. Filling the room with five food-shaped markers did not move occupancy.
+
+Unmirrored empty excess matches the noise-study point estimates: count 0.1576, surprise 0.0890, RND 0.0725, rho 0.0713, pure-progress 0.0514. The intervals are this run's salts. That match is a harness check, not a second pass bit.
+
+Orientations, reported and not a pass bit. Fed excess on each side. Both sides are open for every directed explorer.
+
+| explorer | east fed | west fed |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| count | 0.1584 [0.1448, 0.1722] | 0.1629 [0.1485, 0.1774] |
+| surprise | 0.0939 [0.0777, 0.1102] | 0.0994 [0.0827, 0.1157] |
+| rnd | 0.0734 [0.0588, 0.0881] | 0.0721 [0.0577, 0.0866] |
+| rho | 0.0723 [0.0570, 0.0874] | 0.0721 [0.0593, 0.0851] |
+| progress | 0.0507 [0.0366, 0.0642] | 0.0635 [0.0503, 0.0779] |
+
+Empty excess by side, same seeds. East is the historical contrast.
+
+| explorer | east empty | west empty |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| count | 0.1576 [0.1435, 0.1718] | 0.1622 [0.1481, 0.1768] |
+| surprise | 0.0890 [0.0724, 0.1048] | 0.0984 [0.0828, 0.1144] |
+| rnd | 0.0725 [0.0581, 0.0866] | 0.0722 [0.0587, 0.0857] |
+| rho | 0.0713 [0.0552, 0.0865] | 0.0669 [0.0537, 0.0799] |
+| progress | 0.0514 [0.0366, 0.0654] | 0.0630 [0.0501, 0.0767] |
+
+Target-room fraction, mean over learnability. These are not a test. Random on the east reproduces the noise-study base rate, 0.1457, on both arms.
+
+| explorer | empty east | fed east | empty west | fed west |
+|---|---|---|---|---|
+| random | 0.1457 [0.1344, 0.1571] | 0.1457 [0.1353, 0.1572] | 0.1375 [0.1267, 0.1484] | 0.1375 [0.1264, 0.1490] |
+| count | 0.3033 [0.2951, 0.3119] | 0.3041 [0.2959, 0.3124] | 0.2997 [0.2914, 0.3078] | 0.3003 [0.2914, 0.3092] |
+| surprise | 0.2347 [0.2226, 0.2470] | 0.2397 [0.2272, 0.2526] | 0.2359 [0.2227, 0.2486] | 0.2368 [0.2232, 0.2503] |
+| rnd | 0.2182 [0.2067, 0.2302] | 0.2191 [0.2077, 0.2305] | 0.2097 [0.1964, 0.2226] | 0.2096 [0.1970, 0.2216] |
+| rho | 0.2171 [0.2052, 0.2288] | 0.2180 [0.2066, 0.2295] | 0.2044 [0.1918, 0.2162] | 0.2096 [0.1972, 0.2211] |
+| progress | 0.1971 [0.1854, 0.2090] | 0.1965 [0.1839, 0.2089] | 0.2005 [0.1884, 0.2122] | 0.2010 [0.1885, 0.2132] |
+
+Per learnability, orientation-averaged, not a pass bit. All twenty directed fed intervals lie entirely above 0. Nineteen of the twenty reductions include 0. Surprise at learnability 1 is −0.0139 [−0.0263, −0.0011]: the foods raised that cell's excess. The mean is the test, and the mean does not move.
+
+Meals begun in the target room, mean over seeds, learnabilities, and orientations. Not a call. The fed means are not higher. The markers were not eaten.
+
+| explorer | empty | fed |
+|---|---|---|
+| random | 0.084 | 0.084 |
+| count | 0.383 | 0.366 |
+| surprise | 0.223 | 0.215 |
+| rnd | 0.177 | 0.174 |
+| rho | 0.171 | 0.161 |
+| progress | 0.146 | 0.146 |
+
+Figure: `bench/fed/excess-by-explorer.png`.
+
+No mechanism was added. `targetFoods` stays off. The default agent is unchanged. Both curiosity terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, sha `d2780cb`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the stricter probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. The transition probe gate, 20 seeds, still passes: off − on 0.1234 [0.1150, 0.1307]. It was not this claim. `kernel.ts` is on the CI mechanism list, so the check was run.
+
+### Next hypothesis
+
+The five markers did not move the excess. On this map region 1 has 52 open cells and region 0 has 102. Equalize those counts, still with relevance 0, the five meals left in the large room, and no meals in the small room, and measure the excess over a random walk again. If equal cells close the gap, the attractor was the smaller room. If they do not, this contrast does not license another curiosity term.
+
 ## 2026-10-16 matched room (America/New_York)
 
 Written before `npm run matched-room`. No target-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
