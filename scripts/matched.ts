@@ -9,7 +9,7 @@
  *
  * Writes bench/matched/matched.json, matched.csv, excess-by-explorer.png.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { LEARNABILITY_GRID } from "../src/lib/kernel/family.ts";
 import { matchedContentCall, matchedSummary, type Call, type MatchedSummary } from "../src/lib/kernel/noise.ts";
 import { type NoiseRequest, type NoiseResult, type PolicyArm } from "../src/lib/kernel/noise-run.ts";
@@ -102,13 +102,13 @@ function explorerOf(row: NoiseResult): ExplorerId {
 type Bar = { id: ExplorerId; series: "east" | "west" | "mean"; mean: number; lo: number; hi: number };
 
 function drawBars(points: Bar[]) {
-  const width = 760;
+  const width = 820;
   const height = 460;
   const rgba = new Uint8Array(width * height * 4);
   rgba.fill(255);
   for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255;
-  const left = 64;
-  const right = width - 16;
+  const left = 92;
+  const right = width - 18;
   const top = 48;
   const bottom = height - 52;
   drawText(rgba, width, 8, 8, "noise minus static", [30, 30, 30]);
@@ -136,11 +136,14 @@ function drawBars(points: Bar[]) {
     rgba[i + 2] = 170;
     rgba[i + 3] = 255;
   }
-  drawText(rgba, width, 8, Math.round(zero) - 3, "0", [80, 80, 80]);
+  const zeroLabel = "0";
+  drawText(rgba, width, left - 8 - zeroLabel.length * 6, Math.round(zero) - 3, zeroLabel, [80, 80, 80]);
   for (let tick = 0; tick <= 4; tick++) {
     const value = yMin + ((yMax - yMin) * tick) / 4;
+    if (Math.abs(value) < (yMax - yMin) * 0.08) continue;
+    const label = value.toFixed(2);
     const y = Math.round(yOf(value));
-    drawText(rgba, width, 4, y - 3, value.toFixed(2), [90, 90, 90]);
+    drawText(rgba, width, left - 8 - label.length * 6, y - 3, label, [90, 90, 90]);
   }
   const groups = EXPLORERS.length;
   const slot = (right - left) / groups;
@@ -176,7 +179,26 @@ function drawBars(points: Bar[]) {
   return writePng(scaled.width, scaled.height, scaled.rgba);
 }
 
+function redraw() {
+  const report = JSON.parse(readFileSync("bench/matched/matched.json", "utf8")) as {
+    intervals: Record<ExplorerId, { east: Interval; west: Interval; mean: Interval }>;
+  };
+  const bars: Bar[] = [];
+  for (const explorer of EXPLORERS) {
+    for (const series of SERIES) {
+      const ci = report.intervals[explorer.id][series.name];
+      bars.push({ id: explorer.id, series: series.name, mean: ci.mean, lo: ci.lo, hi: ci.hi });
+    }
+  }
+  mkdirSync("bench/matched", { recursive: true });
+  writeFileSync("bench/matched/excess-by-explorer.png", drawBars(bars));
+}
+
 async function main() {
+  if (process.argv.includes("--figure-only")) {
+    redraw();
+    return;
+  }
   const seedsN = Math.max(1, Number(arg("seeds", "200")));
   const steps = Math.max(1, Number(arg("steps", "400")));
   const workers = workerCount(Number(arg("workers", "0")));

@@ -36,7 +36,64 @@ Figure: `bench/matched/excess-by-explorer.png`. Both orientations and the paired
 
 ### Results
 
-Pending the sweep.
+19200 episodes, 400 steps, 4 workers, 886 seconds. Source: `bench/matched/matched.json`. The unmirrored noise arm is the noise-study episode: all 4000 shipped rows match `bench/noise/noise.csv`.
+
+#### Summary. Inconclusive.
+
+Every directed call includes 0. The random control is a point mass at 0, so the summary is not confounded. The hypothesis, that each directed explorer still prefers the noise room, is not confirmed. It is not refuted either: no directed interval lies entirely below 0.
+
+Test excess, noise minus static, mean of the two orientations:
+
+| explorer | excess | call |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.0014 [−0.0056, 0.0085] | inconclusive |
+| surprise | 0.0012 [−0.0072, 0.0099] | inconclusive |
+| rnd | 0.0035 [−0.0020, 0.0093] | inconclusive |
+| rho | −0.0019 [−0.0079, 0.0043] | inconclusive |
+| progress | 0.0005 [−0.0029, 0.0041] | inconclusive |
+
+The intervals sit on zero. Their upper ends are all below 0.01. The excesses versus a random walk in the noise study were 0.1576, 0.0890, 0.0725, and 0.0713, and pure-progress was 0.0514. Those gaps are not a preference for noise over the same room frozen. That comparison was not a second pass bit. It is what these intervals exclude.
+
+Orientations, reported and not a pass bit. East is the historical side. West is the mirror.
+
+| explorer | east | west |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| count | 0.0013 [−0.0090, 0.0119] | 0.0014 [−0.0093, 0.0119] |
+| surprise | −0.0074 [−0.0184, 0.0037] | 0.0098 [−0.0021, 0.0213] |
+| rnd | 0.0047 [−0.0042, 0.0137] | 0.0023 [−0.0063, 0.0109] |
+| rho | −0.0009 [−0.0102, 0.0086] | −0.0029 [−0.0123, 0.0060] |
+| progress | 0.0010 [−0.0037, 0.0057] | 0.0000 [−0.0053, 0.0057] |
+
+Surprise is the only explorer whose two orientations point opposite ways. Both intervals include 0, and the average includes 0. The mirror did not have to agree. The average is the test.
+
+Target-room fraction, mean over learnability. These are not a test. Random on the east reproduces the noise-study base rate, 0.1457. On the west the same walk sits at 0.1375 [0.1260, 0.1485]. The two intervals overlap. Within each side, noise and static are the same path, so the content excess is zero.
+
+| explorer | noise east | static east | noise west | static west |
+|---|---|---|---|---|
+| random | 0.1457 [0.1347, 0.1572] | 0.1457 [0.1347, 0.1570] | 0.1375 [0.1260, 0.1485] | 0.1375 [0.1260, 0.1491] |
+| count | 0.3033 [0.2945, 0.3115] | 0.3020 [0.2935, 0.3107] | 0.2997 [0.2914, 0.3079] | 0.2983 [0.2893, 0.3073] |
+| surprise | 0.2347 [0.2229, 0.2460] | 0.2421 [0.2305, 0.2549] | 0.2359 [0.2232, 0.2490] | 0.2261 [0.2138, 0.2388] |
+| rnd | 0.2182 [0.2071, 0.2299] | 0.2136 [0.2024, 0.2250] | 0.2097 [0.1957, 0.2229] | 0.2074 [0.1954, 0.2206] |
+| rho | 0.2171 [0.2053, 0.2291] | 0.2179 [0.2058, 0.2302] | 0.2044 [0.1925, 0.2169] | 0.2073 [0.1948, 0.2193] |
+| progress | 0.1971 [0.1851, 0.2097] | 0.1961 [0.1833, 0.2087] | 0.2005 [0.1883, 0.2125] | 0.2005 [0.1891, 0.2116] |
+
+Count, surprise, RND, rho, and pure-progress rho all sit above the random walk in the frozen room as well as in the noise room. The gap versus the walk is the room.
+
+Per learnability, orientation-averaged, not a pass bit. Three cells exclude zero. Count at learnability 0 is 0.0155 [0.0012, 0.0293]. Surprise at learnability 0 is −0.0164 [−0.0298, −0.0028]. Pure-progress at learnability 1/3 is −0.0084 [−0.0160, −0.0015]. The other seventeen include zero. The mean is the test, and the mean does not move.
+
+Surprise diagnostic, shipped rho, not a call. Noise minus static, on steps that began in the target room, n = 200 of 200: 0.0085 [0.0076, 0.0095]. The noise room is reliably more surprising. The content swap is visible to the learner. It does not move occupancy.
+
+Figure: `bench/matched/excess-by-explorer.png`.
+
+No mechanism was added. The default agent is unchanged. Both curiosity terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, sha of the preregistration commit, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the stricter probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes.
+
+### Next hypothesis
+
+The excess over a random walk survived a frozen picture of the same room, on both sides of the map. It is not the noise. The next measurement should ask what about the room it is. The small room has no food and about half the cells. Give that room the same five foods as the large room, still with relevance 0 so the bits are not meals, and measure the excess over a random walk again. If the foods close the gap, the attractor was an empty room. If they do not, equalize the cell counts before adding another curiosity term.
 
 ## 2026-10-15 policy terms (America/New_York)
 
