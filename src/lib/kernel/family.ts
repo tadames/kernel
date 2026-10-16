@@ -8,6 +8,8 @@
  * redrawn. 0 is not a frozen pattern. It is stationary white noise, a fresh
  * iid bit on every east cell every step. patternHold is the measurement
  * mode that freezes one learnable pattern; the phase sweep does not use it.
+ * roomContent static instead freezes one fair-bit picture in region 1, and
+ * mirrorRooms reflects the shell. Both default off.
  *
  * distractorRelevance: 0 means the east bits are not food. 1 means an east
  * bit of 1 is edible food. The split world ignores this and puts real food
@@ -27,6 +29,8 @@ export const SPLIT_LAYOUT_SEED = 4000;
 export const WEST_LATENT = 3;
 export const EAST_HOLD_LATENT = 42;
 export const EAST_SPLIT_LATENT = 99;
+/** Mixes the episode seed into the frozen target-room picture. Not the policy RNG. */
+export const STATIC_DRAW_SALT = 0x5a17;
 
 export type FamilyKind = "distractor" | "split";
 export type FamilyMode = "noise" | "drift" | "hold" | "split";
@@ -41,6 +45,13 @@ export type FamilyMemory = {
   eastLatent: number;
   dividerX: number;
   doorY: number;
+  /**
+   * Hold region 1's glow. The noise draw still runs, so the episode RNG
+   * stays aligned with the unfrozen room. Default off.
+   */
+  freezeTarget: boolean;
+  /** The shell was reflected. Region 1 is then the west room. */
+  mirrored: boolean;
 };
 
 /** Low-frequency pattern. A 5×5 window can see the period. */
@@ -176,9 +187,40 @@ export function createFamily(
     eastLatent,
     dividerX: div,
     doorY: door,
+    freezeTarget: false,
+    mirrored: false,
   };
   applyFamily(cells, family, params, mulberry32((layoutSeed ^ 0x51ed) >>> 0));
+  if (params.mirrorRooms) reflectFamily(cells, family);
+  if (params.roomContent === "static") {
+    const draw = mulberry32(((params.staticSeed ?? layoutSeed) ^ STATIC_DRAW_SALT) >>> 0);
+    for (let i = 0; i < cells.length; i++) {
+      if (family.region[i] !== 1 || cells[i] === 1) continue;
+      family.glow[i] = draw() < 0.5 ? 1 : 0;
+    }
+    family.freezeTarget = true;
+  }
   return { cells, family };
+}
+
+/** Reflect the shell through a vertical line. Region ids move with their cells. */
+export function reflectFamily(cells: Uint8Array, family: FamilyMemory) {
+  const size = family.size;
+  const flip = (src: Uint8Array) => {
+    const out = new Uint8Array(src.length);
+    for (let y = 0; y < size; y++) {
+      const row = y * size;
+      for (let x = 0; x < size; x++) out[row + (size - 1 - x)] = src[row + x]!;
+    }
+    return out;
+  };
+  cells.set(flip(cells));
+  family.glow = flip(family.glow);
+  family.region = flip(family.region);
+  family.stochastic = flip(family.stochastic);
+  family.fixedGlow = flip(family.fixedGlow);
+  family.dividerX = size - 1 - family.dividerX;
+  family.mirrored = true;
 }
 
 export function cloneFamily(family: FamilyMemory): FamilyMemory {
@@ -212,8 +254,10 @@ export function applyFamily(cells: Uint8Array, family: FamilyMemory, params: Env
         continue;
       }
       let bit: number;
-      if (family.mode === "noise") bit = rand() < 0.5 ? 1 : 0;
-      else bit = patternBit(x, y, family.eastLatent);
+      if (family.mode === "noise") {
+        const drawn = rand() < 0.5 ? 1 : 0;
+        bit = family.freezeTarget ? family.glow[i]! : drawn;
+      } else bit = patternBit(x, y, family.eastLatent);
       if (edible) {
         cells[i] = bit ? 2 : 0;
         family.glow[i] = 0;
