@@ -28,6 +28,18 @@ export type EnvParams = {
    * 1 is the historical 0/1 bit. Omitted means 1. West glow is not scaled.
    */
   noiseAmplitude?: number;
+  /**
+   * Target-room content. Omitted and `noise` are the shipped white-noise room.
+   * `static` freezes one fair-bit picture. Measurement only.
+   */
+  roomContent?: "noise" | "static";
+  /** Reflect the distractor map so the target room sits on the west. */
+  mirrorRooms?: boolean;
+  /**
+   * Seed for the frozen target-room picture. Ignored unless `roomContent`
+   * is `static`. The policy RNG is a different stream.
+   */
+  staticSeed?: number;
 };
 
 /** East-room glow scale. Absent when the historical 0/1 bit is in force. */

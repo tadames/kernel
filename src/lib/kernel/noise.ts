@@ -74,6 +74,33 @@ export function policyTermsCall(shipped: Ends, ablated: Ends, shippedMinusAblate
 export type SplitCall = "both" | "horizon" | "uncertainty" | "conjunction" | "inconclusive";
 
 /**
+ * Target-room time under noise minus the same room frozen.
+ * Entirely above 0 prefers the noise. Entirely below 0 prefers the static room.
+ */
+export function matchedContentCall(excess: Ends): Call {
+  return greaterCall(excess);
+}
+
+export type MatchedSummary = "noise" | "static" | "mixed" | "confounded" | "inconclusive";
+
+/**
+ * Label for the five directed calls. Random excluding 0 means the content
+ * swap moved a walk that does not read observations, so the label is
+ * confounded and the directed calls are not a content effect.
+ * All five confirmed: every directed explorer prefers the noise.
+ * All five refuted: every one prefers the static room.
+ * All five inconclusive: the contrast does not resolve.
+ * Anything else is mixed, and the per-explorer calls are the result.
+ */
+export function matchedSummary(randomExcludesZero: boolean, directed: Call[]): MatchedSummary {
+  if (randomExcludesZero) return "confounded";
+  if (directed.length === 0 || directed.every((call) => call === "inconclusive")) return "inconclusive";
+  if (directed.every((call) => call === "confirmed")) return "noise";
+  if (directed.every((call) => call === "refuted")) return "static";
+  return "mixed";
+}
+
+/**
  * Which single deletion carries a confirmed joint ablation.
  * A term carries it when removing that term alone is confirmed by
  * policyTermsCall. Both refuted means only the conjunction carries it.

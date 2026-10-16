@@ -1,5 +1,43 @@
 # Journal
 
+## 2026-10-16 matched room (America/New_York)
+
+Written before `npm run matched-room`. No target-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The policy-terms entry did not name a next hypothesis. The noise-room attraction is still measured against a random walk. This run is the geometry-matched control for that comparison. It adds no curiosity term and no Loop flag.
+
+### Preregister matched room
+
+The noise study, seeds 1–200, found that every directed explorer spends more time in the stationary white-noise east room than a random walk: count 0.1576, surprise 0.0890, RND 0.0725, rho 0.0713, each interval entirely above 0. The sampling-variance account was refuted. The policy-terms ablation left pure-progress rho above a random walk as well, 0.0514 [0.0366, 0.0659]. Those contrasts share a walk that does not know which room is which. The extra time could be the room: it is the small one, the far one, the one without food, and it sits on the east.
+
+Hypothesis. The extra time is a preference for the noise. Replace the noise with one frozen fair-bit picture of the same cells, and reflect the map so the room also sits on the west. Each directed explorer still spends more time in the noise room than in that frozen room.
+
+The frozen picture is one iid draw per seed, `mulberry32(seed ^ 0x5a17)`, written into region 1 after the shell is built and then held. The constant is `STATIC_DRAW_SALT`. The noise room keeps the shipped process: a fresh fair bit on every region-1 cell every step. The static arm still draws those bits and discards them, so the episode RNG stays aligned. A random walk ignores observations, so it walks the same path in both arms. Count novelty is the visit count of those same cells, so it matches at the first visit. An untrained predictor at one half gives the same expected error to any fair-bit window, so first-visit surprise matches in distribution. The pictures are not paired pixel for pixel. Pairing them would make the static image depend on when the agent arrived.
+
+A low-frequency pattern was the other static room on offer. A 5×5 window sees its period, so the first glance is already easier than white noise. That mixes compressibility with stationarity. The frozen fair-bit picture keeps the single-frame marginal and changes only the time axis. If 400 steps cannot learn that picture, the contrast can come out null. That is a result this design accepts. It is not a reason to switch patterns after the run.
+
+The two rooms of one map are not the same size. Region 1 is four interior columns. The other room is eight, with the five foods and the interior walls. The door is the same seven rows, centered. Unmirrored, the divider is x = 9 and region 1 is east. Mirrored, the divider is x = 5 and region 1 is west. Spawn stays in region 0, the large room, doorway included. The contrast does not need the two rooms to match each other. Noise and static share one room by identity, and the mirror counterbalances which side that room is on.
+
+The map otherwise matches the noise study. Layout seed 3000. Drift 0. Relevance 0. Amplitude 1. Window 50. Estimator ema. Learnability {0, 1/3, 2/3, 1}. Episodes are 400 steps. Seeds 1–200. The other room's learnability mix is unchanged.
+
+Explorers. Random, count, surprise, RND, shipped rho, and pure-progress rho. Pure-progress rho is the policy-terms arm `progress`: uncertainty off, horizon residual drop off, progress kept as the shipped rectified ema − surprise. Random is the negative control. The other five are the directed set. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the probe rule and is not this claim.
+
+Primary metric. Target-room fraction, the fraction of steps that began in region 1. For each seed, explorer, and orientation, average that fraction over the four learnabilities. Excess at an orientation is noise minus static on that seed. The test excess averages the two orientations, still one number per seed. Paired 95% percentile bootstrap, 2000 resamples. Salts are fixed in `scripts/matched.ts`: test excess 3101 random, 3102 count, 3103 surprise, 3104 RND, 3105 shipped rho, 3106 pure-progress. East salts are 3111 through 3116 in that order. West salts are 3121 through 3126. Per-learnability salts are 3200 + 10 × explorer index + learnability index, with the same explorer order and learnability index 0, 1, 2, 3. Fraction intervals use salts 3401 upward and are not a test. The surprise diagnostic uses salt 3501.
+
+Calls use `matchedContentCall`, which is the same rule as `greaterCall`. Confirmed if the CI lies entirely above 0: the explorer prefers the noise room to the matched static room. Refuted if the CI lies entirely below 0: it prefers the static room. A CI that includes 0, including a CI of [0, 0], is inconclusive. The test excess is the only pass bit. East, west, and the four learnabilities are reported and are not a second chance. A disagreement between the two orientations does not void the average. The average is the counterbalanced estimate.
+
+Negative control. Random's test excess. A walk that ignores observations has nothing to prefer, and the aligned RNG makes the two paths the same, so the excess is zero and the CI is [0, 0]. That interval does not exclude 0. `greaterCall` on it is inconclusive, which is the right call, and the control is not confounded. If the CI does exclude 0, content moved a walk that does not read it. The summary is then confounded, and no directed call is interpreted as a content effect. The calls are still printed.
+
+Summary label, from `matchedSummary`, not a second test. Confounded if the random CI excludes 0. Otherwise, if every directed call is confirmed: noise. If every directed call is refuted: static. If every directed call is inconclusive: inconclusive. Any other mix: mixed. The per-explorer calls are the result in every case.
+
+Surprise diagnostic, shipped rho only, not a call. Training surprise on steps that began in the target room. A cell with no such step on either arm is skipped. A seed's number is the mean of the remaining (noise − static) cells across both orientations and the four learnabilities. A seed with no remaining cell is dropped. The CI uses salt 3501. Report n. It cannot rescue or overturn a primary call.
+
+Figure: `bench/matched/excess-by-explorer.png`. Both orientations and the paired average, per explorer, with the CIs. Source: `bench/matched/matched.json`. The sweep is `npm run matched-room`. It is not part of CI.
+
+### Results
+
+Pending the sweep.
+
 ## 2026-10-15 policy terms (America/New_York)
 
 Written before `npm run policy-terms`. No east-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

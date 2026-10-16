@@ -47,6 +47,10 @@ export type NoiseRequest = {
    * stay the phase-diagram episodes.
    */
   policyArm?: PolicyArm;
+  /** Target-room content. Omitted is stationary noise, the historical room. */
+  content?: "noise" | "static";
+  /** Reflect the map so region 1 is on the west. Omitted leaves the east room. */
+  mirror?: boolean;
 };
 
 export type NoiseResult = {
@@ -61,7 +65,11 @@ export type NoiseResult = {
   progressMode: ProgressMode;
   noiseAmplitude: number;
   policyArm: PolicyArm;
+  content: "noise" | "static";
+  mirror: boolean;
   distractorFrac: number;
+  /** Mean training surprise on steps that began in the target room. Null if none. */
+  targetSurprise: number | null;
   foods: number;
   distractorFoods: number;
   lives: number;
@@ -82,11 +90,15 @@ function withSeed<T>(seed: number, fn: () => T): T {
 }
 
 export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
+  const content = req.content ?? "noise";
+  const mirror = req.mirror ?? false;
   const spec = distractorSpec({
     learnability: req.learnability,
     driftRate: req.driftRate,
     distractorRelevance: req.distractorRelevance,
     noiseAmplitude: req.noiseAmplitude,
+    ...(content === "static" ? { roomContent: "static" as const, staticSeed: req.seed } : {}),
+    ...(mirror ? { mirrorRooms: true } : {}),
   });
   const policyArm = req.policyArm ?? "shipped";
   const curiosityScore = curiosityScoreForArm(policyArm);
@@ -101,6 +113,8 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
     const k = new Kernel("distractor", req.seed, undefined, options);
     let inEast = 0;
     let eastFood = 0;
+    let surpriseSum = 0;
+    let surpriseN = 0;
     const eastAcc = emptyAccum();
     const westAcc = emptyAccum();
     const eastHist = req.traceHist ? emptyHist() : null;
@@ -113,6 +127,8 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
       if (reg === 1) {
         inEast += 1;
         if (k.foods > before) eastFood += 1;
+        surpriseSum += k.loop.surprise;
+        surpriseN += 1;
       }
       if (!trace) continue;
       const raw = k.loop.progress;
@@ -137,7 +153,10 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
       progressMode: req.progressMode,
       noiseAmplitude: req.noiseAmplitude,
       policyArm,
+      content,
+      mirror,
       distractorFrac: req.steps ? inEast / req.steps : 0,
+      targetSurprise: surpriseN ? surpriseSum / surpriseN : null,
       foods: k.foods,
       distractorFoods: eastFood,
       lives: k.lives,

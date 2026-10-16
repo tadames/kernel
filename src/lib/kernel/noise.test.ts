@@ -11,6 +11,8 @@ import {
   amplitudeCall,
   greaterCall,
   logExcessSlope,
+  matchedContentCall,
+  matchedSummary,
   policySplitCall,
   policyTermsCall,
   seRemovalCall,
@@ -96,6 +98,27 @@ test("call rules match the preregistration", () => {
   assert.equal(policyTermsCall(shipped, { lo: 0.01, hi: 0.05 }, { lo: 0.02, hi: 0.06 }), "confirmed");
   assert.equal(policyTermsCall(shipped, { lo: 0.01, hi: 0.05 }, { lo: -0.01, hi: 0.02 }), "refuted");
   assert.equal(policyTermsCall({ lo: -0.01, hi: 0.02 }, { lo: -0.02, hi: 0.01 }, { lo: 0.01, hi: 0.04 }), "inconclusive");
+  assert.equal(matchedContentCall({ lo: 0.01, hi: 0.2 }), "confirmed");
+  assert.equal(matchedContentCall({ lo: -0.2, hi: -0.01 }), "refuted");
+  assert.equal(matchedContentCall({ lo: -0.01, hi: 0.02 }), "inconclusive");
+  assert.equal(matchedContentCall({ lo: 0, hi: 0 }), "inconclusive");
+  const five = ["confirmed", "confirmed", "confirmed", "confirmed", "confirmed"] as const;
+  assert.equal(matchedSummary(true, [...five]), "confounded");
+  assert.equal(matchedSummary(false, [...five]), "noise");
+  assert.equal(
+    matchedSummary(false, ["refuted", "refuted", "refuted", "refuted", "refuted"]),
+    "static",
+  );
+  assert.equal(
+    matchedSummary(false, ["inconclusive", "inconclusive", "inconclusive", "inconclusive", "inconclusive"]),
+    "inconclusive",
+  );
+  assert.equal(
+    matchedSummary(false, ["confirmed", "refuted", "inconclusive", "confirmed", "refuted"]),
+    "mixed",
+  );
+  assert.equal(matchedSummary(false, []), "inconclusive");
+
   assert.equal(policySplitCall("confirmed", "confirmed"), "both");
   assert.equal(policySplitCall("confirmed", "refuted"), "horizon");
   assert.equal(policySplitCall("refuted", "confirmed"), "uncertainty");
