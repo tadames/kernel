@@ -13,7 +13,9 @@ import { SHIPPED_PROGRESS_WINDOW, type ProgressMode } from "./progress.ts";
 import {
   cloneFamily,
   createFamily,
+  EAST_HOLD_LATENT,
   isFamilyKind,
+  paintFamilyPattern,
   regionCells,
   type FamilyMemory,
 } from "./family.ts";
@@ -339,6 +341,58 @@ export class Kernel {
       stepGrid(body, this.worldKind, action, SIZE, stepRand, this.envParams, family);
       const next = new Float32Array(OBS);
       senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
+      for (let i = 0; i < OBS; i++) {
+        if (i % CH === 2) continue;
+        const d = into[i]! - next[i]!;
+        sum += d * d;
+        n += 1;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  /**
+   * Held-out probe of region 1 with scent blanked and drift forced off.
+   * `initial` scores the shared starting pattern. `current` scores the
+   * latent on the map now. Forward only. The episode does not move.
+   */
+  patternProbe(which: "initial" | "current", samples = 40, probeSeed = 20261015): number {
+    if (!this.family) return 0;
+    const base = cloneFamily(this.family);
+    const latent = which === "initial" ? EAST_HOLD_LATENT : this.family.eastLatent;
+    base.mode = "hold";
+    base.burnDrift = false;
+    base.freezeTarget = false;
+    paintFamilyPattern(this.cells, base, latent);
+    const pool = regionCells(base, 1, this.cells);
+    if (!pool.length) return 0;
+    const params = { ...this.envParams, driftRate: 0, distractorRelevance: 0 };
+    const rand = mulberry32(probeSeed + 17 + this.age);
+    const into = new Float32Array(OBS);
+    const obs = new Float32Array(OBS);
+    let sum = 0;
+    let n = 0;
+    for (let s = 0; s < samples; s++) {
+      const index = pool[(rand() * pool.length) | 0]!;
+      const x = index % SIZE;
+      const y = (index / SIZE) | 0;
+      const action = (rand() * ACTS) | 0;
+      const blank = new Float32Array(this.scent.length);
+      senseGrid(this.cells, blank, x, y, SIZE, R, obs, base.glow, null, base.decoy);
+      this.loop.imagine(this.encode(obs, action, false, 100), into);
+      const body: GridBody = {
+        cells: this.cells.slice(),
+        scent: blank.slice(),
+        x,
+        y,
+        energy: 100,
+        pulseClock: 0,
+      };
+      const family = cloneFamily(base);
+      const stepRand = mulberry32((probeSeed + s * 997 + 13) >>> 0);
+      stepGrid(body, this.worldKind, action, SIZE, stepRand, params, family);
+      const next = new Float32Array(OBS);
+      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, null, family.decoy);
       for (let i = 0; i < OBS; i++) {
         if (i % CH === 2) continue;
         const d = into[i]! - next[i]!;

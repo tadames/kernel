@@ -1,5 +1,123 @@
 # Journal
 
+## 2026-10-16 drift timescale (America/New_York)
+
+Written before `npm run drift-room`. No target-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The fed-room entry's next hypothesis was to equalize the open-cell counts and measure the excess over a random walk again. That question is closed. Directed explorers beat a random walk in the small room, and neither a frozen picture nor five non-edible foods closed the gap. This run does not ask it again. It also adds no curiosity term and no Loop flag.
+
+The phase diagram already swept drift, and it refuted attraction at 1/τ. That sweep compared east-room time with a random walk, and its drift-0 cell was stationary white noise, not a frozen copy of the drifting pattern. The matched-room entry then showed that noise-minus-static excess is about 0. The standing rule is to measure distractor attraction against a geometry- and novelty-matched control. That paired drift measurement has not been run. The forgetting-cycle sweep has been run, and it was inconclusive. This run is the paired drift measurement.
+
+### Preregister drift timescale
+
+Hypothesis. Rho is attracted to a pattern that turns over near the learner's adaptation timescale, where progress stays positive, and it is not attracted to the same pattern when the turnover is much slower or much faster. The attraction is drifting-room time minus held-room time, not time minus a random walk.
+
+The pair shares one shell. Layout seed 3000, the wide door, region 1 on the east, 52 open cells there and the five meals in the large room. Learnability is 1, so the large room is fully structured. Relevance is 0. No food markers. No mirror. The side of the map is not a factor: both arms are the same room. An orientation average would spend the seed budget on a contrast the matched-room study already found does not carry content.
+
+Both arms start on one low-frequency pattern, latent `EAST_HOLD_LATENT`. The drifting arm redraws that latent with probability `driftRate` each step. The held arm keeps the latent and still burns the coin, including the redraw draw, so the episode RNG stays aligned. Count novelty is the visit count of the same cells. The first frame is the same picture, not merely the same marginal, so a 5×5 window's first glance has the same surprise. What changes is only whether the picture turns over. `matchedPattern` defaults off. The historical noise room and the phase episodes are unchanged.
+
+Drift is a wall-clock coin. It fires whether or not the body is in the room. τ is in-room experience on a frozen pattern. The grid is still (1/τ) times {1/16, 1/4, 1, 4, 16}, clipped below 0.95. A 400-step episode sees about 0.5 redraws at the slow end and about six at 1/τ. That is the bracket.
+
+Instrument, measured on this map before the sweep and then locked. The narrow-door lock in `bench/phase/timescale.json` is 67.65 [53.66, 81.81]. The doorway was widened after that lock, in `c5c2a37`, and the same eight seeds on the wide door are faster. The old number is not the clock of this map. The definition is unchanged: e-folding time of excess live probe error, one uniform transition per step, scent zero, cell learning rate 4, seeds 1–8, bootstrap seed 5. Source: `bench/drift/timescale.json`.
+
+| seed | τ | half-life | start | tail |
+|---|---:|---:|---:|---:|
+| 1 | 50.39 | 34.9 | 0.256 | 0.067 |
+| 2 | 59.40 | 41.2 | 0.269 | 0.076 |
+| 3 | 38.12 | 26.4 | 0.251 | 0.065 |
+| 4 | 65.18 | 45.2 | 0.254 | 0.082 |
+| 5 | 54.38 | 37.7 | 0.260 | 0.071 |
+| 6 | 50.93 | 35.3 | 0.257 | 0.082 |
+| 7 | 66.97 | 46.4 | 0.262 | 0.063 |
+| 8 | 40.90 | 28.4 | 0.251 | 0.060 |
+
+Mean τ = 53.28 steps, 95% bootstrap CI [46.56, 59.77]. No seed was censored. The narrow-door mean sits above this interval.
+
+Locked positive rates, probability per step: 0.001173, 0.004692, 0.01877, 0.07507, 0.3003. The rate nearest 1/τ is 0.01877, a pattern lifetime of about 53 steps. 0.001173 is the slow extreme, about 16× below. 0.3003 is the fast extreme, about 16× above. The two rates in between are reported and are not a second chance. Drift 0 is not a cell. The held arm is the static control at every rate.
+
+Episodes are 400 steps. Seeds 1–200. Explorers: random, count, surprise, RND, rho. Random is the negative control. The other four are the directed set. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Primary metric. Target-room fraction, the fraction of steps that began in region 1. Excess at a rate is the drifting arm minus the held arm, one number per seed. Paired 95% percentile bootstrap, 2000 resamples.
+
+Headline probe. End-of-episode held-out error on the shared initial pattern, region 1, 40 uniform transitions, probe seed 20261015, scent blanked, drift forced off during the score. Lower is better. The paired quantity is drifting minus held. The same states are scored on the pattern present at the end (`probeCurrent`) and the large room is scored with the phase-sweep live probe (`probeWorld`). Those two are reported and are not a pass bit.
+
+The sweep aborts before any call if any random-walk target-room fraction, meal count, or life count differs across the two arms.
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. Rate index is 0..4 in the order above. Critical index is 2.
+
+- Excess at each rate uses salt 5100 + 10 × explorer + rate. Confirmed if the CI lies entirely above 0, refuted if entirely below, otherwise inconclusive. Only the shape below is a pass bit. A single rate is not.
+- Shape, `driftShapeCall`. Let r* be 0.01877, r_slow 0.001173, r_fast 0.3003. Confirmed when all three CIs lie entirely above 0: excess at r*, excess at r* minus excess at r_slow, and excess at r* minus excess at r_fast. Refuted when the excess at r* lies entirely below 0, or when both differences lie entirely below 0. Otherwise inconclusive. The slow contrast uses salt 5200 + explorer. The fast contrast uses salt 5300 + explorer. The peak reuses the excess salt at rate index 2.
+- Probe clause, rho only, at r* only. Initial-pattern probe, drift minus held, salt 5400 + 10 × 4 + 2. Confirmed if that CI lies entirely above 0: the drifting arm compresses the shared starting pattern worse than the held arm, which is the signature that the pattern was not finished. Refuted if the CI lies entirely below 0. Otherwise inconclusive. The other rates and the other explorers are not a second chance.
+- Specificity. Count, surprise, and RND are scored with the same shape rule. If any of them is confirmed, rho's peak is not a learning-progress result.
+
+Summary, from `driftSummary`, not a second test. Confounded if any of random's five excess intervals excludes 0. Otherwise refuted if rho's shape is refuted, or if rho's shape is confirmed and the probe clause is refuted. Confirmed if rho's shape is confirmed, the probe clause is confirmed, and no other directed shape is confirmed. Shared if rho's shape and probe are both confirmed and another directed shape is also confirmed: the peak is real and it is not specific to rho. Otherwise inconclusive.
+
+Progress diagnostic, not a call. On steps that began in the target room, the fraction with raw progress above 0, drift minus held. A seed with no such step on either arm is dropped. Report n. Salt 5900 + 10 × explorer + rate. It cannot rescue or overturn a call.
+
+Fraction intervals use salts 5700 and 5800 and are not a test. Current-pattern probe salts are 5500. Large-room probe salts are 5600.
+
+Figures: `bench/drift/excess-vs-rate.png` and `bench/drift/probe-vs-rate.png`. Excess and the initial-pattern probe, per explorer, against drift rate, with the CIs. The vertical mark is r*. Source: `bench/drift/drift.json`. The sweep is `npm run drift-room`. It is not part of CI.
+
+### Results
+
+10000 episodes, 400 steps, 4 workers, 531 seconds. Source: `bench/drift/drift.json`. The random walk is the same path on both arms at every rate, meals and lives included, so each random excess is a point mass at 0. The summary is not confounded.
+
+#### Summary. Inconclusive.
+
+Rho's occupancy does not peak at the adaptation rate. The shape call is inconclusive, so the prediction is not confirmed. It is not refuted either: the excess at r* does not lie entirely below 0, and the peak is not a trough under both extremes. No directed shape is confirmed. The probe clause, taken alone, is confirmed, and it is confirmed for every explorer including the random walk, so it is not a learning-progress signature. The registered summary needs the shape as well. The shape did not clear.
+
+Rho at r* = 0.01877. Excess is drifting minus held. The slow gap is that excess minus the excess at 0.001173. The fast gap uses 0.3003.
+
+| explorer | excess at r* | slow gap | fast gap | shape |
+|---|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.0028 [−0.0169, 0.0210] | 0.0080 [−0.0146, 0.0282] | 0.0185 [−0.0103, 0.0486] | inconclusive |
+| surprise | −0.0083 [−0.0286, 0.0125] | −0.0171 [−0.0399, 0.0058] | −0.0128 [−0.0419, 0.0164] | inconclusive |
+| rnd | −0.0057 [−0.0167, 0.0055] | −0.0046 [−0.0168, 0.0078] | 0.0004 [−0.0201, 0.0193] | inconclusive |
+| rho | −0.0032 [−0.0203, 0.0151] | −0.0082 [−0.0287, 0.0119] | −0.0015 [−0.0268, 0.0246] | inconclusive |
+
+Rho's point estimate at r* is slightly negative. The upper end is 0.0151. The effect the phase diagram was chasing against a random walk was about 0.07, and that size is outside this interval.
+
+Excess at every rate. All 25 intervals include 0. The closest approach to a positive call is surprise at 0.001173, 0.0087 [−0.00004, 0.0181]. The lower end is below 0, so the call stays inconclusive.
+
+| explorer | 0.001173 | 0.004692 | 0.01877 | 0.07507 | 0.3003 |
+|---|---|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| count | −0.0053 [−0.0138, 0.0027] | −0.0046 [−0.0194, 0.0116] | 0.0028 [−0.0169, 0.0210] | −0.0030 [−0.0237, 0.0167] | −0.0158 [−0.0383, 0.0081] |
+| surprise | 0.0087 [−0.0000, 0.0181] | 0.0008 [−0.0137, 0.0155] | −0.0083 [−0.0286, 0.0125] | −0.0064 [−0.0249, 0.0116] | 0.0045 [−0.0181, 0.0268] |
+| rnd | −0.0011 [−0.0061, 0.0039] | −0.0010 [−0.0124, 0.0101] | −0.0057 [−0.0167, 0.0055] | 0.0034 [−0.0152, 0.0201] | −0.0061 [−0.0241, 0.0106] |
+| rho | 0.0050 [−0.0035, 0.0133] | −0.0016 [−0.0120, 0.0084] | −0.0032 [−0.0203, 0.0151] | −0.0003 [−0.0178, 0.0157] | −0.0017 [−0.0203, 0.0154] |
+
+Rho's target-room fraction stays near 0.22 on both arms. At r* the drifting arm is 0.2258 [0.2048, 0.2482] and the held arm is 0.2290 [0.2080, 0.2515]. The room is visited. The content does not move the visit.
+
+Probe clause, rho at r*, initial pattern, drift minus held: 0.0108 [0.0088, 0.0130]. The interval lies entirely above 0. That is the registered probe call, and it is confirmed. It does not rescue the shape. The same contrast is confirmed for random, count, surprise, and RND at every rate. Random at r* is 0.0086 [0.0072, 0.0101]. The gap rises toward the fast end. It does not peak at r*. A walk that ignores observations still compresses a young pattern worse than a pattern that never moved, because the weights only see what the body walks through. The probe is recording the age of the pattern, not a preference.
+
+Initial-pattern probe, drift minus held. Lower would have meant the drifting arm kept the starting picture. None of these intervals include 0.
+
+| explorer | 0.001173 | 0.01877 | 0.3003 |
+|---|---|---|---|
+| random | 0.0019 [0.0012, 0.0027] | 0.0086 [0.0072, 0.0101] | 0.0104 [0.0089, 0.0120] |
+| count | 0.0032 [0.0019, 0.0046] | 0.0138 [0.0118, 0.0158] | 0.0145 [0.0125, 0.0167] |
+| surprise | 0.0039 [0.0024, 0.0054] | 0.0119 [0.0098, 0.0141] | 0.0154 [0.0133, 0.0175] |
+| rnd | 0.0031 [0.0020, 0.0042] | 0.0077 [0.0058, 0.0097] | 0.0132 [0.0107, 0.0154] |
+| rho | 0.0028 [0.0015, 0.0041] | 0.0108 [0.0088, 0.0130] | 0.0136 [0.0113, 0.0161] |
+
+The two interior rates sit between those columns for every explorer. They are in `bench/drift/drift.csv`. They are not a second chance.
+
+Progress diagnostic, not a call. Fraction of target-room steps with raw progress above 0, drift minus held. At r*, rho is −0.0709 [−0.0934, −0.0500], n = 177 of 200. Random is −0.0814 [−0.1034, −0.0590], n = 143. The drifting room produces fewer positive-progress steps than the held room, and a random walk shows the drop too. The fraction falls as the rate rises, for every explorer. It does not single out rho, and it does not move occupancy. The prediction that progress stays positive near τ, and that rho would follow it, is not what these traces do.
+
+Large-room live probe, rho, drift minus held, at r*: 0.0069 [0.0048, 0.0088]. The useful room is slightly harder when the other room drifts. It is the same direction as the initial-pattern probe and it is not a pass bit.
+
+Figures: `bench/drift/excess-vs-rate.png`, `bench/drift/probe-vs-rate.png`.
+
+No mechanism was added. `matchedPattern` stays off. The default agent is unchanged. Both curiosity terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, sha `1c0757f`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `loop.ts` is unchanged and well above 2 KB. `kernel.ts` is on the CI mechanism list, so the transition probe gate was run again on 20 seeds. It still passes: off − on 0.1234 [0.1150, 0.1307]. It was not this claim.
+
+### Next hypothesis
+
+Do not add a curiosity term, and do not sweep this room against a random walk again. That contrast is closed, and this one did not replace it with a drift peak. The probe gap and the drop in positive-progress fraction are both shared with a random walk, and both grow toward fast drift instead of peaking at τ. The next preregistered comparison is whether rho's drop in positive-progress fraction at r* exceeds the random walk's drop on this same pair. If it does not, learning-progress curiosity is not differentially sensitive to drift at its own timescale. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-16 fed room (America/New_York)
 
 Written before `npm run fed-room`. No target-room fraction from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

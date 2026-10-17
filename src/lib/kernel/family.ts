@@ -9,7 +9,9 @@
  * iid bit on every east cell every step. patternHold is the measurement
  * mode that freezes one learnable pattern; the phase sweep does not use it.
  * roomContent static instead freezes one fair-bit picture in region 1, and
- * mirrorRooms reflects the shell. Both default off.
+ * mirrorRooms reflects the shell. Both default off. matchedPattern is the
+ * drift-versus-held pair: one low-frequency pattern, either redrawn or
+ * frozen, with the frozen arm burning the same drift coin. Default off.
  *
  * targetFoods marks five open cells in region 1. The draw is the same one
  * that places the large room's five meals, and it runs after those meals,
@@ -64,6 +66,11 @@ export type FamilyMemory = {
   freezeTarget: boolean;
   /** The shell was reflected. Region 1 is then the west room. */
   mirrored: boolean;
+  /**
+   * Hold mode burns the drift coin and drops the new latent. The picture
+   * stays the one painted at the start. Default off.
+   */
+  burnDrift: boolean;
 };
 
 /** Low-frequency pattern. A 5×5 window can see the period. */
@@ -214,6 +221,7 @@ export function createFamily(
     decoy,
     freezeTarget: false,
     mirrored: false,
+    burnDrift: false,
   };
   applyFamily(cells, family, params, mulberry32((layoutSeed ^ 0x51ed) >>> 0));
   if (params.mirrorRooms) reflectFamily(cells, family);
@@ -225,7 +233,27 @@ export function createFamily(
     }
     family.freezeTarget = true;
   }
+  if (params.matchedPattern === "drift" || params.matchedPattern === "held") {
+    family.mode = params.matchedPattern === "held" ? "hold" : "drift";
+    family.burnDrift = params.matchedPattern === "held";
+    family.freezeTarget = false;
+    paintFamilyPattern(cells, family, EAST_HOLD_LATENT);
+  }
   return { cells, family };
+}
+
+/** Paint region 1 from one latent. Does not draw, so it cannot move the episode RNG. */
+export function paintFamilyPattern(cells: Uint8Array, family: FamilyMemory, latent: number) {
+  family.eastLatent = latent;
+  const size = family.size;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      if (family.region[i] !== 1 || cells[i] === 1) continue;
+      const bit = patternBit(x, y, latent);
+      family.glow[i] = family.decoy[i] === 1 ? 0 : bit;
+    }
+  }
 }
 
 /** Reflect the shell through a vertical line. Region ids move with their cells. */
@@ -263,8 +291,11 @@ export function cloneFamily(family: FamilyMemory): FamilyMemory {
 /** One generative step. Mutates `cells` and `family.glow` / `eastLatent`. */
 export function applyFamily(cells: Uint8Array, family: FamilyMemory, params: EnvParams, rand: () => number) {
   const size = family.size;
-  if (family.mode === "drift" && params.driftRate > 0 && rand() < params.driftRate) {
-    family.eastLatent = (rand() * 1024) | 0;
+  if (params.driftRate > 0 && (family.mode === "drift" || (family.mode === "hold" && family.burnDrift))) {
+    if (rand() < params.driftRate) {
+      const next = (rand() * 1024) | 0;
+      if (family.mode === "drift") family.eastLatent = next;
+    }
   }
   const edible = params.distractorRelevance >= 0.5 && family.mode !== "split";
   for (let y = 0; y < size; y++) {

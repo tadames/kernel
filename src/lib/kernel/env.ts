@@ -46,6 +46,13 @@ export type EnvParams = {
    * unless `distractorRelevance` says otherwise.
    */
   targetFoods?: boolean;
+  /**
+   * Matched pattern pair. Both arms start on one low-frequency pattern.
+   * `drift` redraws it with probability `driftRate`. `held` keeps it and
+   * still burns that coin, so a walk that ignores observations is paired.
+   * Omitted leaves the historical family. Measurement only.
+   */
+  matchedPattern?: "drift" | "held";
 };
 
 /** East-room glow scale. Absent when the historical 0/1 bit is in force. */

@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { CENTER, Kernel } from "./kernel.ts";
-import { applyFamily, createFamily, distractorSpec, driftRatesFromTau, forgettingRatesFromTau, patternBit, splitSpec } from "./family.ts";
+import { applyFamily, createFamily, distractorSpec, driftRatesFromTau, EAST_HOLD_LATENT, forgettingRatesFromTau, patternBit, splitSpec } from "./family.ts";
 import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid } from "./env.ts";
+import { LOCKED_DRIFT_TAU } from "./drift-run.ts";
 import { fitTau } from "./phase-run.ts";
 import { acfPeriod, spectralPeriod } from "./period.ts";
 import { mulberry32 } from "./presets.ts";
@@ -114,6 +115,11 @@ test("tau fit recovers an exponential e-folding time", () => {
   const fit = fitTau(errors);
   assert.equal(fit.censored, false);
   assert.ok(fit.tau != null && Math.abs(fit.tau - 40) < 8, `tau ${fit.tau}`);
+});
+
+test("the wide-door tau locks the drift grid used by the matched sweep", () => {
+  assert.equal(LOCKED_DRIFT_TAU, 53.28471423768756);
+  assert.deepEqual(driftRatesFromTau(LOCKED_DRIFT_TAU), [0, 0.001173, 0.004692, 0.01877, 0.07507, 0.3003]);
 });
 
 test("drift and forgetting grids bracket 1/tau and stay inside (0, 1)", () => {
@@ -272,6 +278,71 @@ test("CI does not run the phase or forgetting sweeps", () => {
   assert.equal(yml.includes("npm run matched-room"), false);
   assert.equal(yml.includes("npm run policy-terms"), false);
   assert.equal(yml.includes("npm run fed-room"), false);
+  assert.equal(yml.includes("npm run drift-room"), false);
+});
+
+test("a held pattern matches the drift picture and burns the same coin", () => {
+  const params = { learnability: 1, driftRate: 1, distractorRelevance: 0 };
+  const drift = createFamily("distractor", 15, 3000, { ...params, matchedPattern: "drift" }, false);
+  const held = createFamily("distractor", 15, 3000, { ...params, matchedPattern: "held" }, false);
+  assert.equal(drift.family.mode, "drift");
+  assert.equal(held.family.mode, "hold");
+  assert.equal(held.family.burnDrift, true);
+  assert.equal(drift.family.burnDrift, false);
+  assert.equal(drift.family.eastLatent, EAST_HOLD_LATENT);
+  assert.equal(held.family.eastLatent, EAST_HOLD_LATENT);
+  assert.deepEqual(Array.from(drift.family.glow), Array.from(held.family.glow));
+  let ones = 0;
+  let zeros = 0;
+  for (let i = 0; i < drift.family.glow.length; i++) {
+    if (drift.family.region[i] !== 1) continue;
+    if (drift.family.glow[i] === 1) ones += 1;
+    if (drift.family.glow[i] === 0) zeros += 1;
+  }
+  assert.ok(ones > 0 && zeros > 0);
+  const start = held.family.glow.slice();
+  const burn = (built: ReturnType<typeof createFamily>) => {
+    let n = 0;
+    applyFamily(built.cells, built.family, params, () => {
+      n += 1;
+      return 0;
+    });
+    return n;
+  };
+  assert.equal(burn(drift), burn(held));
+  assert.notEqual(drift.family.eastLatent, EAST_HOLD_LATENT);
+  assert.equal(held.family.eastLatent, EAST_HOLD_LATENT);
+  assert.deepEqual(Array.from(held.family.glow), Array.from(start));
+  assert.notDeepEqual(Array.from(drift.family.glow), Array.from(start));
+});
+
+test("a random walk ignores whether the matched pattern drifts", () => {
+  const walk = (arm: "drift" | "held") => {
+    const k = new Kernel("distractor", 9, undefined, {
+      env: distractorSpec({
+        learnability: 1,
+        driftRate: 1,
+        distractorRelevance: 0,
+        matchedPattern: arm,
+      }),
+      signal: "random",
+    });
+    const pos: number[] = [];
+    let foods = 0;
+    let lives = 0;
+    for (let t = 0; t < 80; t++) {
+      pos.push(k.x * 15 + k.y);
+      k.step();
+    }
+    foods = k.foods;
+    lives = k.lives;
+    return { pos, foods, lives };
+  };
+  const drift = walk("drift");
+  const held = walk("held");
+  assert.deepEqual(drift.pos, held.pos);
+  assert.equal(drift.foods, held.foods);
+  assert.equal(drift.lives, held.lives);
 });
 
 test("target foods are five non-edible markers and do not move a random walk", () => {

@@ -123,6 +123,47 @@ export function fedRoomSummary(randomExcludesZero: boolean, directed: FedCall[])
   return "mixed";
 }
 
+export type DriftShapeCall = "confirmed" | "refuted" | "inconclusive";
+
+/**
+ * Attraction peaks at the adaptation rate. Confirmed when the excess there
+ * lies entirely above 0 and entirely above both the slow rate and the fast
+ * rate. Refuted when that excess lies entirely below 0, or when it lies
+ * entirely below both extremes. Otherwise inconclusive.
+ */
+export function driftShapeCall(peak: Ends, peakMinusSlow: Ends, peakMinusFast: Ends): DriftShapeCall {
+  if (peak.lo > 0 && peakMinusSlow.lo > 0 && peakMinusFast.lo > 0) return "confirmed";
+  const trough = peakMinusSlow.hi < 0 && peakMinusFast.hi < 0;
+  if (peak.hi < 0 || trough) return "refuted";
+  return "inconclusive";
+}
+
+export type DriftSummary = "confirmed" | "refuted" | "shared" | "confounded" | "inconclusive";
+
+/**
+ * Rho is confirmed only when its shape peaks at the adaptation rate, the
+ * held-out initial-pattern probe is worse on the drifting arm there, and
+ * no other directed explorer shows the same shape. A random excess that
+ * excludes 0 means the pattern moved a walk that does not read it.
+ * A confirmed shape with a refuted probe is a refutation: the attraction
+ * is not the preregistered learning signature.
+ */
+export function driftSummary(
+  randomExcludesZero: boolean,
+  rhoShape: DriftShapeCall,
+  rhoProbe: Call,
+  otherShapes: DriftShapeCall[],
+): DriftSummary {
+  if (randomExcludesZero) return "confounded";
+  if (rhoShape === "refuted") return "refuted";
+  if (rhoShape === "confirmed" && rhoProbe === "refuted") return "refuted";
+  if (rhoShape === "confirmed" && rhoProbe === "confirmed") {
+    if (otherShapes.some((call) => call === "confirmed")) return "shared";
+    return "confirmed";
+  }
+  return "inconclusive";
+}
+
 export function matchedSummary(randomExcludesZero: boolean, directed: Call[]): MatchedSummary {
   if (randomExcludesZero) return "confounded";
   if (directed.length === 0 || directed.every((call) => call === "inconclusive")) return "inconclusive";

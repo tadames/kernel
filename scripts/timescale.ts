@@ -5,6 +5,7 @@
  *   npm run timescale
  */
 import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { adaptationCurve, fitTau } from "../src/lib/kernel/phase-run.ts";
 import { driftRatesFromTau, forgettingRatesFromTau, FORGETTING_FACTORS } from "../src/lib/kernel/family.ts";
 import { bootstrapMeanCI } from "../src/lib/kernel/stats.ts";
@@ -46,6 +47,7 @@ const report = {
   forgettingFactors: [...FORGETTING_FACTORS],
   fits,
 };
-mkdirSync("bench/phase", { recursive: true });
-writeFileSync("bench/phase/timescale.json", `${JSON.stringify(report, null, 2)}\n`);
+const out = arg("out", "bench/phase/timescale.json");
+mkdirSync(dirname(out), { recursive: true });
+writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify({ tau: ci, tauUsed: tau, censored, driftRates: report.driftRates, forgettingRates: report.forgettingRates }, null, 2));

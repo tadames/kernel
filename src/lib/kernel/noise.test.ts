@@ -11,6 +11,8 @@ import {
   amplitudeCall,
   greaterCall,
   logExcessSlope,
+  driftShapeCall,
+  driftSummary,
   fedRoomCall,
   fedRoomSummary,
   matchedContentCall,
@@ -74,6 +76,24 @@ test("log excess slope recovers -0.5 and rejects a flat excess", () => {
   const short = windows.map((w, i) => (i < 3 ? [1 / Math.sqrt(w)] : [-0.01]));
   const shortFit = logExcessSlope(windows, short, 50, 5);
   assert.equal(shortFit.call, "inconclusive");
+});
+
+test("drift shape peaks only when the middle clears both extremes", () => {
+  const up = { lo: 0.02, hi: 0.08 };
+  const down = { lo: -0.08, hi: -0.02 };
+  const flat = { lo: -0.01, hi: 0.01 };
+  assert.equal(driftShapeCall(up, up, up), "confirmed");
+  assert.equal(driftShapeCall(down, up, up), "refuted");
+  assert.equal(driftShapeCall(up, down, down), "refuted");
+  assert.equal(driftShapeCall(up, up, flat), "inconclusive");
+  assert.equal(driftShapeCall(flat, flat, flat), "inconclusive");
+  assert.equal(driftSummary(true, "confirmed", "confirmed", ["inconclusive", "inconclusive", "inconclusive"]), "confounded");
+  assert.equal(driftSummary(false, "refuted", "confirmed", ["inconclusive", "inconclusive", "inconclusive"]), "refuted");
+  assert.equal(driftSummary(false, "confirmed", "refuted", ["inconclusive", "inconclusive", "inconclusive"]), "refuted");
+  assert.equal(driftSummary(false, "confirmed", "confirmed", ["confirmed", "inconclusive", "inconclusive"]), "shared");
+  assert.equal(driftSummary(false, "confirmed", "confirmed", ["inconclusive", "inconclusive", "inconclusive"]), "confirmed");
+  assert.equal(driftSummary(false, "confirmed", "inconclusive", ["inconclusive", "inconclusive", "inconclusive"]), "inconclusive");
+  assert.equal(driftSummary(false, "inconclusive", "confirmed", ["inconclusive", "inconclusive", "inconclusive"]), "inconclusive");
 });
 
 test("call rules match the preregistration", () => {
