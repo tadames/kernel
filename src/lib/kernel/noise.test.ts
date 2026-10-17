@@ -4,11 +4,13 @@ import test from "node:test";
 import { Loop } from "./loop.ts";
 import { Kernel, CENTER, R, SIZE } from "./kernel.ts";
 import { senseGrid } from "./env.ts";
-import { createFamily } from "./family.ts";
+import { createFamily, distractorSpec, FAMILY_LAYOUT_SEED } from "./family.ts";
 import { runPhaseEpisode } from "./phase-run.ts";
 import { runNoiseEpisode } from "./noise-run.ts";
+import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, runBoostEpisode } from "./boost-run.ts";
 import {
   amplitudeCall,
+  boostSummary,
   greaterCall,
   logExcessSlope,
   driftShapeCall,
@@ -20,6 +22,7 @@ import {
   policySplitCall,
   policyTermsCall,
   seRemovalCall,
+  smallestDetecting,
   spuriousCall,
 } from "./noise.ts";
 import { curiosityScoreForArm } from "./noise-run.ts";
@@ -323,4 +326,72 @@ test("target foods leave a random noise episode on the empty-room path", () => {
 test("CI does not run the noise sweep", () => {
   const yml = readFileSync(".github/workflows/ci.yml", "utf8");
   assert.equal(yml.includes("npm run noise"), false);
+  assert.equal(yml.includes("boost-room"), false);
+});
+
+test("the place-bonus summary follows the locked gap and the far dose", () => {
+  assert.deepEqual([...BOOST_ADDS], [0.0085, 0.0169, 0.05, 0.15, 0.5, 2]);
+  assert.equal(BOOST_GAP, 0.0169);
+  assert.equal(BOOST_FAR, 0.15);
+  const calls = ["inconclusive", "inconclusive", "confirmed", "confirmed", "confirmed", "confirmed"] as const;
+  assert.equal(smallestDetecting(BOOST_ADDS, calls), 0.05);
+  assert.equal(boostSummary(false, "confirmed", 0.0169, BOOST_GAP, BOOST_FAR), "confirmed");
+  assert.equal(boostSummary(true, "confirmed", 0.0169, BOOST_GAP, BOOST_FAR), "confounded");
+  assert.equal(boostSummary(false, "refuted", null, BOOST_GAP, BOOST_FAR), "refuted");
+  assert.equal(boostSummary(false, "inconclusive", 0.05, BOOST_GAP, BOOST_FAR), "above-gap");
+  assert.equal(boostSummary(false, "inconclusive", 0.15, BOOST_GAP, BOOST_FAR), "above-gap");
+  assert.equal(boostSummary(false, "inconclusive", 0.5, BOOST_GAP, BOOST_FAR), "insensitive");
+  assert.equal(boostSummary(false, "inconclusive", null, BOOST_GAP, BOOST_FAR), "insensitive");
+  assert.equal(boostSummary(false, "inconclusive", 0.0085, BOOST_GAP, BOOST_FAR), "inconclusive");
+});
+
+test("a place bonus does not move a random walk and does raise the score gap", () => {
+  const base = {
+    id: 0,
+    seed: 4,
+    steps: 40,
+  };
+  const randomOff = runBoostEpisode({ ...base, signal: "random", add: 0 });
+  const randomOn = runBoostEpisode({ ...base, signal: "random", add: 2 });
+  assert.equal(randomOn.distractorFrac, randomOff.distractorFrac);
+  assert.equal(randomOn.foods, randomOff.foods);
+  assert.equal(randomOn.lives, randomOff.lives);
+  assert.equal(randomOn.scoreGap, 0);
+  assert.equal(randomOff.scoreGap, 0);
+
+  const spec = distractorSpec({
+    learnability: 1,
+    driftRate: 0,
+    distractorRelevance: 0,
+    matchedPattern: "held",
+  });
+  const make = (add: number) => {
+    const prev = Math.random;
+    Math.random = mulberry32(4);
+    try {
+      return new Kernel("distractor", 4, undefined, {
+        env: { ...spec, layoutSeed: FAMILY_LAYOUT_SEED },
+        signal: "rho",
+        intrinsicBoost: add === 0 ? undefined : { add, region: 1 },
+      });
+    } finally {
+      Math.random = prev;
+    }
+  };
+  const off = make(0);
+  const on = make(2);
+  const x = 9;
+  const y = 7;
+  assert.equal(off.regionAt(x, y), 0);
+  assert.equal(off.regionAt(x + 1, y), 1);
+  assert.equal(off.cells[y * SIZE + x], 0);
+  assert.equal(off.cells[y * SIZE + x + 1], 0);
+  off.x = x;
+  off.y = y;
+  on.x = x;
+  on.y = y;
+  off.step();
+  on.step();
+  assert.ok(on.scores[1]! > off.scores[1]! + 0.5, `east on ${on.scores[1]} off ${off.scores[1]}`);
+  assert.equal(on.scores[3], off.scores[3]);
 });

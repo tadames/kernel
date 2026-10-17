@@ -95,6 +95,15 @@ export type KernelOptions = {
     /** Imagined residual drop across later windows. Default on. */
     horizonDrop?: boolean;
   };
+  /**
+   * Measurement-only place bonus. Added to the progress channel of actions
+   * whose destination lies in `region`. Omitted is the shipped policy.
+   * Not a Loop feature flag. The default agent does not change.
+   */
+  intrinsicBoost?: {
+    add: number;
+    region: 0 | 1;
+  };
 };
 
 export type Thought = { t: number; text: string };
@@ -151,6 +160,8 @@ export class Kernel {
   /** Shipped score keeps both. The noise study turns them off per arm. */
   readonly scoreUncertainty: boolean;
   readonly scoreHorizonDrop: boolean;
+  /** Place bonus on the progress channel. Null is the shipped policy. */
+  readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -201,6 +212,11 @@ export class Kernel {
     this.progressMode = options?.progressMode ?? "ema";
     this.scoreUncertainty = options?.curiosityScore?.uncertainty !== false;
     this.scoreHorizonDrop = options?.curiosityScore?.horizonDrop !== false;
+    const boost = options?.intrinsicBoost;
+    if (boost && !(boost.add === 0 || Number.isFinite(boost.add))) {
+      throw new Error("intrinsicBoost.add must be finite");
+    }
+    this.intrinsicBoost = boost && boost.add !== 0 ? { add: boost.add, region: boost.region } : null;
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
@@ -639,6 +655,16 @@ export class Kernel {
         };
       },
       progressBonus: (a, pred) => signalActionBonus(this.signal, view, a, pred),
+      progExtra: this.intrinsicBoost
+        ? (a) => {
+            const boost = this.intrinsicBoost;
+            if (!boost) return 0;
+            const cell = view.destGrid(a);
+            const x = cell % SIZE;
+            const y = (cell / SIZE) | 0;
+            return this.regionAt(x, y) === boost.region ? boost.add : 0;
+          }
+        : undefined,
     });
     let temp = this.params.temperature;
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);

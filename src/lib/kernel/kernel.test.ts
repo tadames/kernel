@@ -124,6 +124,37 @@ test("uncertainty off removes the Bernoulli term and progress still scales novel
   assert.ok(Math.abs(scaled[0] - scaled[1]) < 1e-12, "equal novelty should tie once residual is gone");
 });
 
+test("a zero progress-channel bonus matches the shipped score and a positive bonus is local", () => {
+  const score = (extra?: (action: number) => number) => {
+    const scores = new Float32Array(2);
+    imagineScores({
+      acts: 2,
+      curiosity: 1,
+      goal: 0,
+      progressEma: 0.02,
+      ema: 0.2,
+      horizonRho: false,
+      imagined: [new Float32Array(2), new Float32Array(2)],
+      scores,
+      predict: (a, into) => {
+        into[0] = a === 0 ? 0.5 : 0.9;
+        into[1] = a === 0 ? 0.5 : 0.1;
+        return into;
+      },
+      read: () => ({ reward: 0, cost: 0, novelty: 0.4 }),
+      progExtra: extra,
+    });
+    return [scores[0]!, scores[1]!];
+  };
+  const base = score();
+  const zero = score(() => 0);
+  assert.equal(zero[0], base[0]);
+  assert.equal(zero[1], base[1]);
+  const boosted = score((action) => (action === 0 ? 0.5 : 0));
+  assert.ok(boosted[0] > base[0], `boosted ${boosted[0]} base ${base[0]}`);
+  assert.equal(boosted[1], base[1]);
+});
+
 test("horizon residual drop can be removed without changing a flat residual", () => {
   const run = (horizonRho: boolean) => {
     const into2 = [new Float32Array(2), new Float32Array(2)];

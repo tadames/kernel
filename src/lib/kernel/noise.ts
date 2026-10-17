@@ -141,6 +141,44 @@ export function driftShapeCall(peak: Ends, peakMinusSlow: Ends, peakMinusFast: E
 export type DriftSummary = "confirmed" | "refuted" | "shared" | "confounded" | "inconclusive";
 
 /**
+ * Smallest dose whose occupancy excess lies entirely above 0.
+ * Null when no dose on the grid detects.
+ */
+export function smallestDetecting(adds: readonly number[], calls: readonly Call[]): number | null {
+  let best: number | null = null;
+  for (let i = 0; i < adds.length; i++) {
+    if (calls[i] !== "confirmed") continue;
+    const add = adds[i]!;
+    if (best == null || add < best) best = add;
+  }
+  return best;
+}
+
+export type BoostSummary = "confirmed" | "refuted" | "above-gap" | "insensitive" | "confounded" | "inconclusive";
+
+/**
+ * Rho is sensitive at the locked progress gap when its excess there lies
+ * entirely above 0. A first detection above `far` (or none) is insensitive.
+ * A first detection above the gap and at or below `far` is above-gap.
+ * Random excluding 0 confounds the contrast. A negative excess at the gap
+ * refutes the preference.
+ */
+export function boostSummary(
+  randomExcludesZero: boolean,
+  rhoAtGap: Call,
+  smallest: number | null,
+  gap: number,
+  far: number,
+): BoostSummary {
+  if (randomExcludesZero) return "confounded";
+  if (rhoAtGap === "confirmed") return "confirmed";
+  if (rhoAtGap === "refuted") return "refuted";
+  if (smallest == null || smallest > far) return "insensitive";
+  if (smallest > gap) return "above-gap";
+  return "inconclusive";
+}
+
+/**
  * Rho is confirmed only when its shape peaks at the adaptation rate, the
  * held-out initial-pattern probe is worse on the drifting arm there, and
  * no other directed explorer shows the same shape. A random excess that
