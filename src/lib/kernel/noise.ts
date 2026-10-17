@@ -92,6 +92,176 @@ export type MatchedSummary = "noise" | "static" | "mixed" | "confounded" | "inco
  * All five inconclusive: the contrast does not resolve.
  * Anything else is mixed, and the per-explorer calls are the result.
  */
+export type FedCall = "closed" | "open" | "inconclusive";
+
+/**
+ * Foods close the empty-room gap when that gap was entirely above the
+ * walk and the fed excess is not. The gap stays open when the fed excess
+ * is entirely above the walk. Otherwise there was no gap to close.
+ * A fed interval of [0, 0] is closed when the empty gap was real.
+ */
+export function fedRoomCall(empty: Ends, fed: Ends): FedCall {
+  if (fed.lo > 0) return "open";
+  if (empty.lo > 0) return "closed";
+  return "inconclusive";
+}
+
+export type FedSummary = "empty" | "not-empty" | "mixed" | "confounded" | "inconclusive";
+
+/**
+ * All five directed gaps closed: the attractor was the empty room.
+ * All five still open: the foods did not close it.
+ * Random excluding 0 means the markers moved a walk that does not read
+ * observations, so the label is confounded and the directed calls are
+ * not an empty-room effect.
+ */
+export function fedRoomSummary(randomExcludesZero: boolean, directed: FedCall[]): FedSummary {
+  if (randomExcludesZero) return "confounded";
+  if (directed.length === 0 || directed.every((call) => call === "inconclusive")) return "inconclusive";
+  if (directed.every((call) => call === "closed")) return "empty";
+  if (directed.every((call) => call === "open")) return "not-empty";
+  return "mixed";
+}
+
+export type DriftShapeCall = "confirmed" | "refuted" | "inconclusive";
+
+/**
+ * Attraction peaks at the adaptation rate. Confirmed when the excess there
+ * lies entirely above 0 and entirely above both the slow rate and the fast
+ * rate. Refuted when that excess lies entirely below 0, or when it lies
+ * entirely below both extremes. Otherwise inconclusive.
+ */
+export function driftShapeCall(peak: Ends, peakMinusSlow: Ends, peakMinusFast: Ends): DriftShapeCall {
+  if (peak.lo > 0 && peakMinusSlow.lo > 0 && peakMinusFast.lo > 0) return "confirmed";
+  const trough = peakMinusSlow.hi < 0 && peakMinusFast.hi < 0;
+  if (peak.hi < 0 || trough) return "refuted";
+  return "inconclusive";
+}
+
+export type DriftSummary = "confirmed" | "refuted" | "shared" | "confounded" | "inconclusive";
+
+/**
+ * Smallest dose whose occupancy excess lies entirely above 0.
+ * Null when no dose on the grid detects.
+ */
+export function smallestDetecting(adds: readonly number[], calls: readonly Call[]): number | null {
+  let best: number | null = null;
+  for (let i = 0; i < adds.length; i++) {
+    if (calls[i] !== "confirmed") continue;
+    const add = adds[i]!;
+    if (best == null || add < best) best = add;
+  }
+  return best;
+}
+
+/**
+ * Rho's occupancy first clears at 0.05 and does not clear at 0.0169.
+ * Both numbers are the PR #11 dose curve. They are not re-estimated here.
+ */
+export const RHO_DETECT_DOSE = 0.05;
+export const RHO_UNDETECT_DOSE = 0.0169;
+
+/** Published detection dose of each directed explorer, same curve. */
+export const CHANNEL_DETECT_DOSE = {
+  count: 0.05,
+  surprise: 0.0169,
+  rnd: 0.0169,
+  rho: RHO_DETECT_DOSE,
+} as const;
+
+export type DosePlacement = "below" | "above" | "spans" | "too-few";
+
+/**
+ * Where a paired gap sits relative to one additive dose.
+ * Below: the CI lies entirely under the dose. Above: the lower end is at
+ * or above the dose. Too-few: the eligible seeds are not a majority.
+ */
+export function dosePlacement(ci: Ends, nSeeds: number, nEligible: number, dose: number): DosePlacement {
+  if (!(nEligible * 2 > nSeeds)) return "too-few";
+  if (ci.hi < dose) return "below";
+  if (ci.lo >= dose) return "above";
+  return "spans";
+}
+
+export type RhoGapBand =
+  | "below-undetectable"
+  | "rho-blind-band"
+  | "at-or-above-detectable"
+  | "spans-detectable"
+  | "too-few";
+
+/**
+ * Placement of rho's rectified-progress gap on the dose curve.
+ * Below 0.0169 is under every directed detection dose. The rho-blind band
+ * is under 0.05 and not entirely under 0.0169: surprise and RND detect a
+ * bonus of that size, and rho does not.
+ */
+export function rhoGapBand(ci: Ends, nSeeds: number, nEligible: number): RhoGapBand {
+  const place = dosePlacement(ci, nSeeds, nEligible, RHO_DETECT_DOSE);
+  if (place === "too-few") return "too-few";
+  if (place === "above") return "at-or-above-detectable";
+  if (place === "spans") return "spans-detectable";
+  if (ci.hi < RHO_UNDETECT_DOSE) return "below-undetectable";
+  return "rho-blind-band";
+}
+
+export type DriftGapSummary = "confirmed" | "refuted" | "inconclusive";
+
+/** Confirmed: the gap is below 0.05, so the occupancy null matches the curve. */
+export function driftGapSummary(band: RhoGapBand): DriftGapSummary {
+  if (band === "below-undetectable" || band === "rho-blind-band") return "confirmed";
+  if (band === "at-or-above-detectable") return "refuted";
+  return "inconclusive";
+}
+
+export type BoostSummary = "confirmed" | "refuted" | "above-gap" | "insensitive" | "confounded" | "inconclusive";
+
+/**
+ * Rho is sensitive at the locked progress gap when its excess there lies
+ * entirely above 0. A first detection above `far` (or none) is insensitive.
+ * A first detection above the gap and at or below `far` is above-gap.
+ * Random excluding 0 confounds the contrast. A negative excess at the gap
+ * refutes the preference.
+ */
+export function boostSummary(
+  randomExcludesZero: boolean,
+  rhoAtGap: Call,
+  smallest: number | null,
+  gap: number,
+  far: number,
+): BoostSummary {
+  if (randomExcludesZero) return "confounded";
+  if (rhoAtGap === "confirmed") return "confirmed";
+  if (rhoAtGap === "refuted") return "refuted";
+  if (smallest == null || smallest > far) return "insensitive";
+  if (smallest > gap) return "above-gap";
+  return "inconclusive";
+}
+
+/**
+ * Rho is confirmed only when its shape peaks at the adaptation rate, the
+ * held-out initial-pattern probe is worse on the drifting arm there, and
+ * no other directed explorer shows the same shape. A random excess that
+ * excludes 0 means the pattern moved a walk that does not read it.
+ * A confirmed shape with a refuted probe is a refutation: the attraction
+ * is not the preregistered learning signature.
+ */
+export function driftSummary(
+  randomExcludesZero: boolean,
+  rhoShape: DriftShapeCall,
+  rhoProbe: Call,
+  otherShapes: DriftShapeCall[],
+): DriftSummary {
+  if (randomExcludesZero) return "confounded";
+  if (rhoShape === "refuted") return "refuted";
+  if (rhoShape === "confirmed" && rhoProbe === "refuted") return "refuted";
+  if (rhoShape === "confirmed" && rhoProbe === "confirmed") {
+    if (otherShapes.some((call) => call === "confirmed")) return "shared";
+    return "confirmed";
+  }
+  return "inconclusive";
+}
+
 export function matchedSummary(randomExcludesZero: boolean, directed: Call[]): MatchedSummary {
   if (randomExcludesZero) return "confounded";
   if (directed.length === 0 || directed.every((call) => call === "inconclusive")) return "inconclusive";

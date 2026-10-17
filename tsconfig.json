@@ -40,6 +40,7 @@
     "scripts/diagnose-probe.ts",
     "scripts/instrument.ts",
     "scripts/noise.ts",
-    "scripts/noise-worker.ts"
+    "scripts/noise-worker.ts",
+    "scripts/fed.ts"
   ]
 }

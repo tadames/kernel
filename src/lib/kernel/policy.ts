@@ -79,11 +79,13 @@ function valueOf(
   rhoHat = 0,
   residualWeight?: (i: number) => number,
   uncertainty = true,
+  progExtra = 0,
 ): number {
   // Uncertainty is the Bernoulli residual. Off leaves visit-scent as the only explore term.
   const residual = uncertainty ? expectedResidual(pred, residualWeight) : 0;
   const explore = 0.7 * residual + 0.3 * v.novelty;
-  const prog = Math.max(0, learning) + 0.55 * Math.max(0, rhoHat);
+  // progExtra is a measurement hook. Zero is the shipped progress channel.
+  const prog = Math.max(0, learning) + progExtra + 0.55 * Math.max(0, rhoHat);
   const curious =
     curiosity * (0.75 * explore * (0.35 + 12 * prog) + 0.2 * explore);
   const g = goal * v.reward * (0.2 + 0.8 * confidence);
@@ -121,6 +123,12 @@ export function imagineScores(opts: {
    * Off is a measurement arm: progress still scales whatever explore remains.
    */
   uncertainty?: boolean;
+  /**
+   * Added to the progress channel of this first action, after rectification.
+   * Omitted is zero, which is the shipped score. Follow-up windows do not
+   * receive it: imagined steps have no grid region.
+   */
+  progExtra?: (action: number) => number;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -136,6 +144,7 @@ export function imagineScores(opts: {
     const v = opts.read(pred, a);
     const res1 = expectedResidual(pred, opts.residualWeight);
     let rhoHat = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
+    const extra = opts.progExtra ? opts.progExtra(a) : 0;
 
     if (twoStep) {
       let best2 = -Infinity;
@@ -173,10 +182,10 @@ export function imagineScores(opts: {
         best3 = best3v;
         if (horizonRho) rhoHat += Math.max(0, bestRes2 - bestRes3);
       }
-      const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty);
+      const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty, extra);
       opts.scores[a] = score1 + disc * confidence * best2 + disc * disc * confidence * best3;
     } else {
-      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty);
+      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty, extra);
     }
   }
   return opts.scores;

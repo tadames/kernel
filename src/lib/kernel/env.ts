@@ -40,6 +40,19 @@ export type EnvParams = {
    * is `static`. The policy RNG is a different stream.
    */
   staticSeed?: number;
+  /**
+   * Five non-edible food markers in region 1. Measurement only.
+   * Omitted leaves that room empty. The noise bits stay non-meals
+   * unless `distractorRelevance` says otherwise.
+   */
+  targetFoods?: boolean;
+  /**
+   * Matched pattern pair. Both arms start on one low-frequency pattern.
+   * `drift` redraws it with probability `driftRate`. `held` keeps it and
+   * still burns that coin, so a walk that ignores observations is paired.
+   * Omitted leaves the historical family. Measurement only.
+   */
+  matchedPattern?: "drift" | "held";
 };
 
 /** East-room glow scale. Absent when the historical 0/1 bit is in force. */
@@ -110,6 +123,7 @@ export function senseGrid(
   into: Float32Array,
   glow?: Uint8Array | null,
   glowGain?: GlowGain | null,
+  decoy?: Uint8Array | null,
 ): Float32Array {
   const view = radius * 2 + 1;
   const scaleEast = Boolean(glowGain && glowGain.amplitude !== 1);
@@ -121,7 +135,8 @@ export function senseGrid(
       const oob = wx < 0 || wy < 0 || wx >= size || wy >= size;
       const idx = oob ? -1 : wy * size + wx;
       const wallCell = !oob && cells[idx] === WALL;
-      const foodCell = !oob && cells[idx] === FOOD;
+      const decoyCell = !oob && !!decoy && decoy[idx] === 1;
+      const foodCell = !oob && (cells[idx] === FOOD || decoyCell);
       let glowVal = 0;
       if (!oob && !wallCell && !foodCell && glow && glow[idx]) {
         glowVal = scaleEast && glowGain!.region[idx] === 1 ? glowGain!.amplitude : 1;
