@@ -22,6 +22,7 @@
     "matched-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/matched.ts",
     "fed-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/fed.ts",
     "drift-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/drift.ts",
+    "drift-gap": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/drift-gap.ts",
     "boost-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/boost.ts",
     "timescale": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/timescale.ts",
     "phase": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/phase.ts",

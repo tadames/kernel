@@ -8,9 +8,14 @@ import { createFamily, distractorSpec, FAMILY_LAYOUT_SEED } from "./family.ts";
 import { runPhaseEpisode } from "./phase-run.ts";
 import { runNoiseEpisode } from "./noise-run.ts";
 import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, runBoostEpisode } from "./boost-run.ts";
+import { runDriftEpisode } from "./drift-run.ts";
+import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
+import { imagineScores } from "./policy.ts";
 import {
   amplitudeCall,
   boostSummary,
+  dosePlacement,
+  driftGapSummary,
   greaterCall,
   logExcessSlope,
   driftShapeCall,
@@ -21,6 +26,9 @@ import {
   matchedSummary,
   policySplitCall,
   policyTermsCall,
+  rhoGapBand,
+  RHO_DETECT_DOSE,
+  RHO_UNDETECT_DOSE,
   seRemovalCall,
   smallestDetecting,
   spuriousCall,
@@ -327,6 +335,85 @@ test("CI does not run the noise sweep", () => {
   const yml = readFileSync(".github/workflows/ci.yml", "utf8");
   assert.equal(yml.includes("npm run noise"), false);
   assert.equal(yml.includes("boost-room"), false);
+  assert.equal(yml.includes("drift-gap"), false);
+});
+
+test("the drift-gap call places a rectified gap on the dose curve", () => {
+  assert.equal(RHO_DETECT_DOSE, 0.05);
+  assert.equal(RHO_UNDETECT_DOSE, 0.0169);
+  const belowBoth = { lo: -0.01, hi: 0.01 };
+  const blind = { lo: 0.02, hi: 0.04 };
+  const above = { lo: 0.05, hi: 0.08 };
+  const spans = { lo: 0.01, hi: 0.07 };
+  assert.equal(dosePlacement(belowBoth, 200, 180, 0.05), "below");
+  assert.equal(dosePlacement(above, 200, 180, 0.05), "above");
+  assert.equal(dosePlacement(spans, 200, 180, 0.05), "spans");
+  assert.equal(dosePlacement(belowBoth, 200, 100, 0.05), "too-few");
+  assert.equal(rhoGapBand(belowBoth, 200, 180), "below-undetectable");
+  assert.equal(rhoGapBand(blind, 200, 180), "rho-blind-band");
+  assert.equal(rhoGapBand({ lo: -0.002, hi: 0.02 }, 200, 180), "rho-blind-band");
+  assert.equal(rhoGapBand(above, 200, 180), "at-or-above-detectable");
+  assert.equal(rhoGapBand(spans, 200, 180), "spans-detectable");
+  assert.equal(rhoGapBand(belowBoth, 200, 80), "too-few");
+  assert.equal(driftGapSummary("below-undetectable"), "confirmed");
+  assert.equal(driftGapSummary("rho-blind-band"), "confirmed");
+  assert.equal(driftGapSummary("at-or-above-detectable"), "refuted");
+  assert.equal(driftGapSummary("spans-detectable"), "inconclusive");
+  assert.equal(driftGapSummary("too-few"), "inconclusive");
+});
+
+test("an action bonus of b matches a progress-channel dose of 0.55 b", () => {
+  const score = (extra: { progressBonus?: (a: number) => number; progExtra?: (a: number) => number }) => {
+    const scores = new Float32Array(2);
+    imagineScores({
+      acts: 2,
+      curiosity: 1,
+      goal: 0,
+      progressEma: 0.01,
+      ema: 0.2,
+      horizonRho: false,
+      uncertainty: true,
+      imagined: [new Float32Array(2), new Float32Array(2)],
+      scores,
+      predict: (_a, into) => {
+        into[0] = 0.4;
+        into[1] = 0.6;
+        return into;
+      },
+      read: () => ({ reward: 0, cost: 0, novelty: 0.4 }),
+      ...extra,
+    });
+    return [scores[0]!, scores[1]!];
+  };
+  const bonus = 0.2;
+  const viaBonus = score({ progressBonus: (a) => (a === 0 ? bonus : 0) });
+  const viaDose = score({ progExtra: (a) => (a === 0 ? PROGRESS_SLOT_WEIGHT * bonus : 0) });
+  assert.equal(viaBonus[0], viaDose[0]);
+  assert.equal(viaBonus[1], viaDose[1]);
+  assert.ok(viaBonus[0] !== viaBonus[1]);
+});
+
+test("the drift-gap episode is the drift episode", () => {
+  const base = { id: 0, seed: 1, steps: 400, driftRate: 0.01877 } as const;
+  for (const arm of ["drift", "held"] as const) {
+    const drift = runDriftEpisode({ ...base, signal: "rho", arm });
+    const gap = runDriftGapEpisode({ ...base, signal: "rho", arm });
+    assert.equal(gap.distractorFrac, drift.distractorFrac);
+    assert.equal(gap.foods, drift.foods);
+    assert.equal(gap.lives, drift.lives);
+    const frac = gap.roomSteps ? gap.progressPos / gap.roomSteps : null;
+    assert.equal(frac, drift.targetProgressPos);
+    assert.equal(gap.channelSum, gap.rectSum);
+  }
+  const count = runDriftGapEpisode({ ...base, signal: "count", arm: "drift" });
+  const countDrift = runDriftEpisode({ ...base, signal: "count", arm: "drift" });
+  assert.equal(count.distractorFrac, countDrift.distractorFrac);
+  assert.equal(count.foods, countDrift.foods);
+  assert.equal(count.lives, countDrift.lives);
+  if (count.roomSteps > 0) {
+    const mean = count.channelSum / count.roomSteps;
+    assert.ok(mean > 0 && mean <= PROGRESS_SLOT_WEIGHT);
+  }
 });
 
 test("the place-bonus summary follows the locked gap and the far dose", () => {

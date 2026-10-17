@@ -1,5 +1,83 @@
 # Journal
 
+## 2026-10-17 drift progress gap (America/New_York)
+
+Written before `npm run drift-gap`. No rectified-progress gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The policy-sensitivity entry's next hypothesis is this measurement. Rho's occupancy does not clear at an additive progress-channel bonus of 0.0169, and it does clear at 0.05. The drift study at r* = 0.01877 measured a fraction of positive-progress steps, not a progress magnitude, so that fraction cannot be placed on the dose curve. This run measures the magnitude. It adds no curiosity term and no Loop flag.
+
+### Preregister drift progress gap
+
+Hypothesis. On the matched drift pair, the mean rectified progress in the target room, drift minus held, at the adaptation rate lies below 0.05. That is the smallest dose at which rho's occupancy excess cleared. A gap below 0.05 is what the dose curve predicts for the drift occupancy null, so the null is informative. A gap at or above 0.05 is not a failure of action selection: a planted bonus of that size moves rho into the room, and the next experiment would be why a reward of that size is not credited to the room.
+
+The pair is the PR #10 episode. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, `matchedPattern` drift versus held, the shared low-frequency pattern, the held arm burning the redraw coin. The rate is the locked critical cell of `driftRatesFromTau` on τ = 53.28471423768756, which is 0.01877. No other rate is run. Episodes are 400 steps. Seeds 1–200. Explorers: random, count, surprise, RND, rho. The seed stream is `seed * 10007 + 7301`, the drift episode's stream. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on. The place bonus stays off. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Primary metric. Rectified progress is max(0, raw progress), raw progress being the shipped ema minus surprise, read after the observation in the room is assimilated. A seed's number on one arm is the mean of that quantity over steps that began in region 1. The gap is the drifting arm minus the held arm, one number per seed. A seed with fewer than 8 steps in the room on either arm is dropped. That is `MIN_ROOM_STEPS`, the same bar as the noise-progress study whose rectified gap of 0.0169 is the dose-axis unit. Paired 95% percentile bootstrap, 2000 resamples, salt 6404. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+The dose axis is that rectified mean. PR #11 added the published gaps with coefficient 1 on the progress channel, beside max(0, progress), and rho first cleared at 0.05. The score's literal learning argument is max(0, progressEma), a slower ema of the same raw progress. That mean, drift minus held, salt 6504, is reported and is not the call. If its placement against 0.05 disagrees with the rectified call, the entry says so and the call stays on the rectified mean.
+
+Calls. `dosePlacement` against 0.05. Below when the CI lies entirely under the dose. Above when the lower end is at or above the dose. Spans when the CI contains the dose. Too-few when the eligible seeds are not a majority. `rhoGapBand` then places a below-0.05 interval against 0.0169, the dose where rho did not clear and surprise and RND did. Entirely under 0.0169 is below-undetectable. Otherwise, still under 0.05, it is the rho-blind band. `driftGapSummary` confirms the hypothesis on below-undetectable or the rho-blind band, refutes it on at-or-above 0.05, and is otherwise inconclusive. The sign of the gap, `greaterCall` on the same interval, is not a pass bit. A negative gap is still below 0.05.
+
+The sweep aborts before any call if any random-walk target-room fraction, meal count, or life count differs across the two arms.
+
+Harness, not a call. Rho's mean occupancy excess, drift minus held, must match the published PR #10 value −0.0032124999999999983. A difference beyond 1e-12 means this is not that episode. The gap is not published. The runner is fixed and the sweep is repeated. Occupancy intervals use salt 6700 + explorer and are not a test.
+
+Other channels, interpreted only when the summary is confirmed or refuted. They are not a second primary. Each is the mean, on the same target-room steps, of that explorer's own contribution to the progress channel, drift minus held, in the additive units of the doses. The action bonus enters that channel with weight 0.55, the coefficient in the shipped score. Rho's channel is the primary rectified mean, weight 1, the same coefficient PR #11 used for the published progress gap. Count is 0.55 / √(n+1) of the occupied cell at decision time, before the step. Surprise is 0.55 times the expected residual of the chosen action's imagined window, read from the prediction the policy just used. RND is 0.55 times the predictor error of the occupied cell at decision time, before the step trains. Random's channel is 0. A seed uses the same 8-step rule. Salts are 6600 + explorer. Placement uses `dosePlacement` against that explorer's published detection dose: count 0.05, surprise 0.0169, RND 0.0169, rho 0.05. Those doses are not re-estimated.
+
+Rectified progress and the policy ema under count, surprise, RND, and random are printed. They are the same learner on those paths. They are not those explorers' channels and they are not a call. Salts 6400 + explorer and 6500 + explorer.
+
+Decision, locked before the run. Confirmed: the drift occupancy null is what the dose curve predicts, and the null is informative at this gap. Refuted: the gap is large enough that the planted-bonus curve would have moved rho, so the null is a credit question, not an action-selection question. Inconclusive: the interval contains 0.05, or too few seeds entered the room. No policy retune and no new term in any of the three.
+
+Figures: `bench/drift-gap/gap-on-dose.png` and `bench/drift-gap/channel-gaps.png`. The first places the rectified gap on rho's published occupancy curve. The second is the channel gaps with the two doses marked. Source: `bench/drift-gap/gap.json`. The sweep is `npm run drift-gap`. It is not part of CI.
+
+### Results
+
+2000 episodes, 400 steps, 4 workers, 144 seconds. Source: `bench/drift-gap/gap.json`. The random walk is the same path on both arms, meals and lives included. Rho's occupancy excess matches the published PR #10 mean, −0.0032125, so this is that episode. The harness does not fail.
+
+#### Summary. Confirmed.
+
+The rectified-progress gap lies entirely below 0.05, and entirely below 0.0169. The band is below-undetectable. The hypothesis is confirmed: the drift occupancy null is what the dose curve predicts. The drifting room does not pay a place-specific progress bonus rho could have followed. It pays less. The policy is not retuned. No term is added.
+
+Rho at r* = 0.01877. Rectified progress is max(0, ema − surprise), mean over steps that began in the target room, drift minus held. 170 of 200 seeds had at least 8 steps in the room on both arms.
+
+| quantity | gap | n | place |
+|---|---|---|---|
+| rectified, the call | −0.0109 [−0.0125, −0.0093] | 170 | below 0.0169 |
+| policy ema, not the call | −0.0034 [−0.0048, −0.0020] | 170 | below 0.0169 |
+
+The interval lies entirely below 0. The upper end, −0.0093, is under the dose where surprise and RND first move, and under the dose where rho moves. The absolute gap is about 0.011. A bonus of that size was not detectable for rho at 0.0169, and this gap has the wrong sign for attraction. The literal learning argument, max(0, progressEma), agrees. Its interval is also entirely below 0 and entirely below 0.0169. The two placements do not disagree.
+
+Rectified progress under every policy, same pair, not a call. Every interval lies entirely below 0. The deficit is not rho's path.
+
+| explorer | rectified | n |
+|---|---|---|
+| random | −0.0119 [−0.0132, −0.0106] | 133 |
+| count | −0.0104 [−0.0117, −0.0091] | 200 |
+| surprise | −0.0099 [−0.0116, −0.0081] | 174 |
+| rnd | −0.0105 [−0.0119, −0.0091] | 149 |
+| rho | −0.0109 [−0.0125, −0.0093] | 170 |
+
+Own channels, interpreted because the summary is confirmed. Not a second primary. Count, surprise, and RND are in dose units: 0.55 times their action bonus. Rho's channel is the same seed gaps as the rectified call. Its interval below is the channel salt, so the ends differ from the call in the fourth digit. Both lie entirely below 0.0169.
+
+| explorer | channel | own dose | place |
+|---|---|---|---|
+| count | −0.0009 [−0.0047, 0.0027] | 0.05 | below, includes 0 |
+| surprise | 0.0260 [0.0212, 0.0307] | 0.0169 | above |
+| rnd | 0.0103 [0.0091, 0.0116] | 0.0169 | below, entirely above 0 |
+| rho | −0.0109 [−0.0125, −0.0094] | 0.05 | below 0.0169 |
+
+Count's occupied-cell bonus does not separate the arms. RND's occupied-cell error is higher in the drifting room, and the whole interval sits under 0.0169, so the dose curve does not predict an RND occupancy shift. Surprise's imagined residual, on the action taken inside the room, is higher by 0.0260 [0.0212, 0.0307]. That interval lies entirely above 0.0169, the dose at which a planted doorway bonus moved surprise. It is not a doorway bonus. It is the residual of actions already in the room. PR #10's surprise occupancy at this rate still includes 0. This channel does not replace that null.
+
+Figures: `bench/drift-gap/gap-on-dose.png`, `bench/drift-gap/channel-gaps.png`. The dose figure carries the gap as a number because a negative gap is not a mark on the positive dose axis. It sits to the left of 0.0085, 0.0169, and 0.05.
+
+No mechanism was added. The place bonus stays off. The default agent is unchanged. Both curiosity terms stay on. No Loop flag was added, and none was turned on. Five-seed bench, seeds 1–5, sha `2798c95`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. No kernel mechanism file changed, so the probe gate is not required.
+
+### Next hypothesis
+
+Do not retune the softmax, and do not add a curiosity term. The drift gap is negative and below 0.0169, so a more sensitive policy is not what this null was missing. The open measurement is the doorway. On this same pair, at r* only, the mean score of actions into region 1 minus the mean score of the others, drift minus held, for surprise and for rho. If surprise's doorway gap clears 0 and rho's does not, the residual is offered at the choice and rectified progress is not. If neither clears, the in-room surprise gap is not the bonus the dose curve planted. Forgetting-driven revisitation stays open and is not the next measurement. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-17 policy sensitivity (America/New_York)
 
 Written before `npm run boost-room`. No occupancy excess from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
