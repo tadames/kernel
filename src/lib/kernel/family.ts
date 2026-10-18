@@ -38,6 +38,8 @@ export const SPLIT_LAYOUT_SEED = 4000;
 export const WEST_LATENT = 3;
 export const EAST_HOLD_LATENT = 42;
 export const EAST_SPLIT_LATENT = 99;
+/** Block pattern. Mode 1, so the cycle world's east room is not west's stripes. */
+export const CYCLE_EAST_LATENT = 256;
 /** Mixes the episode seed into the frozen target-room picture. Not the policy RNG. */
 export const STATIC_DRAW_SALT = 0x5a17;
 
@@ -118,6 +120,7 @@ export function splitSpec(layoutSeed = SPLIT_LAYOUT_SEED): EnvSpec {
 
 function modeOf(kind: FamilyKind, params: EnvParams, patternHold: boolean): FamilyMode {
   if (kind === "split") return "split";
+  if (params.cycleWorld && kind === "distractor") return "hold";
   if (patternHold) return "hold";
   if (params.driftRate > 0) return "drift";
   return "noise";
@@ -175,7 +178,14 @@ export function createFamily(
       else stochastic[i] = rand() < learn ? 0 : 1;
     }
   }
-  const eastLatent = kind === "split" ? EAST_SPLIT_LATENT : patternHold || params.driftRate > 0 ? EAST_HOLD_LATENT : 0;
+  const eastLatent =
+    params.cycleWorld && kind === "distractor"
+      ? CYCLE_EAST_LATENT
+      : kind === "split"
+        ? EAST_SPLIT_LATENT
+        : patternHold || params.driftRate > 0
+          ? EAST_HOLD_LATENT
+          : 0;
   for (let y = 1; y < size - 1; y++) {
     for (let x = div + 1; x < size - 1; x++) {
       const i = y * size + x;
@@ -193,8 +203,10 @@ export function createFamily(
       left -= 1;
     }
   };
-  placeFood(5, 0);
-  if (kind === "split") placeFood(4, 1);
+  if (!params.cycleWorld) {
+    placeFood(5, 0);
+    if (kind === "split") placeFood(4, 1);
+  }
   const decoy = new Uint8Array(size * size);
   if (params.targetFoods && kind === "distractor") {
     const pool: number[] = [];

@@ -1,5 +1,115 @@
 # Journal
 
+## 2026-10-18 forgetting cycles (America/New_York)
+
+Written before `npm run cycle`. No probe, half-recovery, or autocorrelation from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The temperature entry's next hypothesis was the doorway score at r* and at 0.3003. That comparison is not this run. Priorities 1 and 2 are done: the drift gap sits on the dose curve, and temperature 0.15 is the instrument. This run is priority 3, the forgetting-driven revisitation question those entries left open. It adds no curiosity term. The default temperature stays 0.45. `forgettingRate` stays 0 unless a measurement passes it.
+
+The 2026-10-15 forgetting sweep is not evidence about cycles. It put food in both rooms, decayed weights on every step, and took the spectral peak anywhere between 20 steps and half the episode. Occupancy was sticky. The autocorrelation peak sat on the lag floor. The periods were low-frequency wander. There was no matched arm with forgetting removed, and no planted period to show the metric could see a cycle. This run changes that design. It does not repeat the slope test.
+
+### Preregister forgetting cycles
+
+Hypothesis. Once a room is learned, rho's progress falls and rho leaves. If the cell net forgets that room while the body is away, progress is available again on return, and rho's occupancy cycles at the forgetting period. The matched arm is the same rooms, the same patterns, and the same novelty, with the decay constant omitted. Count, surprise, and RND are scored with the same shape. Random is the confound check. A cycle that those three also show is not specific to learning progress.
+
+The world is the wide-door distractor, layout seed 3000, learnability 1, relevance 0, drift 0. West is the fixed stripe pattern. East is a block pattern, latent 256, so the two rooms are not the same stripes shifted by a cell. `cycleWorld` is measurement only. It places no food, does not eat, and does not drain energy. A death every hundred steps, or a meal that respawns, would impose its own period. Omitted, the historical maps are unchanged. Both arms use this world. The option is not a Loop flag. The default agent does not change, so the probe gate is not the keep rule.
+
+The decay constant is locked from the wide-door adaptation time, τ = 53.28471423768756. λ = 1 − exp(−ln 2 / τ) = 0.012924125031568812. One half-life of absence is one adaptation time. No other rate is run.
+
+Instrument, before any occupancy episode. Seeds 1–200. The seed stream is `seed * 10007 + 9201`. Scent is zero. The body does not move. Each step is one uniform transition, cell learning rate 4, the same pair the adaptation curve uses. The probe is region 1, 24 states, probe seed 20261018, wall and food channels only. Age stays 0, so the states do not move.
+
+Learn for 200 steps on region 1 with decay off. Away for 400 steps. The away probe is recorded at steps 0, 10, 20, …, 400. Three away arms fork from the learned weights:
+
+- held: no training, no decay
+- decay: no training, multiply the cell-net weights by 1 − λ each step
+- interference: train only on region 0, no decay
+
+A fourth run learns region 1 for 200 steps with decay on, from the same initial weights and the same transitions as the decay-off learn. That is the consolidation check. It is not an away arm.
+
+Calls. Paired 95% percentile bootstrap, 2000 resamples. `learns` is probe at step 0 minus probe at step 200 with decay off, salt 8001. Confirmed when the interval lies entirely above 0. `consolidates` is the per-seed midpoint (step 0 + step 200, decay off) / 2, minus the decay-on endpoint, salt 8002. Confirmed when that interval lies entirely above 0: decay during learning still finishes in the better half of the drop. `forgets` is the decay-away endpoint minus the held-away endpoint, salt 8003. Confirmed when the interval lies entirely above 0. Interference uses the same subtraction against held, salt 8004. It is reported and is not a gate. The λ = 0 policy still trains whichever room it stands in.
+
+Half-recovery. On one seed, the target is half the learn drop, 0.5 × (probe at 0 − probe at 200). A target below 0.01 is censored. H is the first probed away step where the decay probe minus the held probe reaches that target. A seed that never reaches it inside 400 steps is censored. A majority must be uncensored. The locked half-period is round(mean H). It has to sit in [20, 400]. 20 is the old lag floor and is shorter than a crossing of this map. The period P is twice that half. The episode is min(4800, max(1600, 8P)) steps, and it has to cover at least 4P. Otherwise the period is censored.
+
+`curveDecision` stops before any occupancy episode when learning is not confirmed (`no-learning`), consolidation is not confirmed (`no-consolidation`), forgetting is not confirmed (`no-forgetting`), or the period is censored (`period-censored`). The forgetting curve is the result in those four cases. The prediction that rho cycles is then not confirmed, and it is not refuted by an occupancy test the learner could not have fed. No curiosity term is added to manufacture a cycle.
+
+Occupancy, only when the decision is `run`. Seeds 1–200. Explorers random, count, surprise, RND, rho. Steps and P are the locked ones. Temperature 0.15. The forget arm sets `forgettingRate` to λ. The held arm omits it. The seed stream is `seed * 10007 + 9101`. The same seeds at temperature 0.45 are reported and are not this call.
+
+Primary metric. Autocorrelation of the region-1 bit, one bit per step, taken before the move, at lag P and at lag P/2. The definition is the sum of mean-centered products over n − lag, divided by the sum of squared deviations of the whole series. A flat series is 0. The period excess is forget minus held. The half excess is the same at P/2. Salts 8100 + explorer and 8200 + explorer. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+Shape, `cycleShapeCall`. Confirmed when the period excess lies entirely above 0 and the half excess lies entirely below 0. That is a cycle: more correlation at P, less at the opposite phase. Refuted when the period excess lies entirely below 0. Otherwise inconclusive. A high value at both lags is stickiness, and it does not confirm.
+
+Positive control, same world, decay off, temperature 0.15, seeds 1–200, the same P and the same episode length. The seed stream is `seed * 10007 + 9301`. Doses 0.05 and 0.15, the two doses at which rho's occupancy already clears at this temperature under a constant place bonus. The bonus is added to the progress channel of actions whose real destination is region 1, during the first half of each period, and nowhere during the second half. Imagined follow-ups do not receive it. The flat arm omits the option. Shape uses the same rule, periodic minus flat. Period salts are 8300 + 10 × explorer + dose. Half salts are 8400 + 10 × explorer + dose. Dose index is 0 for 0.05 and 1 for 0.15. `instrumentCall` is confirmed when rho's shape is confirmed at either dose. The smallest such dose is the calibrated threshold in the dose list. The autocorrelation excess at that dose is the effect a planted cycle produces, in the same units as the forgetting excess. It is the sensitivity report. It is not a second bar the forgetting excess has to clear.
+
+Summary, from `cycleSummary`, after the occupancy run. Instrument-blind when the positive control is not confirmed: a null is then the metric, not a result about rho. Confounded when random's shape is confirmed or refuted. Confirmed when rho's shape is confirmed and count, surprise, and RND are not. Shared when rho's shape is confirmed and at least one of those three is confirmed: the cycle is real and it is not specific to learning progress. Refuted when rho's shape is refuted. Otherwise inconclusive.
+
+The sweep aborts before any call if a cycle-world episode records a meal or a death, or if any random-walk occupancy checksum, meal count, or life count differs across the forget and held arms, or across the flat arm and a dose. Checksum is the occupancy bits folded with multiplier 33.
+
+Temperature 0.45 reuses the shape rule. Period salt 8500 + explorer. Half salt 8600 + explorer. It cannot confirm, refute, or blind the summary.
+
+Decision, locked before the run. `no-learning`, `no-consolidation`, `no-forgetting`, or `period-censored`: report the curve and do not claim a cycle. `confirmed`: rho cycles at the forgetting period and the other directed explorers do not. `shared`: the cycle is there and it is not a learning-progress result. `refuted`: decay lowers correlation at that period. `instrument-blind` or `inconclusive` or `confounded`: the occupancy test does not answer it. No policy retune and no new term in any of these.
+
+Figures: `bench/cycle/forget-curve.png`, `bench/cycle/acf-by-explorer.png`, `bench/cycle/positive-acf.png`. The curve is region-1 probe error against away time. The other two are the autocorrelation excesses. Source: `bench/cycle/cycle.json`. The sweep is `npm run cycle`. It is not part of CI.
+
+### Results
+
+The curve let the occupancy run. The planted square wave did not produce the anti-phase the shape requires, so the summary is instrument-blind. Rho's cycle is not confirmed and not refuted. The learner does forget a room it is not training, and it still consolidates while it trains. No term was added. Decay stays off.
+
+7000 occupancy episodes and 200 curve seeds, 4 workers, 1538 seconds. The curve was 7.4 seconds. Source: `bench/cycle/cycle.json`.
+
+#### Curve. Forgetting confirmed. Consolidation confirmed.
+
+λ = 0.012924125031568812. Region-1 probe, 24 states, 200 seeds. The learn drop is step 0 minus step 200 with decay off. The consolidation gap is the per-seed midpoint of that drop minus the endpoint of the same 200 steps with decay on. The away gaps are the step-400 probe minus the held arm.
+
+| check | value | call |
+|---|---|---|
+| learns | 0.1558 [0.1547, 0.1569] | confirmed |
+| consolidates | 0.0519 [0.0513, 0.0526] | confirmed |
+| forgets, decay minus held | 0.1490 [0.1485, 0.1494] | confirmed |
+| interference minus held, not a gate | 0.0099 [0.0093, 0.0106] | confirmed |
+
+Endpoints. Step 0 is 0.2566. Decay off ends at 0.1008, and the held arm is still 0.1008 after 400 steps of doing nothing. Decay on during learning ends at 0.1268, below the midpoint. Decay with no training ends at 0.2498, back at the prior. Training the other room, with no decay, ends at 0.1108. Interference is real and about fifteen times smaller than the decay rise. The λ = 0 arm does not forget the room by capacity.
+
+Half-recovery is 86.15 steps [85.45, 86.85], 200 of 200 seeds uncensored. The locked half is 86. P = 172. The episode is 1600 steps, nine periods. `curveDecision` is `run`.
+
+Figure: `bench/cycle/forget-curve.png`.
+
+#### Positive control. Instrument inconclusive.
+
+Temperature 0.15, decay off, period 172. Autocorrelation excess is the square wave minus the flat arm. Rho's period excess lies entirely above 0 at both doses. The half-period excess also lies entirely above 0. A cycle would have put the half below 0. The shape is inconclusive at both doses. `instrumentCall` is inconclusive. No dose is detected. The occupancy test does not get to confirm a cycle.
+
+| dose | period excess | half excess | shape |
+|---|---|---|---|
+| 0.05 | 0.0732 [0.0466, 0.1016] | 0.0539 [0.0254, 0.0833] | inconclusive |
+| 0.15 | 0.0872 [0.0590, 0.1136] | 0.0669 [0.0354, 0.0967] | inconclusive |
+
+The other explorers match that sign. At 0.15, surprise's period excess is 0.1188 [0.0905, 0.1462] and its half excess is 0.0481 [0.0150, 0.0809]. Count's period excess is 0.0715 [0.0479, 0.0957] and its half includes 0. RND's period excess is 0.0730 [0.0406, 0.1030] and its half is 0.0735 [0.0432, 0.1027]. Random is 0 at both lags and both doses. The wave makes the series stickier. It does not alternate.
+
+Figure: `bench/cycle/positive-acf.png`.
+
+#### Occupancy. Instrument-blind.
+
+Temperature 0.15 is the call. Excess is decay minus held. The summary is instrument-blind. Rho's shape is inconclusive. Surprise's period excess lies entirely below 0, so its shape is refuted, and that refutation is not the summary: the planted wave did not certify the shape. Count and RND are inconclusive. Random is a point mass at 0, so the summary is not confounded.
+
+| explorer | period excess | half excess | shape |
+|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.0030 [−0.0195, 0.0264] | 0.0029 [−0.0196, 0.0237] | inconclusive |
+| surprise | −0.0463 [−0.0730, −0.0178] | 0.0132 [−0.0189, 0.0444] | refuted |
+| rnd | 0.0087 [−0.0184, 0.0368] | 0.0091 [−0.0166, 0.0364] | inconclusive |
+| rho | −0.0186 [−0.0476, 0.0113] | −0.0022 [−0.0313, 0.0286] | inconclusive |
+
+East-room fraction, decay minus held, is not a call. At 0.15, rho is 0.0548 [0.0352, 0.0753], surprise is 0.1096 [0.0860, 0.1323], and count is 0.0202 [0.0107, 0.0290]. RND includes 0, 0.0180 [−0.0025, 0.0400]. Decay moves time in the room. It does not move it periodically. The level shift is largest for surprise, which scores the error the decay creates, and rho's shift is smaller. Neither is the shape.
+
+Temperature 0.45 is not the call. Every shape is inconclusive. Rho's period excess is 0.0135 [−0.0118, 0.0382] and its half excess is 0.0173 [−0.0073, 0.0412]. Rho's east fraction includes 0, 0.0124 [−0.0052, 0.0317]. Surprise's east fraction is 0.0219 [0.0005, 0.0440]. The colder temperature is what made rho's level shift visible. It did not make a cycle.
+
+Figure: `bench/cycle/acf-by-explorer.png`.
+
+`cycleWorld` and `periodicBoost` stay off unless a measurement passes them. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. No Loop flag was added, and none was turned on. The transition probe gate was run again because `kernel.ts` is on the mechanism list. It still passes: off − on 0.1234 [0.1150, 0.1307]. It was not this claim. Five-seed bench, seeds 1–5, sha `7772b50`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn decay on, and do not add a curiosity term. The cell net forgets a room it is not training, on an 86-step half-recovery, and a planted square wave of period 172 does not write an anti-phase into occupancy. Rho's autocorrelation at that period, decay minus held, includes 0. The open measurement is a count of returns that begin after the room probe has risen, decay minus held, at temperature 0.15, with the same no-food world. The doorway score at r* and at 0.3003 stays open and is not the next measurement. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-17 policy temperature (America/New_York)
 
 Written before `npm run sharp`. No occupancy excess from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

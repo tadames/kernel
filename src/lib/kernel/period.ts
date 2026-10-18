@@ -58,6 +58,28 @@ export function spectralPeriod(
   return { period: bestPeriod, power: bestP, ratio };
 }
 
+/**
+ * Pearson autocorrelation at one lag. The numerator stops at n − lag.
+ * The denominator is the whole series, matching `acfPeriod`. A flat series is 0.
+ */
+export function acfAt(series: ArrayLike<number>, lag: number) {
+  const n = series.length;
+  if (!(lag >= 1) || lag >= n - 1) return 0;
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += series[i]!;
+  mean /= n;
+  let varSum = 0;
+  for (let i = 0; i < n; i++) {
+    const d = series[i]! - mean;
+    varSum += d * d;
+  }
+  if (varSum < 1e-12) return 0;
+  let s = 0;
+  const hi = n - lag;
+  for (let i = 0; i < hi; i++) s += (series[i]! - mean) * (series[i + lag]! - mean);
+  return s / varSum;
+}
+
 /** First autocorrelation peak inside the lag window, if it clears `minCorr`. */
 export function acfPeriod(series: ArrayLike<number>, minLag: number, maxLag: number, minCorr = 0.15) {
   const n = series.length;
