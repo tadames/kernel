@@ -1,5 +1,100 @@
 # Journal
 
+## 2026-10-18 phase-locked cycles (America/New_York)
+
+Written before `npm run cycle-phase`. No phase contrast from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The previous entry's next hypothesis was a count of returns that begin after the room probe has risen. That count is not this run. The cycle question was left inconclusive because the instrument failed its positive control, not because decay was shown to be arrhythmic. This run is the second pass on that instrument. It adds no curiosity term. The default temperature stays 0.45. `forgettingRate` stays 0 unless a measurement passes it. `periodicBoost` stays off unless a measurement passes it.
+
+### Preregister phase contrast
+
+Hypothesis. The autocorrelation shape failed because a slow occupancy change is positive at every lag inside an episode, including the opposite phase. A cycle at the forgetting period is a difference between the two halves of that period. The matched arm is still decay against the same rooms and the same patterns with the decay constant omitted. Count, surprise, and RND are scored with the same shape. Random is the confound check.
+
+Checked before this registration, on synthetic series, not as the claim. `acfAt` already subtracts the series mean, so a constant level does not move it. A ramp from 0.1 to 0.5 across nine periods of length 172 has autocorrelation above 0.5 at lag 172 and at lag 86. The same ramp's phase contrasts both sit inside ±0.05. A 50% square wave of period 172 has on-half contrast 1 and half-period contrast 0. A square wave of period 86 swaps those two numbers. Linear detrending removes a pure ramp and does not separate a level change of a sticky series from a cycle: both lags stay positive. Subtracting each period's own mean turns the ramp into a sawtooth that passes the old shape test. That estimator is rejected. The instrument is the phase contrast.
+
+The world, the decay constant, the curve, and the period lock are the previous entry's. λ = 0.012924125031568812. Seeds 1–200. Curve seed stream `seed * 10007 + 9201`. The same four curve calls, the same salts 8001–8005, and the same `curveDecision`. If the decision is not `run`, the sweep stops. The prediction that rho cycles is then not confirmed and not refuted. No curiosity term is added to manufacture a cycle.
+
+Instrument. Occupancy is the region-1 bit, taken before the move. The fundamental contrast is the mean of that bit on the planted on-half minus the mean on the off-half. The on-half is the first half of each period, the same clock as `periodicBoostOn`. Only complete periods are scored. A tail shorter than one period is dropped, so an unfinished cycle cannot move the contrast. The half-period contrast uses the same prefix. It is high on the first and third quarters of the planted clock and low on the second and fourth. A 50% square wave of period P is orthogonal to that template. Its half-period contrast is 0, not negative. The old shape test asked for a negative autocorrelation at lag P/2. A square wave has that negative lag correlation, and the agent's series did not, because the slow component dominated the lag. This test does not ask the half-period template to go negative.
+
+Shape, `phaseShapeCall`. The number is the arm difference, paired on the seed. Confirmed when the fundamental interval lies entirely above 0 and the half-period interval does not. Refuted when the fundamental interval lies entirely below 0. Otherwise inconclusive. An interval that lies entirely above 0 at both templates is the failure this instrument exists to avoid. It does not confirm.
+
+Positive control, before any decay episode. Same world, decay off, temperature 0.15, seeds 1–200, the locked P and the locked episode length. Seed stream `seed * 10007 + 9301`. Doses 0.0085, 0.0169, 0.05, 0.15, 0.5. The bonus is added to the progress channel of actions whose real destination is region 1, during the on-half, and nowhere during the off-half. The flat arm omits the option. Explorers random, count, surprise, RND, rho. Shape is boosted minus flat. Fundamental salts are 8800 + 10 × explorer + dose. Half-period salts are 8900 + 10 × explorer + dose. Dose index follows the ladder above, 0 through 4. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. East-room fraction uses salt 9000 + 10 × explorer + dose and is not a call. Autocorrelation at P and at P/2 is reported with salts 7600 and 7700 on the same index and is not a call. `instrumentCall` is confirmed when rho's phase shape is confirmed at one or more doses. The smallest such dose is the detection threshold. The fundamental contrast at that dose is the sensitivity, in the same units as the forgetting contrast. It is the bar a forgetting interval has to clear in the sense that an interval which includes 0 did not pass the test the ladder used. It is not a second cutoff taken from that dose's mean.
+
+`instrumentCall` refuted, or inconclusive, stops the sweep. The summary is instrument-blind. Rho's cycle is not confirmed and not refuted. The occupancy comparison is not run.
+
+Forgetting occupancy runs only when the instrument is confirmed. Explorers, seeds, steps, and P are the locked ones. Temperature 0.15 is the call. The forget arm sets `forgettingRate` to λ. The held arm omits it. Seed stream `seed * 10007 + 9101`. Fundamental salt 9600 + explorer. Half salt 9700 + explorer. East fraction uses salt 8700 + explorer and is not a call. Autocorrelation uses salts 8100 and 8200 and is not a call. The same seeds at temperature 0.45 use fundamental salt 9800 + explorer, half salt 9900 + explorer, east salt 8710 + explorer, autocorrelation salts 8500 and 8600. Temperature 0.45 cannot confirm, refute, confound, or blind the summary.
+
+Summary, from `cycleSummary`, after the occupancy run. Instrument-blind when the positive control is not confirmed. Confounded when random's phase shape is confirmed or refuted. Confirmed when rho's phase shape is confirmed and count, surprise, and RND are not. Shared when rho's shape is confirmed and at least one of those three is confirmed. Refuted when rho's phase shape is refuted. Otherwise inconclusive. The call is that shape. A forgetting contrast smaller than the detecting dose's contrast, whose interval still lies entirely above 0 and whose half-period interval does not, is confirmed: it cleared the same test. The two contrasts are reported side by side.
+
+The sweep aborts before any call if a cycle-world episode records a meal or a death, or if any random-walk occupancy checksum, meal count, or life count differs across the forget and held arms, or across the flat arm and a dose.
+
+Decision, locked before the run. Curve not `run`: report the curve and do not claim a cycle. `instrument-blind`: the planted wave was not seen, and the cycle question stays unanswered. `confirmed`: rho cycles at the forgetting period and the other directed explorers do not. `shared`: the cycle is there and it is not a learning-progress result. `refuted`: decay lowers the planted-phase contrast. `inconclusive` or `confounded`: the occupancy test does not answer it. No policy retune and no new term in any of these.
+
+Figures: `bench/cycle-phase/forget-curve.png`, `bench/cycle-phase/positive-phase.png`, and, only if the instrument passes, `bench/cycle-phase/phase-by-explorer.png`. Source: `bench/cycle-phase/cycle.json`. The sweep is `npm run cycle-phase`. It is not part of CI.
+
+### Results
+
+The curve reproduced. The planted wave passed the phase shape at every dose, so the occupancy run was allowed. Rho's decay-minus-held contrast lies entirely below 0. The summary is refuted. Decay stays off. No term was added.
+
+10200 episodes, 4 workers, 2094 seconds. The curve was 7.0 seconds. The planted wave was 6000 episodes and 1255 seconds. The forgetting comparison was 4000 episodes and 831 seconds. Source: `bench/cycle-phase/cycle.json`.
+
+#### Curve. Reproduced.
+
+λ = 0.012924125031568812. Half-recovery 86.15 [85.45, 86.85], 200 of 200 uncensored. P = 172. The episode is 1600 steps. Phase contrasts use the first 1548, nine complete periods. `curveDecision` is `run`.
+
+| check | value | call |
+|---|---|---|
+| learns | 0.1558 [0.1547, 0.1569] | confirmed |
+| consolidates | 0.0519 [0.0513, 0.0526] | confirmed |
+| forgets, decay minus held | 0.1490 [0.1485, 0.1494] | confirmed |
+| interference minus held, not a gate | 0.0099 [0.0093, 0.0106] | confirmed |
+
+These are the previous entry's intervals, same salts. Figure: `bench/cycle-phase/forget-curve.png`.
+
+#### Positive control. Instrument confirmed. Threshold 0.0085.
+
+Temperature 0.15, decay off, period 172. Excess is the square wave minus the flat arm. Rho's phase shape is confirmed at all five doses. The half-period interval includes 0 at every dose, so the wave is not also an in-phase cycle at P/2. `instrumentCall` is confirmed. The detection threshold is 0.0085. The sensitivity at that dose is 0.0146 [0.0038, 0.0246].
+
+| dose | phase excess | half excess | shape | autocorrelation at P, not a call |
+|---|---|---|---|---|
+| 0.0085 | 0.0146 [0.0038, 0.0246] | 0.0013 [−0.0063, 0.0086] | confirmed | 0.0067 [−0.0147, 0.0281] |
+| 0.0169 | 0.0268 [0.0143, 0.0392] | 0.0044 [−0.0026, 0.0115] | confirmed | 0.0141 [−0.0097, 0.0381] |
+| 0.05 | 0.0668 [0.0529, 0.0812] | 0.0048 [−0.0030, 0.0127] | confirmed | 0.0732 [0.0471, 0.1000] |
+| 0.15 | 0.1025 [0.0879, 0.1166] | 0.0043 [−0.0038, 0.0120] | confirmed | 0.0872 [0.0606, 0.1127] |
+| 0.5 | 0.1080 [0.0941, 0.1216] | 0.0049 [−0.0029, 0.0124] | confirmed | 0.0894 [0.0591, 0.1203] |
+
+The autocorrelation means at 0.05 and 0.15 are the previous entry's, 0.0732 and 0.0539, then 0.0872 and 0.0669. Both lags are still positive there, so the old shape is still inconclusive on the episodes where the phase shape is confirmed. At 0.0085 the autocorrelation interval includes 0 at both lags. The phase contrast does not.
+
+Random is a point mass at 0 on every dose. Count, surprise, and RND confirm the phase shape at 0.05 and at 0.15. The wave is on the shared progress channel. Surprise at 0.5 is the one directed row whose half-period interval lies entirely above 0, 0.0110 [0.0010, 0.0208], so that shape is inconclusive: a large dose can write the second harmonic. Rho's half interval never does. East fraction, not a call, rises with dose. Rho is 0.1323 [0.1130, 0.1516] at 0.05 and 0.2056 [0.1832, 0.2292] at 0.15. The level is larger than the phase contrast. The contrast is what the shape uses.
+
+Figure: `bench/cycle-phase/positive-phase.png`.
+
+#### Occupancy. Refuted.
+
+Temperature 0.15 is the call. Excess is decay minus held. Rho's phase interval lies entirely below 0. The half-period interval includes 0. The shape is refuted. Count, surprise, and RND include 0. Random is a point mass at 0, so the summary is not confounded. `cycleSummary` is refuted.
+
+| explorer | phase excess | half excess | shape |
+|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.0096 [−0.0082, 0.0280] | 0.0007 [−0.0104, 0.0119] | inconclusive |
+| surprise | −0.0088 [−0.0252, 0.0080] | −0.0037 [−0.0130, 0.0053] | inconclusive |
+| rnd | −0.0013 [−0.0134, 0.0110] | 0.0004 [−0.0066, 0.0075] | inconclusive |
+| rho | −0.0172 [−0.0300, −0.0041] | −0.0005 [−0.0080, 0.0068] | refuted |
+
+The threshold dose produced +0.0146 [0.0038, 0.0246]. Rho's forgetting contrast is −0.0172 [−0.0300, −0.0041]. The interval lies entirely below 0, and the absolute mean is larger than the smallest planted effect the instrument confirmed. This is not a miss under the bar. The sign is the opposite of the planted on-half.
+
+East fraction, not a call, reproduces the previous entry. Rho 0.0548 [0.0352, 0.0753], surprise 0.1096 [0.0860, 0.1323], count 0.0202 [0.0107, 0.0290], RND 0.0180 [−0.0025, 0.0400]. A linear rise of 0.0548 across 1600 steps shifts the on-half against the off-half by about −0.0548 × 86 / 1600 = −0.0029. The contrast is −0.0172. A ramp of that level does not account for it. The half-period contrast includes 0, so the negative fundamental is not a cycle at P/2. It is more east time in the second half of each period of 172 than in the first. The locked rule calls that refuted: the first half is not the high half. The autocorrelation shape on these same episodes is still inconclusive for rho, −0.0186 [−0.0476, 0.0113] at P and −0.0022 [−0.0313, 0.0286] at P/2, the previous entry's intervals.
+
+Temperature 0.45 is not the call. Rho's phase excess includes 0, −0.0016 [−0.0114, 0.0077]. Rho's east fraction includes 0, 0.0124 [−0.0052, 0.0317]. RND's phase excess lies entirely below 0, −0.0114 [−0.0208, −0.0021], and its half excess does too, −0.0064 [−0.0124, −0.0011]. That shape is refuted and cannot change the summary.
+
+Figure: `bench/cycle-phase/phase-by-explorer.png`.
+
+`cycleWorld` and `periodicBoost` stay off unless a measurement passes them. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. No Loop flag was added, and none was turned on. The phase contrast is computed after the episode. It does not enter the score. Five-seed bench, seeds 1–5, sha `66152a2`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn decay on, and do not add a curiosity term. The phase-locked contrast refutes a cycle whose high half is the first half of each period of 172. Flipping the template is not a second look at that claim. The open measurement is the count of returns that begin after the room probe has risen, decay minus held, at temperature 0.15, in the same no-food world. The doorway score at r* and at 0.3003 stays open and is not the next measurement. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-18 forgetting cycles (America/New_York)
 
 Written before `npm run cycle`. No probe, half-recovery, or autocorrelation from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

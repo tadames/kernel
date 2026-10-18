@@ -8,7 +8,7 @@ import { senseGrid, stepGrid, type GridBody } from "./env.ts";
 import { cloneFamily, CYCLE_EAST_LATENT, distractorSpec, FAMILY_LAYOUT_SEED, regionCells } from "./family.ts";
 import { mulberry32 } from "./presets.ts";
 import type { CuriositySignal } from "./signals.ts";
-import { acfAt } from "./period.ts";
+import { acfAt, halfPhaseContrast, phaseContrast } from "./period.ts";
 import {
   AWAY_STEPS,
   CYCLE_LAMBDA,
@@ -60,6 +60,10 @@ export type EpisodeResult = {
   arm: "forget" | "held" | "periodic";
   acfPeriod: number;
   acfHalf: number;
+  /** On-half minus off-half, complete periods only. */
+  phasePeriod: number;
+  /** In-phase contrast of the P/2 template. Zero on a 50% square of period P. */
+  phaseHalf: number;
   eastFrac: number;
   foods: number;
   lives: number;
@@ -234,6 +238,8 @@ export function runCycleEpisode(job: Extract<CycleJob, { kind: "episode" }>): Ep
       arm: job.arm,
       acfPeriod: acfAt(bits, job.period),
       acfHalf: acfAt(bits, half),
+      phasePeriod: phaseContrast(bits, job.period),
+      phaseHalf: halfPhaseContrast(bits, job.period),
       eastFrac: job.steps ? east / job.steps : 0,
       foods: k.foods,
       lives: k.lives,

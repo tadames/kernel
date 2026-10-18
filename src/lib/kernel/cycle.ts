@@ -31,6 +31,13 @@ export const MIN_CYCLES = 4;
 /** Doses already known to move rho's occupancy at temperature 0.15. */
 export const POSITIVE_DOSES = [0.05, 0.15] as const;
 
+/**
+ * Planted-wave ladder for the phase-locked instrument.
+ * The two middle doses are the ones that moved occupancy. The ends bracket
+ * them: below the constant-bonus threshold, and up at the saturating dose.
+ */
+export const PHASE_DOSES = [0.0085, 0.0169, 0.05, 0.15, 0.5] as const;
+
 export const PRIMARY_TEMPERATURE = 0.15;
 export const SHIPPED_TEMPERATURE = 0.45;
 
@@ -110,6 +117,20 @@ export function curveDecision(input: {
 export function cycleShapeCall(atPeriod: Ends, atHalf: Ends): Call {
   if (atPeriod.lo > 0 && atHalf.hi < 0) return "confirmed";
   if (atPeriod.hi < 0) return "refuted";
+  return "inconclusive";
+}
+
+/**
+ * Phase-locked shape. Confirmed when the planted half is high and the
+ * half-period template is not. A 50% square is orthogonal to that template,
+ * so the half contrast of a real cycle is near zero, not negative.
+ * Both contrasts clearing zero is the autocorrelation failure: the series
+ * is in phase at P and at P/2. That stays inconclusive.
+ * Refuted when the planted half is the low one.
+ */
+export function phaseShapeCall(fundamental: Ends, half: Ends): Call {
+  if (fundamental.lo > 0 && !(half.lo > 0)) return "confirmed";
+  if (fundamental.hi < 0) return "refuted";
   return "inconclusive";
 }
 

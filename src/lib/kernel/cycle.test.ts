@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { acfAt } from "./period.ts";
+import { acfAt, halfPhaseContrast, phaseContrast } from "./period.ts";
 import { createFamily, CYCLE_EAST_LATENT, patternBit, WEST_LATENT } from "./family.ts";
 import { Kernel, periodicBoostOn } from "./kernel.ts";
 import { cycleSpec, runCycleEpisode } from "./cycle-run.ts";
@@ -11,6 +11,7 @@ import {
   curveDecision,
   cycleShapeCall,
   cycleSummary,
+  phaseShapeCall,
   episodeLength,
   halfRecovery,
   instrumentCall,
@@ -53,6 +54,40 @@ test("curve decision stops unless learning, consolidation, forgetting, and a per
   assert.equal(locked.steps, 1600);
   assert.equal(episodeLength(400), 4800);
   assert.equal(episodeLength(19), null);
+});
+
+test("a square wave is orthogonal to the half-period template, and a ramp is not a cycle", () => {
+  const period = 172;
+  const n = period * 9;
+  const square: number[] = [];
+  const halfWave: number[] = [];
+  const ramp: number[] = [];
+  const quarter = period / 4;
+  for (let t = 0; t < n; t++) {
+    const on = Math.floor(t / (period / 2)) % 2 === 0;
+    square.push(on ? 1 : 0);
+    halfWave.push(Math.floor(t / quarter) % 2 === 0 ? 1 : 0);
+    ramp.push(0.1 + (0.4 * t) / (n - 1));
+  }
+  // A short tail must not move the square off orthogonality.
+  square.push(1, 1, 1);
+  assert.equal(phaseContrast(square, period), 1);
+  assert.equal(halfPhaseContrast(square, period), 0);
+  assert.equal(phaseContrast(halfWave, period), 0);
+  assert.equal(halfPhaseContrast(halfWave, period), 1);
+  assert.ok(acfAt(ramp, period) > 0.5);
+  assert.ok(acfAt(ramp, period / 2) > 0.5);
+  assert.ok(Math.abs(phaseContrast(ramp, period)) < 0.05);
+  assert.ok(Math.abs(halfPhaseContrast(ramp, period)) < 0.05);
+  assert.equal(phaseContrast([0.2, 0.2, 0.2, 0.2], 2), 0);
+});
+
+test("phase shape confirms a planted half and rejects an in-phase half-period", () => {
+  assert.equal(phaseShapeCall({ lo: 0.02, hi: 0.08 }, { lo: -0.01, hi: 0.01 }), "confirmed");
+  assert.equal(phaseShapeCall({ lo: 0.02, hi: 0.08 }, { lo: -0.04, hi: -0.01 }), "confirmed");
+  assert.equal(phaseShapeCall({ lo: 0.02, hi: 0.08 }, { lo: 0.01, hi: 0.04 }), "inconclusive");
+  assert.equal(phaseShapeCall({ lo: -0.08, hi: -0.01 }, { lo: -0.01, hi: 0.01 }), "refuted");
+  assert.equal(phaseShapeCall({ lo: -0.01, hi: 0.02 }, { lo: -0.04, hi: -0.01 }), "inconclusive");
 });
 
 test("cycle shape needs both lags, and the summary keeps a blind instrument from confirming", () => {
@@ -131,4 +166,5 @@ test("the cycle world has two patterns, no food, and no metabolism, and decay do
 test("CI does not run the cycle sweep", () => {
   const yml = readFileSync(".github/workflows/ci.yml", "utf8");
   assert.equal(yml.includes("npm run cycle"), false);
+  assert.equal(yml.includes("cycle-phase"), false);
 });
