@@ -7,7 +7,7 @@ import { senseGrid } from "./env.ts";
 import { createFamily, distractorSpec, FAMILY_LAYOUT_SEED } from "./family.ts";
 import { runPhaseEpisode } from "./phase-run.ts";
 import { runNoiseEpisode } from "./noise-run.ts";
-import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, runBoostEpisode } from "./boost-run.ts";
+import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, PUBLISHED_RANDOM_FRACTION, runBoostEpisode } from "./boost-run.ts";
 import { runDriftEpisode } from "./drift-run.ts";
 import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
 import { imagineScores } from "./policy.ts";
@@ -24,12 +24,18 @@ import {
   fedRoomSummary,
   matchedContentCall,
   matchedSummary,
+  noAttractionCall,
   policySplitCall,
   policyTermsCall,
+  repulsionCall,
   rhoGapBand,
   RHO_DETECT_DOSE,
   RHO_UNDETECT_DOSE,
   seRemovalCall,
+  sensitivityCall,
+  SHARP_POLICY_TEMPERATURE,
+  sharpVerdict,
+  SHIPPED_POLICY_TEMPERATURE,
   smallestDetecting,
   spuriousCall,
 } from "./noise.ts";
@@ -430,6 +436,84 @@ test("the place-bonus summary follows the locked gap and the far dose", () => {
   assert.equal(boostSummary(false, "inconclusive", 0.5, BOOST_GAP, BOOST_FAR), "insensitive");
   assert.equal(boostSummary(false, "inconclusive", null, BOOST_GAP, BOOST_FAR), "insensitive");
   assert.equal(boostSummary(false, "inconclusive", 0.0085, BOOST_GAP, BOOST_FAR), "inconclusive");
+});
+
+test("the sharp temperature is kept only when the gain clears and nothing is hurt", () => {
+  assert.equal(SHIPPED_POLICY_TEMPERATURE, 0.45);
+  assert.equal(SHARP_POLICY_TEMPERATURE, 0.15);
+  assert.equal(PUBLISHED_RANDOM_FRACTION, 0.15796249999999998);
+  const kept = sharpVerdict({
+    excessGain: { lo: 0.01, hi: 0.04 },
+    probeDelta: { lo: -0.01, hi: 0.002 },
+    livesDelta: { lo: -0.2, hi: 0.1 },
+    g2Shipped: [true, true, true],
+    g2Sharp: [true, true, false],
+    c2Shipped: [true, true, true],
+    c2Sharp: [true, false, true],
+  });
+  assert.equal(kept.verdict, "kept");
+  assert.equal(kept.beats, "confirmed");
+  const quiet = sharpVerdict({
+    excessGain: { lo: -0.01, hi: 0.02 },
+    probeDelta: { lo: -0.01, hi: 0.002 },
+    livesDelta: { lo: -0.2, hi: 0.1 },
+    g2Shipped: [true, true],
+    g2Sharp: [true, true],
+    c2Shipped: [true, true],
+    c2Sharp: [true, true],
+  });
+  assert.equal(quiet.verdict, "reverted");
+  assert.equal(quiet.beats, "inconclusive");
+  const hurt = sharpVerdict({
+    excessGain: { lo: 0.01, hi: 0.04 },
+    probeDelta: { lo: 0.001, hi: 0.02 },
+    livesDelta: { lo: -0.2, hi: 0.1 },
+    g2Shipped: [true, true],
+    g2Sharp: [true, true],
+    c2Shipped: [true, true],
+    c2Sharp: [true, true],
+  });
+  assert.equal(hurt.verdict, "reverted");
+  assert.equal(hurt.probeHurt, true);
+  const food = sharpVerdict({
+    excessGain: { lo: 0.01, hi: 0.04 },
+    probeDelta: { lo: -0.01, hi: 0.002 },
+    livesDelta: { lo: 0.1, hi: 0.4 },
+    g2Shipped: [true, true, true],
+    g2Sharp: [false, false, true],
+    c2Shipped: [true, true, true],
+    c2Sharp: [false, false, true],
+  });
+  assert.equal(food.verdict, "reverted");
+  assert.equal(food.livesHurt, true);
+  assert.equal(food.g2Hurt, true);
+  assert.equal(food.c2Hurt, true);
+  assert.equal(sensitivityCall(0.0085), "confirmed");
+  assert.equal(sensitivityCall(0.0169), "confirmed");
+  assert.equal(sensitivityCall(0.05), "refuted");
+  assert.equal(sensitivityCall(null), "refuted");
+  assert.equal(noAttractionCall({ lo: -0.01, hi: 0.02 }), "confirmed");
+  assert.equal(noAttractionCall({ lo: -0.02, hi: -0.001 }), "confirmed");
+  assert.equal(noAttractionCall({ lo: 0.001, hi: 0.02 }), "refuted");
+  assert.equal(repulsionCall({ lo: -0.02, hi: -0.001 }), "confirmed");
+  assert.equal(repulsionCall({ lo: 0.001, hi: 0.02 }), "refuted");
+  assert.equal(repulsionCall({ lo: -0.01, hi: 0.02 }), "inconclusive");
+});
+
+test("policy temperature defaults to the shipped softmax and does not move a random walk", () => {
+  const shipped = new Kernel("field", 3);
+  assert.equal(shipped.params.temperature, SHIPPED_POLICY_TEMPERATURE);
+  assert.equal(shipped.params.lr, 4);
+  const sharp = new Kernel("field", 3, undefined, { policyTemperature: SHARP_POLICY_TEMPERATURE });
+  assert.equal(sharp.params.temperature, SHARP_POLICY_TEMPERATURE);
+  assert.equal(sharp.params.lr, shipped.params.lr);
+  assert.throws(() => new Kernel("field", 3, undefined, { policyTemperature: 0.04 }), /policyTemperature/);
+  const base = { id: 7, seed: 4, steps: 25, signal: "random" as const, add: 0 };
+  const walk = runBoostEpisode(base);
+  const cold = runBoostEpisode({ ...base, policyTemperature: SHARP_POLICY_TEMPERATURE });
+  assert.equal(cold.distractorFrac, walk.distractorFrac);
+  assert.equal(cold.foods, walk.foods);
+  assert.equal(cold.lives, walk.lives);
 });
 
 test("a place bonus does not move a random walk and does raise the score gap", () => {

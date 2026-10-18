@@ -1,5 +1,142 @@
 # Journal
 
+## 2026-10-17 policy temperature (America/New_York)
+
+Written before `npm run sharp`. No occupancy excess from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The drift-progress entry's next hypothesis was the doorway score, drift minus held, at r* only. That comparison is not this run. PR #12 put rho's rectified-progress gap at −0.0109 [−0.0125, −0.0093], entirely below the 0.0169 dose where rho's occupancy did not move. The dose curve still says rho first moves at 0.05. Gaps of about 0.0085 to 0.017 are below the instrument. This run raises that instrument. It adds no curiosity term.
+
+### Preregister policy temperature
+
+Hypothesis. A colder softmax converts a progress-channel bonus of 0.0169 into more time in the boosted room than the shipped temperature does. The paired gain, rho's occupancy excess at 0.15 minus the same excess at 0.45, lies entirely above 0.
+
+The lever is temperature, not a longer episode and not more seeds. PR #11 already separated the logits at the doses the occupancy missed. Rho's score gap, boosted minus control, was 0.0213 [0.0094, 0.0320] at 0.0085 and 0.0525 [0.0367, 0.0694] at 0.0169. Occupancy at those doses included 0. The dose that occupancy detected, 0.05, had a score gap of 0.1051, which at temperature 0.45 is a logit shift of 0.233. The 0.0169 score gap is a logit shift of 0.117 at that temperature. Dividing the temperature by 3, to 0.15, puts that shift at 0.35, above the shift that moved occupancy by 0.077. The softmax floor is 0.05, so 0.15 is three times the floor and is not the clamp.
+
+More seeds would shrink the interval around the existing excess of 0.0126 [−0.0039, 0.0291]. The half-width is about 0.016. That can, at best, resolve an occupancy shift of a point. It does not change the softmax that failed to express a score gap the interval already put above 0. A longer episode does the same to a time average. The failure is the conversion of score into time. One temperature is the mechanism. A colder value is not a second arm in this run.
+
+The option is `policyTemperature` on `Kernel`. Omitted, the shipped value is 0.45. It is not a Loop flag. The default agent does not change, so the probe gate is not the keep rule. Both curiosity terms stay on. The place bonus stays off except inside the dose-response. No explorer is retuned. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Ablation. Rho only, on the PR #11 episode: layout seed 3000, wide door, region 1 on the east, held low-frequency pattern, learnability 1, relevance 0, drift 0, 400 steps, seeds 1–200, seed stream `seed * 10007 + 8101`. Adds 0 and 0.0169. Temperatures 0.45 and 0.15. Excess at a temperature is the boosted target-room fraction minus the control fraction, one number per seed. The gain is the 0.15 excess minus the 0.45 excess. Paired 95% percentile bootstrap, 2000 resamples, salt 7001. The shipped excess uses salt 7002 and the sharp excess uses salt 7003. They are not the keep rule. The score-gap gain, same subtraction, salt 7004, is not a call. `beats` is `greaterCall` on the occupancy gain.
+
+Safety, Field, rho, 280 steps, seeds 1–20. The same seeds at both temperatures. Probe late and lives are sharp minus shipped. Salts 7011 and 7012. Foods use salt 7013 and are not a call. A hurt is a paired interval that lies entirely above 0: probe error rose, or lives rose. G2 is the adjacent-food scenario at the temperature under test, curiosity 0, goal 2, energy 20, food one cell east, seeds 1–20. The canonical G2 test still forces temperature 0.04 and is not this contrast. C2 is the Field branching band on those 20 seeds. G2 or C2 is hurt when the shipped temperature holds a majority and the sharp temperature does not. `sharpVerdict` keeps the instrument only when `beats` is confirmed and none of the four hurts fire. Otherwise the option stays off and parts (a) and (b) are not run.
+
+Harness, not a call. Random does not read the temperature. On this episode its mean target-room fraction, seeds 1–200, add 0, is 0.15796249999999998 at both temperatures. A difference beyond 1e-12, or a per-seed difference, aborts before `sharpVerdict`. The sweep is `npm run sharp`. It is not part of CI.
+
+### Preregister sharp dose response
+
+Runs only if `sharpVerdict` keeps the temperature. The same place-bonus grid as PR #11, at temperature 0.15 instead of 0.45. Doses 0.0085, 0.0169, 0.05, 0.15, 0.5, 2. Explorers random, count, surprise, RND, rho. Seeds 1–200. Steps 400. The control arm is add 0 at temperature 0.15, not the shipped temperature. Excess salts stay `6000 + 10 × explorer + dose`. Score salts stay `6100 + 10 × explorer + dose`. Calls stay `greaterCall`. The detection threshold is `smallestDetecting`. The summary is `boostSummary` against the gap 0.0169 and the far dose 0.15.
+
+Hypothesis. Rho's detection threshold at temperature 0.15 is at or below 0.0169. `sensitivityCall` confirms when the threshold is 0.0085 or 0.0169. It refutes when the threshold is null or greater than 0.0169. There is no third label. The other explorers' thresholds are reported and are not this call.
+
+Harness, not a call. Random's mean target-room fraction at add 0 is still 0.15796249999999998. A difference beyond 1e-12 aborts before the call. Rho's excess at 0.0169 matches the sharp arm of the ablation within 1e-12. A larger difference means this is not that episode, the runner is fixed, and the dose-response is repeated.
+
+Figure: `bench/boost-sharp/excess-vs-boost.png` and `bench/boost-sharp/score-vs-boost.png`. Source: `bench/boost-sharp/boost.json`. The sweep is `npm run boost-room -- --temperature 0.15 --out bench/boost-sharp`. It is not part of CI.
+
+### Preregister sharp noise and drift
+
+Runs only if the dose-response threshold is at or below 0.0169. Both sweeps use temperature 0.15, seeds 1–200, 400 steps, and the shipped curiosity score. The option stays off in the default agent.
+
+Noise. The PR #7 matched pair: region 1, stationary noise versus one frozen picture, both orientations, learnability on the grid {0, 1/3, 2/3, 1}, relevance 0. The primary number is rho's orientation-averaged occupancy excess, noise minus static. The prediction is no attraction. `noAttractionCall` confirms when the lower end is at or below 0, and refutes when the interval lies entirely above 0. `greaterCall` is reported beside it so a repulsion is visible. It is not a second pass bit. Random excluding 0 is the confound check from `matchedSummary`, not the prediction.
+
+Drift. The PR #10 pair at the locked critical rate only: layout seed 3000, wide door, learnability 1, relevance 0, `matchedPattern` drift versus held, τ = 53.28471423768756, rate 0.01877. The other four positive rates are the same sweep and are not the call. The prediction is directional, from PR #12. Rho's rectified progress in that room was lower on the drifting arm, so occupancy excess, drift minus held, is negative. `repulsionCall` confirms when the interval lies entirely below 0, refutes when it lies entirely above 0, and is otherwise inconclusive. Attraction is the refutation. An interval that includes 0 is not a quiet pass.
+
+Figures: `bench/matched-sharp/excess-by-explorer.png`, `bench/drift-sharp/excess-vs-rate.png`. Sources: `bench/matched-sharp/matched.json`, `bench/drift-sharp/drift.json`. The sweeps are `npm run matched-room -- --temperature 0.15 --out bench/matched-sharp` and `npm run drift-room -- --temperature 0.15 --out bench/drift-sharp`. They are not part of CI.
+
+### Results
+
+The ablation kept the temperature. The dose-response then put rho's threshold at 0.0085, so the noise and drift sweeps ran. The random walk matched the PR #11 fraction 0.1579625 on the ablation and on the dose-response, and rho's excess at 0.0169 matched the ablation's sharp arm exactly. No harness aborted.
+
+#### Ablation. Confirmed.
+
+Rho, dose 0.0169, 200 seeds, 400 steps. Occupancy excess is boosted minus control. The gain is temperature 0.15 minus temperature 0.45. Source: `bench/sharp/sharp.json`. 1200 room episodes and 40 Field episodes, 48 seconds.
+
+| arm | excess | call |
+|---|---|---|
+| 0.45 | 0.0126 [−0.0039, 0.0287] | inconclusive |
+| 0.15 | 0.0884 [0.0662, 0.1101] | confirmed |
+| gain | 0.0758 [0.0477, 0.1039] | confirmed |
+
+The shipped arm reproduces PR #11: the point estimate is 0.0126 and the interval includes 0. The sharp arm lies entirely above 0, and the gain lies entirely above 0. `beats` is confirmed.
+
+Safety, Field, seeds 1–20, 280 steps. None of the four hurts fired.
+
+| check | sharp minus shipped | hurt |
+|---|---|---|
+| probe late | −0.0024 [−0.0115, 0.0081] | no |
+| lives | 0.1000 [−0.1500, 0.3500] | no |
+| foods, not a call | 3.7000 [2.1000, 5.2000] | — |
+| G2 | 20/20 against 18/20 | no |
+| C2 | 20/20 against 20/20 | no |
+
+Mean branching was 3.44 at 0.45 and 3.42 at 0.15. Probe late moved from 0.1114 to 0.1090. Lives rose by a tenth and the interval includes 0, so the locked rule does not call it a hurt. Foods rose. That is the colder policy taking meals it was already scoring, not a change to the default agent.
+
+The score-gap gain, not a call, is −0.0592 [−0.0874, −0.0314]. The time-averaged logit contrast shrank while occupancy rose. The keep rule is the occupancy gain. `sharpVerdict` is kept.
+
+Figure: `bench/sharp/excess-vs-temperature.png`.
+
+#### Dose response. Confirmed.
+
+Temperature 0.15, 7000 episodes, 319 seconds. Summary `confirmed`: rho at 0.0169 lies entirely above 0, and random does not exclude 0. `sensitivityCall` is confirmed. The threshold is 0.0085, which is below 0.0169. Source: `bench/boost-sharp/boost.json`.
+
+| explorer | 0.0085 | 0.0169 | 0.05 | threshold | was |
+|---|---|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | none | none |
+| count | 0.0131 [−0.0013, 0.0276] | 0.0147 [−0.0009, 0.0311] | 0.0541 [0.0378, 0.0712] | 0.05 | 0.05 |
+| surprise | 0.0145 [−0.0048, 0.0338] | 0.0604 [0.0361, 0.0853] | 0.1534 [0.1277, 0.1783] | 0.0169 | 0.0169 |
+| rnd | 0.0508 [0.0322, 0.0708] | 0.0783 [0.0570, 0.1009] | 0.2051 [0.1786, 0.2313] | 0.0085 | 0.0169 |
+| rho | 0.0360 [0.0161, 0.0555] | 0.0884 [0.0678, 0.1107] | 0.1756 [0.1472, 0.2051] | 0.0085 | 0.05 |
+
+Rho's interval at 0.0085 lies entirely above 0. Count and surprise do not move their thresholds. RND moves from 0.0169 to 0.0085. Larger doses stay entirely above 0 for every directed explorer. The excess still peaks and then flattens: rho is 0.2498 [0.2209, 0.2796] at 0.15 and 0.2440 [0.2150, 0.2730] at 0.5.
+
+Rho's score gap, not the call, includes 0 at 0.0085 and at 0.0169 (−0.0067 [−0.0284, 0.0140]) and clears only from 0.05. At this temperature the occupancy call is ahead of the time-averaged score gap. The score gap does not replace the threshold.
+
+Figures: `bench/boost-sharp/excess-vs-boost.png`, `bench/boost-sharp/score-vs-boost.png`.
+
+#### Noise. Confirmed, no attraction.
+
+The threshold is below 0.0169, so the matched room ran. 19200 episodes, 1021 seconds. Temperature 0.15. Orientation-averaged occupancy, noise minus static. Random is a point mass at 0, so the summary is not confounded. Source: `bench/matched-sharp/matched.json`.
+
+| explorer | mean excess | call |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | 0.0013 [−0.0048, 0.0068] | inconclusive |
+| surprise | 0.0029 [−0.0054, 0.0101] | inconclusive |
+| rnd | 0.0065 [−0.0016, 0.0145] | inconclusive |
+| rho | 0.0059 [−0.0022, 0.0141] | inconclusive |
+| progress | −0.0036 [−0.0085, 0.0013] | inconclusive |
+
+`noAttractionCall` on rho is confirmed: the lower end is below 0. The prediction of no attraction holds. `greaterCall` is inconclusive, so this is not a repulsion. `matchedSummary` is inconclusive because no directed mean excludes 0. RND's west arm alone is 0.0148 [0.0041, 0.0259], entirely above 0. The orientation average is the preregistered number, and that average includes 0.
+
+Rho's in-room surprise gap is still positive, 0.0069 [0.0060, 0.0079]. That is under the new detection dose of 0.0085. A planted bonus of 0.0085 moved rho by 0.0360 [0.0161, 0.0555]. The noise gap is smaller than that dose, and the occupancy interval sits under that shift. The null is what the new curve predicts for a gap of 0.0069.
+
+Figure: `bench/matched-sharp/excess-by-explorer.png`.
+
+#### Drift. Inconclusive.
+
+10000 episodes, 449 seconds. Temperature 0.15. The call is rho at r* = 0.01877 only. Excess is drift minus held. Source: `bench/drift-sharp/drift.json`.
+
+Rho at r*: −0.0095 [−0.0293, 0.0118]. `repulsionCall` is inconclusive. The point estimate is negative, which is the sign PR #12 predicted, and the interval includes 0. The prediction is not confirmed and not refuted.
+
+| explorer | excess at 0.01877 | greaterCall |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | inconclusive |
+| count | −0.0112 [−0.0278, 0.0055] | inconclusive |
+| surprise | −0.0039 [−0.0272, 0.0188] | inconclusive |
+| rnd | 0.0046 [−0.0145, 0.0230] | inconclusive |
+| rho | −0.0095 [−0.0293, 0.0118] | inconclusive |
+
+A planted bonus of 0.0085, smaller than the rectified gap of 0.0109, moved rho's occupancy by 0.0360 [0.0161, 0.0555]. The drift excess at r* is −0.0095 and its upper end is 0.0118. The progress deficit is not showing up as a place bonus of that size. The doorway is still where that credit would have to appear. This run did not measure it.
+
+The other rates are not the call. Rho's only interval that lies entirely below 0 is the fastest rate, 0.3003: −0.0350 [−0.0590, −0.0111]. Count is entirely below 0 at 0.001173 and 0.004692. Surprise is entirely below 0 at 0.001173. None of those cells was the prediction.
+
+Figure: `bench/drift-sharp/excess-vs-rate.png`. The probe figure is `bench/drift-sharp/probe-vs-rate.png`.
+
+The option stays off. `policyTemperature` omitted is still 0.45. It is not a Loop flag, and it is not a default. Both curiosity terms stay on. The place bonus stays off outside the dose-response. No term was added. Five-seed bench, seeds 1–5, sha `ad17a17`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not change the default temperature, and do not add a curiosity term. The instrument now sees a planted bonus of 0.0085. At that sensitivity the matched noise room still does not attract rho, and the adaptation-rate drift room still does not resolve. Rho's occupancy at the fast rate 0.3003 does resolve, and it resolves downward. The next measurement is the doorway score, drift minus held, at r* and at 0.3003 only, temperature 0.15, for rho. If the fast rate's doorway gap lies entirely below 0 and the adaptation rate's includes 0, the repulsion is offered at the choice only when turnover is much faster than τ. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-17 drift progress gap (America/New_York)
 
 Written before `npm run drift-gap`. No rectified-progress gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

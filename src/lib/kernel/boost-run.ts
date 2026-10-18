@@ -29,6 +29,9 @@ export const BOOST_FAR = 0.15;
 
 export const BOOST_SURPRISE_GAP = 0.0085;
 
+/** Mean target-room fraction of the PR #11 random walk, seeds 1–200, 400 steps. */
+export const PUBLISHED_RANDOM_FRACTION = 0.15796249999999998;
+
 export type BoostRequest = {
   id: number;
   seed: number;
@@ -36,6 +39,8 @@ export type BoostRequest = {
   steps: number;
   /** Zero omits the option. The control arm is this value. */
   add: number;
+  /** Omitted is the shipped softmax, 0.45. */
+  policyTemperature?: number;
 };
 
 export type BoostResult = {
@@ -77,6 +82,7 @@ export function runBoostEpisode(req: BoostRequest): BoostResult {
       env: { ...spec, layoutSeed: FAMILY_LAYOUT_SEED },
       signal: req.signal,
       intrinsicBoost: req.add === 0 ? undefined : { add: req.add, region: 1 },
+      ...(req.policyTemperature != null ? { policyTemperature: req.policyTemperature } : {}),
     });
     let inRoom = 0;
     let scoreSum = 0;

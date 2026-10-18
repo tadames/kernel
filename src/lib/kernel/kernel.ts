@@ -104,6 +104,12 @@ export type KernelOptions = {
     add: number;
     region: 0 | 1;
   };
+  /**
+   * Softmax temperature. Omitted is 0.45, the shipped policy.
+   * Not a Loop feature flag. The default agent does not change.
+   * The sampler clamps at 0.05, so a value under that floor is rejected.
+   */
+  policyTemperature?: number;
 };
 
 export type Thought = { t: number; text: string };
@@ -217,10 +223,16 @@ export class Kernel {
       throw new Error("intrinsicBoost.add must be finite");
     }
     this.intrinsicBoost = boost && boost.add !== 0 ? { add: boost.add, region: boost.region } : null;
+    if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
+      throw new Error("policyTemperature must be finite and at least 0.05");
+    }
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
     if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
+    if (options?.policyTemperature != null) {
+      this.params = { ...this.params, temperature: options.policyTemperature };
+    }
     this.cells = new Uint8Array(SIZE * SIZE);
     this.scent = new Float32Array(SIZE * SIZE);
     this.visitCounts = new Uint32Array(SIZE * SIZE);

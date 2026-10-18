@@ -24,6 +24,7 @@
     "drift-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/drift.ts",
     "drift-gap": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/drift-gap.ts",
     "boost-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/boost.ts",
+    "sharp": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/sharp.ts",
     "timescale": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/timescale.ts",
     "phase": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/phase.ts",
     "forget": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/forget.ts",

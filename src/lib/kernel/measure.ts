@@ -23,6 +23,8 @@ export type EpisodeRequest = {
   signal: CuriositySignal;
   features?: Partial<LoopFeatures>;
   probeEvery?: number;
+  /** Omitted is the shipped softmax, 0.45. */
+  policyTemperature?: number;
 };
 
 export type Checkpoint = { t: number; probe: number; onPolicy: number };
@@ -69,7 +71,11 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
   const spec = envSpec(req.env);
   const held = probe ?? loadCanonicalProbe(req.env);
   const every = req.probeEvery ?? PROBE_EVERY;
-  const options: KernelOptions = { signal: req.signal, env: spec };
+  const options: KernelOptions = {
+    signal: req.signal,
+    env: spec,
+    ...(req.policyTemperature != null ? { policyTemperature: req.policyTemperature } : {}),
+  };
   const episode = withSeed(req.seed * 10007 + (req.env === "rooms" ? 5 : 1), () => {
     const k = new Kernel(spec.kind, req.seed, req.features, options);
     const visits = new Uint32Array(k.cells.length);
