@@ -53,6 +53,11 @@ export type EnvParams = {
    * Omitted leaves the historical family. Measurement only.
    */
   matchedPattern?: "drift" | "held";
+  /**
+   * Two frozen patterns, no meals, no metabolism. Measurement only.
+   * Omitted is the historical map. Death and food cannot impose a period.
+   */
+  cycleWorld?: boolean;
 };
 
 /** East-room glow scale. Absent when the historical 0/1 bit is in force. */
@@ -203,15 +208,17 @@ export function stepGrid(
   if (!blocked) {
     body.x = nx;
     body.y = ny;
-    body.energy -= 1;
-    const i = body.y * size + body.x;
-    if (body.cells[i] === FOOD) {
-      body.cells[i] = EMPTY;
-      body.energy = Math.min(140, body.energy + 38);
-      ate = true;
-      if (kind !== "pulse" && kind !== "blank") spawnFood(body.cells, size, rand, family);
+    if (!params.cycleWorld) {
+      body.energy -= 1;
+      const i = body.y * size + body.x;
+      if (body.cells[i] === FOOD) {
+        body.cells[i] = EMPTY;
+        body.energy = Math.min(140, body.energy + 38);
+        ate = true;
+        if (kind !== "pulse" && kind !== "blank") spawnFood(body.cells, size, rand, family);
+      }
     }
-  } else {
+  } else if (!params.cycleWorld) {
     body.energy -= 1.6;
   }
   for (let i = 0; i < body.scent.length; i++) body.scent[i] *= 0.9;

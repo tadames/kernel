@@ -56,6 +56,8 @@ export type NoiseRequest = {
    * empty, which is the noise-study episode when the room is also unmirrored.
    */
   targetFoods?: boolean;
+  /** Omitted is the shipped softmax, 0.45. */
+  policyTemperature?: number;
 };
 
 export type NoiseResult = {
@@ -117,6 +119,7 @@ export function runNoiseEpisode(req: NoiseRequest): NoiseResult {
       progressWindow: req.progressWindow,
       progressMode: req.progressMode,
       curiosityScore,
+      ...(req.policyTemperature != null ? { policyTemperature: req.policyTemperature } : {}),
     };
     const k = new Kernel("distractor", req.seed, undefined, options);
     let inEast = 0;

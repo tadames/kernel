@@ -58,6 +58,92 @@ export function spectralPeriod(
   return { period: bestPeriod, power: bestP, ratio };
 }
 
+/**
+ * Pearson autocorrelation at one lag. The numerator stops at n − lag.
+ * The denominator is the whole series, matching `acfPeriod`. A flat series is 0.
+ */
+export function acfAt(series: ArrayLike<number>, lag: number) {
+  const n = series.length;
+  if (!(lag >= 1) || lag >= n - 1) return 0;
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += series[i]!;
+  mean /= n;
+  let varSum = 0;
+  for (let i = 0; i < n; i++) {
+    const d = series[i]! - mean;
+    varSum += d * d;
+  }
+  if (varSum < 1e-12) return 0;
+  let s = 0;
+  const hi = n - lag;
+  for (let i = 0; i < hi; i++) s += (series[i]! - mean) * (series[i + lag]! - mean);
+  return s / varSum;
+}
+
+/** Longest prefix with an integer number of cycles. An unfinished tail is dropped. */
+export function phasePrefix(n: number, period: number) {
+  if (!Number.isInteger(period) || period < 2 || n < period) return 0;
+  return Math.floor(n / period) * period;
+}
+
+/**
+ * Mean on the planted on-half minus mean on the off-half.
+ * The on-half is the first half of each period, matching `periodicBoostOn`.
+ * Only complete periods are scored, so a constant has contrast 0 and a
+ * 50% square wave does not leak into this number through a short tail.
+ */
+export function phaseContrast(series: ArrayLike<number>, period: number) {
+  const half = Math.floor(period / 2);
+  const n = phasePrefix(series.length, period);
+  if (half < 1 || n < period) return 0;
+  let on = 0;
+  let nOn = 0;
+  let off = 0;
+  let nOff = 0;
+  for (let t = 0; t < n; t++) {
+    if (Math.floor(t / half) % 2 === 0) {
+      on += series[t]!;
+      nOn += 1;
+    } else {
+      off += series[t]!;
+      nOff += 1;
+    }
+  }
+  if (nOn === 0 || nOff === 0) return 0;
+  return on / nOn - off / nOff;
+}
+
+/**
+ * In-phase contrast at period P/2. High on the first and third quarters of
+ * the planted clock, low on the second and fourth. A 50% square wave of
+ * period P is orthogonal to this template, so its contrast is 0.
+ * A leftover step when the half is odd is dropped, which keeps the quarters equal.
+ */
+export function halfPhaseContrast(series: ArrayLike<number>, period: number) {
+  const half = Math.floor(period / 2);
+  const quarter = Math.floor(half / 2);
+  const n = phasePrefix(series.length, period);
+  if (quarter < 1 || n < period) return 0;
+  let high = 0;
+  let nHigh = 0;
+  let low = 0;
+  let nLow = 0;
+  for (let t = 0; t < n; t++) {
+    const block = Math.floor(t / half);
+    const within = t - block * half;
+    if (within >= quarter * 2) continue;
+    if (Math.floor(within / quarter) === 0) {
+      high += series[t]!;
+      nHigh += 1;
+    } else {
+      low += series[t]!;
+      nLow += 1;
+    }
+  }
+  if (nHigh === 0 || nLow === 0) return 0;
+  return high / nHigh - low / nLow;
+}
+
 /** First autocorrelation peak inside the lag window, if it clears `minCorr`. */
 export function acfPeriod(series: ArrayLike<number>, minLag: number, maxLag: number, minCorr = 0.15) {
   const n = series.length;

@@ -78,7 +78,7 @@ export function gridSurprise(seed = 7, steps = 280, features?: Partial<LoopFeatu
 }
 
 /** Hungry body, food in the adjacent cell. Whiskers should take it. */
-export function adjacentFood(seed = 2, features?: Partial<LoopFeatures>) {
+export function adjacentFood(seed = 2, features?: Partial<LoopFeatures>, temperature = 0.04) {
   const k = new Kernel("blank", seed, features);
   k.cells.fill(0);
   for (let i = 0; i < SIZE; i++) {
@@ -92,7 +92,7 @@ export function adjacentFood(seed = 2, features?: Partial<LoopFeatures>) {
   k.energy = 20;
   k.scent.fill(0);
   k.cells[7 * SIZE + 6] = 2;
-  k.params = { lr: 0.03, curiosity: 0, goal: 2, temperature: 0.04 };
+  k.params = { lr: 0.03, curiosity: 0, goal: 2, temperature };
   k.loop.prevInput = null;
   k.lastObs = k.sense();
   k.step();

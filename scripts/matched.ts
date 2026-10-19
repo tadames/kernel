@@ -179,8 +179,17 @@ function drawBars(points: Bar[]) {
   return writePng(scaled.width, scaled.height, scaled.rgba);
 }
 
+function parseTemperature() {
+  const text = arg("temperature", "");
+  if (!text) return undefined;
+  const value = Number(text);
+  if (!(Number.isFinite(value) && value >= 0.05)) throw new Error(`temperature must be at least 0.05: ${text}`);
+  return value;
+}
+
 function redraw() {
-  const report = JSON.parse(readFileSync("bench/matched/matched.json", "utf8")) as {
+  const outDir = arg("out", "bench/matched");
+  const report = JSON.parse(readFileSync(`${outDir}/matched.json`, "utf8")) as {
     intervals: Record<ExplorerId, { east: Interval; west: Interval; mean: Interval }>;
   };
   const bars: Bar[] = [];
@@ -190,8 +199,8 @@ function redraw() {
       bars.push({ id: explorer.id, series: series.name, mean: ci.mean, lo: ci.lo, hi: ci.hi });
     }
   }
-  mkdirSync("bench/matched", { recursive: true });
-  writeFileSync("bench/matched/excess-by-explorer.png", drawBars(bars));
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(`${outDir}/excess-by-explorer.png`, drawBars(bars));
 }
 
 async function main() {
@@ -199,6 +208,8 @@ async function main() {
     redraw();
     return;
   }
+  const outDir = arg("out", "bench/matched");
+  const temperature = parseTemperature();
   const seedsN = Math.max(1, Number(arg("seeds", "200")));
   const steps = Math.max(1, Number(arg("steps", "400")));
   const workers = workerCount(Number(arg("workers", "0")));
@@ -226,13 +237,16 @@ async function main() {
               policyArm: explorer.policyArm as PolicyArm,
               content,
               mirror,
+              ...(temperature != null ? { policyTemperature: temperature } : {}),
             });
           }
         }
       }
     }
   }
-  console.error(`matched-room ${jobs.length} episodes, ${workers} workers, ${steps} steps`);
+  console.error(
+    `matched-room ${jobs.length} episodes, ${workers} workers, ${steps} steps, temperature ${temperature ?? "shipped"}`,
+  );
   const t0 = Date.now();
   const rows = await runPool<NoiseRequest, NoiseResult>(jobs, new URL("./noise-worker.ts", import.meta.url), workers);
   const elapsedSec = (Date.now() - t0) / 1000;
@@ -381,6 +395,7 @@ async function main() {
     elapsedSec,
     steps,
     seeds: seedsN,
+    policyTemperature: temperature ?? null,
     learnability: learns,
     driftRate: 0,
     distractorRelevance: 0,
@@ -409,9 +424,9 @@ async function main() {
     })),
   };
 
-  mkdirSync("bench/matched", { recursive: true });
-  writeFileSync("bench/matched/matched.json", `${JSON.stringify(report)}\n`);
-  writeFileSync("bench/matched/excess-by-explorer.png", drawBars(bars));
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(`${outDir}/matched.json`, `${JSON.stringify(report)}\n`);
+  writeFileSync(`${outDir}/excess-by-explorer.png`, drawBars(bars));
   const csv = ["explorer,orientation,mean,lo,hi,call"];
   for (const explorer of EXPLORERS) {
     for (const series of ["east", "west", "mean"] as const) {
@@ -419,7 +434,7 @@ async function main() {
       csv.push([explorer.id, series, ci.mean, ci.lo, ci.hi, calls[explorer.id][series]].join(","));
     }
   }
-  writeFileSync("bench/matched/matched.csv", `${csv.join("\n")}\n`);
+  writeFileSync(`${outDir}/matched.csv`, `${csv.join("\n")}\n`);
   console.log(
     JSON.stringify(
       {

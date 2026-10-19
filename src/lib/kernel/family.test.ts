@@ -279,6 +279,7 @@ test("CI does not run the phase or forgetting sweeps", () => {
   assert.equal(yml.includes("npm run policy-terms"), false);
   assert.equal(yml.includes("npm run fed-room"), false);
   assert.equal(yml.includes("npm run drift-room"), false);
+  assert.equal(yml.includes("npm run cycle"), false);
 });
 
 test("a held pattern matches the drift picture and burns the same coin", () => {

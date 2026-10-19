@@ -207,8 +207,17 @@ function ratesOf() {
   return { rates, critical, slow: rates[0]!, fast: rates[rates.length - 1]! };
 }
 
+function parseTemperature() {
+  const text = arg("temperature", "");
+  if (!text) return undefined;
+  const value = Number(text);
+  if (!(Number.isFinite(value) && value >= 0.05)) throw new Error(`temperature must be at least 0.05: ${text}`);
+  return value;
+}
+
 function redraw() {
-  const report = JSON.parse(readFileSync("bench/drift/drift.json", "utf8")) as {
+  const outDir = arg("out", "bench/drift");
+  const report = JSON.parse(readFileSync(`${outDir}/drift.json`, "utf8")) as {
     rates: number[];
     critical: number;
     excess: Record<ExplorerId, { rate: number; mean: number; lo: number; hi: number }[]>;
@@ -220,9 +229,9 @@ function redraw() {
     for (const row of report.excess[explorer.id]) excess.push({ id: explorer.id, ...row });
     for (const row of report.probeInitial[explorer.id]) probe.push({ id: explorer.id, ...row });
   }
-  mkdirSync("bench/drift", { recursive: true });
-  writeFileSync("bench/drift/excess-vs-rate.png", drawLines("drift minus held", excess, report.rates, report.critical));
-  writeFileSync("bench/drift/probe-vs-rate.png", drawLines("probe initial, drift minus held", probe, report.rates, report.critical));
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(`${outDir}/excess-vs-rate.png`, drawLines("drift minus held", excess, report.rates, report.critical));
+  writeFileSync(`${outDir}/probe-vs-rate.png`, drawLines("probe initial, drift minus held", probe, report.rates, report.critical));
 }
 
 async function main() {
@@ -230,6 +239,8 @@ async function main() {
     redraw();
     return;
   }
+  const outDir = arg("out", "bench/drift");
+  const temperature = parseTemperature();
   const { rates, critical, slow, fast } = ratesOf();
   const seedsN = Math.max(1, Number(arg("seeds", "200")));
   const steps = Math.max(1, Number(arg("steps", "400")));
@@ -248,13 +259,14 @@ async function main() {
             steps,
             driftRate,
             arm,
+            ...(temperature != null ? { policyTemperature: temperature } : {}),
           });
         }
       }
     }
   }
   console.error(
-    `drift-room ${jobs.length} episodes, ${workers} workers, ${steps} steps, tau ${LOCKED_DRIFT_TAU}, critical ${critical}`,
+    `drift-room ${jobs.length} episodes, ${workers} workers, ${steps} steps, tau ${LOCKED_DRIFT_TAU}, critical ${critical}, temperature ${temperature ?? "shipped"}`,
   );
   const t0 = Date.now();
   const rows = await runPool<DriftRequest, DriftResult>(jobs, new URL("./drift-worker.ts", import.meta.url), workers);
@@ -410,6 +422,7 @@ async function main() {
     elapsedSec,
     steps,
     seeds: seedsN,
+    policyTemperature: temperature ?? null,
     learnability: 1,
     distractorRelevance: 0,
     tau: LOCKED_DRIFT_TAU,
@@ -454,10 +467,10 @@ async function main() {
     })),
   };
 
-  mkdirSync("bench/drift", { recursive: true });
-  writeFileSync("bench/drift/drift.json", `${JSON.stringify(report)}\n`);
-  writeFileSync("bench/drift/excess-vs-rate.png", drawLines("drift minus held", excessPoints, rates, critical));
-  writeFileSync("bench/drift/probe-vs-rate.png", drawLines("probe initial, drift minus held", probePoints, rates, critical));
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(`${outDir}/drift.json`, `${JSON.stringify(report)}\n`);
+  writeFileSync(`${outDir}/excess-vs-rate.png`, drawLines("drift minus held", excessPoints, rates, critical));
+  writeFileSync(`${outDir}/probe-vs-rate.png`, drawLines("probe initial, drift minus held", probePoints, rates, critical));
   const csv = [
     "explorer,rate,excess_mean,excess_lo,excess_hi,excess_call,probe_mean,probe_lo,probe_hi,probe_call,current_mean,current_lo,current_hi,world_mean,world_lo,world_hi",
   ];
@@ -489,7 +502,7 @@ async function main() {
       );
     }
   }
-  writeFileSync("bench/drift/drift.csv", `${csv.join("\n")}\n`);
+  writeFileSync(`${outDir}/drift.csv`, `${csv.join("\n")}\n`);
   console.log(
     JSON.stringify(
       {

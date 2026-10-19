@@ -10,7 +10,15 @@
  * score-vs-boost.png.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, BOOST_SURPRISE_GAP, type BoostRequest, type BoostResult } from "../src/lib/kernel/boost-run.ts";
+import {
+  BOOST_ADDS,
+  BOOST_FAR,
+  BOOST_GAP,
+  BOOST_SURPRISE_GAP,
+  PUBLISHED_RANDOM_FRACTION,
+  type BoostRequest,
+  type BoostResult,
+} from "../src/lib/kernel/boost-run.ts";
 import { boostSummary, greaterCall, smallestDetecting, type BoostSummary, type Call } from "../src/lib/kernel/noise.ts";
 import type { CuriositySignal } from "../src/lib/kernel/signals.ts";
 import { bootstrapMeanCI } from "../src/lib/kernel/stats.ts";
@@ -195,6 +203,14 @@ function parseAdds() {
   return adds;
 }
 
+function parseTemperature() {
+  const text = arg("temperature", "");
+  if (!text) return undefined;
+  const value = Number(text);
+  if (!(Number.isFinite(value) && value >= 0.05)) throw new Error(`temperature must be at least 0.05: ${text}`);
+  return value;
+}
+
 function redraw(outDir: string) {
   const report = JSON.parse(readFileSync(`${outDir}/boost.json`, "utf8")) as {
     adds: number[];
@@ -219,6 +235,7 @@ async function main() {
     return;
   }
   const adds = parseAdds();
+  const temperature = parseTemperature();
   const seedsN = Math.max(1, Number(arg("seeds", "200")));
   const steps = Math.max(1, Number(arg("steps", "400")));
   const workers = workerCount(Number(arg("workers", "0")));
@@ -235,11 +252,14 @@ async function main() {
           signal: explorer.signal as CuriositySignal,
           steps,
           add,
+          ...(temperature != null ? { policyTemperature: temperature } : {}),
         });
       }
     }
   }
-  console.error(`boost-room ${jobs.length} episodes, ${workers} workers, ${steps} steps, doses ${adds.join(",")}`);
+  console.error(
+    `boost-room ${jobs.length} episodes, ${workers} workers, ${steps} steps, doses ${adds.join(",")}, temperature ${temperature ?? "shipped"}`,
+  );
   const t0 = Date.now();
   const rows = await runPool<BoostRequest, BoostResult>(jobs, new URL("./boost-worker.ts", import.meta.url), workers);
   const elapsedSec = (Date.now() - t0) / 1000;
@@ -260,6 +280,28 @@ async function main() {
       if (boost.distractorFrac !== control.distractorFrac || boost.foods !== control.foods || boost.lives !== control.lives) {
         throw new Error(`random walk diverged at seed ${seed} add ${add}`);
       }
+    }
+  }
+  if (seedsN === 200 && steps === 400) {
+    let sum = 0;
+    for (const seed of seeds) sum += index.get(keyOf("random", seed, 0))!.distractorFrac;
+    const mean = sum / seeds.length;
+    if (Math.abs(mean - PUBLISHED_RANDOM_FRACTION) > 1e-12) {
+      throw new Error(`random control fraction ${mean} is not the PR #11 walk ${PUBLISHED_RANDOM_FRACTION}`);
+    }
+  }
+  if (temperature === 0.15 && seedsN === 200 && steps === 400 && adds.includes(BOOST_GAP)) {
+    const sharp = JSON.parse(readFileSync("bench/sharp/sharp.json", "utf8")) as { sharpExcess: { mean: number } };
+    let sum = 0;
+    for (const seed of seeds) {
+      const boosted = index.get(keyOf("rho", seed, BOOST_GAP));
+      const control = index.get(keyOf("rho", seed, 0));
+      if (!boosted || !control) throw new Error(`missing rho seed ${seed} for the sharp harness`);
+      sum += boosted.distractorFrac - control.distractorFrac;
+    }
+    const mean = sum / seeds.length;
+    if (!(Number.isFinite(sharp.sharpExcess?.mean) && Math.abs(mean - sharp.sharpExcess.mean) <= 1e-12)) {
+      throw new Error(`rho excess ${mean} is not the ablation sharp arm ${sharp.sharpExcess?.mean}`);
     }
   }
 
@@ -320,6 +362,7 @@ async function main() {
     elapsedSec,
     steps,
     seeds: seedsN,
+    policyTemperature: temperature ?? null,
     learnability: 1,
     distractorRelevance: 0,
     matchedPattern: "held",

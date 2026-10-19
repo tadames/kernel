@@ -104,7 +104,40 @@ export type KernelOptions = {
     add: number;
     region: 0 | 1;
   };
+  /**
+   * Softmax temperature. Omitted is 0.45, the shipped policy.
+   * Not a Loop feature flag. The default agent does not change.
+   * The sampler clamps at 0.05, so a value under that floor is rejected.
+   */
+  policyTemperature?: number;
+  /**
+   * Measurement-only square wave on the progress channel. On for one half
+   * of each period, off for the other, and only for actions that land in
+   * `region`. `offset` 0 is the first half, the same clock as before.
+   * A positive offset delays the on-half. Omitted is the shipped policy.
+   * Not a Loop feature flag.
+   */
+  periodicBoost?: {
+    add: number;
+    region: 0 | 1;
+    period: number;
+    /** Steps to delay the on-half. Omitted is 0, the first half of the period. */
+    offset?: number;
+  };
 };
+
+/**
+ * True during the on-half of each period. Offset 0 is the first half,
+ * including step 0. The on-half is `floor(period / 2)` steps long.
+ */
+export function periodicBoostOn(age: number, period: number, offset = 0) {
+  const half = Math.floor(period / 2);
+  if (half < 1) return false;
+  const cycle = half * 2;
+  let shifted = age - offset;
+  shifted = ((shifted % cycle) + cycle) % cycle;
+  return Math.floor(shifted / half) % 2 === 0;
+}
 
 export type Thought = { t: number; text: string };
 
@@ -162,6 +195,8 @@ export class Kernel {
   readonly scoreHorizonDrop: boolean;
   /** Place bonus on the progress channel. Null is the shipped policy. */
   readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
+  /** Square-wave place bonus. Null is the shipped policy. */
+  readonly periodicBoost: { add: number; region: 0 | 1; period: number; offset: number } | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -217,10 +252,26 @@ export class Kernel {
       throw new Error("intrinsicBoost.add must be finite");
     }
     this.intrinsicBoost = boost && boost.add !== 0 ? { add: boost.add, region: boost.region } : null;
+    const wave = options?.periodicBoost;
+    if (wave) {
+      if (!(Number.isFinite(wave.add) && wave.add !== 0)) throw new Error("periodicBoost.add must be a non-zero finite number");
+      if (wave.region !== 0 && wave.region !== 1) throw new Error("periodicBoost.region must be 0 or 1");
+      if (!Number.isInteger(wave.period) || wave.period < 2) throw new Error("periodicBoost.period must be an integer of at least 2");
+      if (wave.offset != null && !Number.isInteger(wave.offset)) throw new Error("periodicBoost.offset must be an integer");
+    }
+    this.periodicBoost = wave
+      ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
+      : null;
+    if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
+      throw new Error("policyTemperature must be finite and at least 0.05");
+    }
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
     this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
     if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
+    if (options?.policyTemperature != null) {
+      this.params = { ...this.params, temperature: options.policyTemperature };
+    }
     this.cells = new Uint8Array(SIZE * SIZE);
     this.scent = new Float32Array(SIZE * SIZE);
     this.visitCounts = new Uint32Array(SIZE * SIZE);
@@ -299,6 +350,20 @@ export class Kernel {
     if (!this.family) return 0;
     if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return 2;
     return this.family.region[y * SIZE + x] ?? 2;
+  }
+
+  /** Constant place bonus plus the on-half of a square wave. Both default to zero. */
+  private progressExtra(dest: (action: number) => number, action: number) {
+    let extra = 0;
+    const cell = dest(action);
+    const x = cell % SIZE;
+    const y = (cell / SIZE) | 0;
+    const region = this.regionAt(x, y);
+    const boost = this.intrinsicBoost;
+    if (boost && region === boost.region) extra += boost.add;
+    const wave = this.periodicBoost;
+    if (wave && region === wave.region && periodicBoostOn(this.age, wave.period, wave.offset)) extra += wave.add;
+    return extra;
   }
 
   /** True wall and true food for one action. Glow is not either. */
@@ -655,16 +720,10 @@ export class Kernel {
         };
       },
       progressBonus: (a, pred) => signalActionBonus(this.signal, view, a, pred),
-      progExtra: this.intrinsicBoost
-        ? (a) => {
-            const boost = this.intrinsicBoost;
-            if (!boost) return 0;
-            const cell = view.destGrid(a);
-            const x = cell % SIZE;
-            const y = (cell / SIZE) | 0;
-            return this.regionAt(x, y) === boost.region ? boost.add : 0;
-          }
-        : undefined,
+      progExtra:
+        this.intrinsicBoost || this.periodicBoost
+          ? (a) => this.progressExtra(view.destGrid, a)
+          : undefined,
     });
     let temp = this.params.temperature;
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);

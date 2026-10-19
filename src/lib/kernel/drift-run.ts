@@ -24,6 +24,8 @@ export type DriftRequest = {
   steps: number;
   driftRate: number;
   arm: DriftArm;
+  /** Omitted is the shipped softmax, 0.45. */
+  policyTemperature?: number;
 };
 
 export type DriftResult = {
@@ -67,6 +69,7 @@ export function runDriftEpisode(req: DriftRequest): DriftResult {
     const k = new Kernel("distractor", req.seed, undefined, {
       env: { ...spec, layoutSeed: FAMILY_LAYOUT_SEED },
       signal: req.signal,
+      ...(req.policyTemperature != null ? { policyTemperature: req.policyTemperature } : {}),
     });
     let inRoom = 0;
     let progressPos = 0;

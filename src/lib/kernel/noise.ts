@@ -4,7 +4,7 @@
  * except where a rule below says otherwise.
  */
 import { ols } from "./period.ts";
-import { meanOf } from "./stats.ts";
+import { majority, meanOf } from "./stats.ts";
 import { mulberry32 } from "./presets.ts";
 
 export type Call = "confirmed" | "refuted" | "inconclusive";
@@ -235,6 +235,70 @@ export function boostSummary(
   if (rhoAtGap === "refuted") return "refuted";
   if (smallest == null || smallest > far) return "insensitive";
   if (smallest > gap) return "above-gap";
+  return "inconclusive";
+}
+
+/** Shipped softmax temperature. The sharp instrument is the colder value. */
+export const SHIPPED_POLICY_TEMPERATURE = 0.45;
+export const SHARP_POLICY_TEMPERATURE = 0.15;
+
+export type SharpVerdict = {
+  /** Kept only when the occupancy gain clears and no safety arm is hurt. */
+  verdict: "kept" | "reverted";
+  beats: Call;
+  probeHurt: boolean;
+  livesHurt: boolean;
+  g2Hurt: boolean;
+  c2Hurt: boolean;
+};
+
+/**
+ * Temperature 0.15 against 0.45. `excessGain` is sharp excess minus shipped
+ * excess. Probe and lives deltas are sharp minus shipped: entirely above 0
+ * is a hurt. G2 and C2 are hurt when the shipped arm holds a majority and
+ * the sharp arm does not.
+ */
+export function sharpVerdict(input: {
+  excessGain: Ends;
+  probeDelta: Ends;
+  livesDelta: Ends;
+  g2Shipped: boolean[];
+  g2Sharp: boolean[];
+  c2Shipped: boolean[];
+  c2Sharp: boolean[];
+}): SharpVerdict {
+  const beats = greaterCall(input.excessGain);
+  const probeHurt = greaterCall(input.probeDelta) === "confirmed";
+  const livesHurt = greaterCall(input.livesDelta) === "confirmed";
+  const g2Hurt = majority(input.g2Shipped) && !majority(input.g2Sharp);
+  const c2Hurt = majority(input.c2Shipped) && !majority(input.c2Sharp);
+  const kept = beats === "confirmed" && !probeHurt && !livesHurt && !g2Hurt && !c2Hurt;
+  return { verdict: kept ? "kept" : "reverted", beats, probeHurt, livesHurt, g2Hurt, c2Hurt };
+}
+
+/**
+ * The dose-response hypothesis. Confirmed when the smallest detecting dose
+ * is at or below 0.0169. Refuted when no dose detects, or the first one
+ * sits above that gap. No third label.
+ */
+export function sensitivityCall(threshold: number | null, target = RHO_UNDETECT_DOSE): Call {
+  if (threshold != null && threshold <= target) return "confirmed";
+  return "refuted";
+}
+
+/** No attraction: the lower end is not above 0. Entirely above 0 refutes it. */
+export function noAttractionCall(excess: Ends): Call {
+  if (excess.lo > 0) return "refuted";
+  return "confirmed";
+}
+
+/**
+ * Directional repulsion. Entirely below 0 confirms it. Entirely above 0
+ * refutes it. An interval that contains 0 is inconclusive.
+ */
+export function repulsionCall(excess: Ends): Call {
+  if (excess.hi < 0) return "confirmed";
+  if (excess.lo > 0) return "refuted";
   return "inconclusive";
 }
 
