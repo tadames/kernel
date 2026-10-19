@@ -31,6 +31,7 @@
     "cycle": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/cycle.ts",
     "cycle-phase": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/phase-cycle.ts",
     "phase-profile": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/phase-profile.ts",
+    "window-sweep": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/window-sweep.ts",
     "test:platform": "node --test 'scripts/**/*.test.mjs'",
     "bench:json": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/bench.ts",
     "sweep": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/sweep.ts",

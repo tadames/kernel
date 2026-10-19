@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { acfAt, halfPhaseContrast, phaseContrast } from "./period.ts";
 import { createFamily, CYCLE_EAST_LATENT, patternBit, WEST_LATENT } from "./family.ts";
 import { Kernel, periodicBoostOn } from "./kernel.ts";
-import { cycleSpec, runCycleEpisode } from "./cycle-run.ts";
+import { cycleSpec, runCycleEpisode, runProgressBout } from "./cycle-run.ts";
 import {
   CYCLE_LAMBDA,
   CYCLE_TAU,
@@ -161,6 +161,38 @@ test("the cycle world has two patterns, no food, and no metabolism, and decay do
   assert.equal(periodicBoostOn(5, 10), false);
   assert.equal(periodicBoostOn(10, 10), true);
   assert.throws(() => new Kernel("field", 1, undefined, { periodicBoost: { add: 0.05, region: 1, period: 1 } }), /periodicBoost/);
+});
+
+test("the shipped progress window matches an omitted window, and the other explorers ignore it", () => {
+  const episode = {
+    kind: "episode" as const,
+    id: 1,
+    seed: 4,
+    steps: 48,
+    period: 8,
+    policyTemperature: 0.15,
+    add: 0,
+    salt: 9401,
+    forgettingRate: CYCLE_LAMBDA,
+    arm: "forget" as const,
+  };
+  const rhoDefault = runCycleEpisode({ ...episode, signal: "rho" });
+  const rho50 = runCycleEpisode({ ...episode, signal: "rho", progressWindow: 50 });
+  assert.equal(rho50.checksum, rhoDefault.checksum);
+  assert.equal(rho50.progressWindow, 50);
+  for (const signal of ["random", "count", "surprise", "rnd"] as const) {
+    const omitted = runCycleEpisode({ ...episode, signal });
+    const narrow = runCycleEpisode({ ...episode, signal, progressWindow: 25 });
+    const wide = runCycleEpisode({ ...episode, signal, progressWindow: 100 });
+    assert.equal(narrow.checksum, omitted.checksum, signal);
+    assert.equal(wide.checksum, omitted.checksum, signal);
+  }
+  const shipped = runProgressBout(1, 3, CYCLE_LAMBDA);
+  const explicit = runProgressBout(1, 3, CYCLE_LAMBDA, 50, 80);
+  assert.deepEqual(explicit.peakAt, shipped.peakAt);
+  assert.deepEqual(explicit.positiveSum, shipped.positiveSum);
+  assert.deepEqual(explicit.peakAt80, shipped.peakAt);
+  assert.equal(explicit.trace.length, 80);
 });
 
 test("CI does not run the cycle sweep", () => {

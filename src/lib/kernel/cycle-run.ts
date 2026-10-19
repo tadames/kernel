@@ -9,6 +9,7 @@ import { cloneFamily, CYCLE_EAST_LATENT, distractorSpec, FAMILY_LAYOUT_SEED, reg
 import { mulberry32 } from "./presets.ts";
 import type { CuriositySignal } from "./signals.ts";
 import { acfAt, halfPhaseContrast, phaseContrast } from "./period.ts";
+import { SHIPPED_PROGRESS_WINDOW } from "./progress.ts";
 import { BOUT_STEPS, DROP_STEP, PROGRESS_TIMES, fundamental, phaseBinMeans } from "./phase.ts";
 import {
   AWAY_STEPS,
@@ -65,6 +66,14 @@ export type ProgressResult = {
   peakAt: (number | null)[];
   /** Sum of positive progress over the bout. */
   positiveSum: number[];
+  /** Same sum, stopped at the historical 80-step bout. Equals `positiveSum` when the bout is 80. */
+  positiveSum80: number[];
+  /** Argmax inside the first 80 steps. Null when that prefix never goes positive. */
+  peakAt80: (number | null)[];
+  /** Progress samples at the last checkpoint, one per bout step. */
+  trace: number[];
+  progressWindow: number;
+  boutSteps: number;
 };
 
 export type EpisodeResult = {
@@ -97,11 +106,13 @@ export type EpisodeResult = {
   foods: number;
   lives: number;
   checksum: number;
+  /** Omitted on a job is the shipped window of 50. */
+  progressWindow: number;
 };
 
 export type CycleJob =
   | { kind: "curve"; id: number; seed: number; lambda?: number }
-  | { kind: "progress"; id: number; seed: number; lambda: number }
+  | { kind: "progress"; id: number; seed: number; lambda: number; progressWindow?: number; boutSteps?: number }
   | {
       kind: "episode";
       id: number;
@@ -117,6 +128,8 @@ export type CycleJob =
       arm: "forget" | "held" | "periodic";
       /** Which comparison this episode belongs to. Omitted on the older sweeps. */
       tag?: string;
+      /** Omitted is the shipped window. Only rho reads it. */
+      progressWindow?: number;
     };
 
 export type CycleResult = CurveResult | EpisodeResult | ProgressResult;
@@ -244,9 +257,16 @@ export function runForgettingCurve(id: number, seed: number, lambda = CYCLE_LAMB
  * The ema starts at the learned probe, the same number at every checkpoint,
  * so the bout isolates the decayed weights. The cell net is what decays.
  */
-export function runProgressBout(id: number, seed: number, lambda: number): ProgressResult {
+export function runProgressBout(
+  id: number,
+  seed: number,
+  lambda: number,
+  progressWindow?: number,
+  boutSteps: number = BOUT_STEPS,
+): ProgressResult {
   return withSeed(seed * 10007 + 9601, () => {
-    const k = makeKernel(seed);
+    const window = progressWindow ?? SHIPPED_PROGRESS_WINDOW;
+    const k = makeKernel(seed, progressWindow != null ? { progressWindow } : undefined);
     const params = cycleSpec().params;
     const learnRand = mulberry32((seed ^ 0x51c0) >>> 0);
     train(k, 1, LEARN_STEPS, 0, learnRand);
@@ -258,6 +278,9 @@ export function runProgressBout(id: number, seed: number, lambda: number): Progr
     const peak: number[] = [];
     const peakAt: (number | null)[] = [];
     const positiveSum: number[] = [];
+    const positiveSum80: number[] = [];
+    const peakAt80: (number | null)[] = [];
+    let trace: number[] = [];
     for (const t of times) {
       if (!k.loop.importBrain(learned)) throw new Error("progress bout could not restore the learned brain");
       for (let i = 0; i < t; i++) k.loop.net.decay(lambda);
@@ -266,12 +289,21 @@ export function runProgressBout(id: number, seed: number, lambda: number): Progr
       k.loop.surprise = learnEnd;
       k.loop.progress = 0;
       k.loop.progressEma = 0;
+      // The shipped window reads ema. Any other window reads progressBaseline,
+      // which importBrain does not restore. Set it to the same learned probe
+      // so the bout compares filters, not a baseline left over from learning.
+      if (progressWindow != null) k.loop.progressBaseline = learnEnd;
       const rand = mulberry32((seed ^ 0x66b0 ^ Math.imul(t + 1, 17)) >>> 0);
       let best = -Infinity;
       let bestAt = 0;
+      let best80 = -Infinity;
+      let bestAt80 = 0;
       let pos = 0;
+      let pos80 = 0;
       let after = before;
-      for (let s = 0; s < BOUT_STEPS; s++) {
+      const samples: number[] = [];
+      const last = t === times[times.length - 1];
+      for (let s = 0; s < boutSteps; s++) {
         oneTransition(k, 1, rand, params);
         const value = k.loop.progress;
         if (value > best) {
@@ -279,15 +311,42 @@ export function runProgressBout(id: number, seed: number, lambda: number): Progr
           bestAt = s;
         }
         if (value > 0) pos += value;
+        if (s < BOUT_STEPS) {
+          if (value > best80) {
+            best80 = value;
+            bestAt80 = s;
+          }
+          if (value > 0) pos80 += value;
+        }
         if (s + 1 === DROP_STEP) after = probeRegion(k);
+        if (last) samples.push(value);
       }
       probe.push(before);
       drop20.push(before - after);
       peak.push(best);
       peakAt.push(best > 0 ? bestAt : null);
       positiveSum.push(pos);
+      positiveSum80.push(pos80);
+      peakAt80.push(best80 > 0 ? bestAt80 : null);
+      if (last) trace = samples;
     }
-    return { kind: "progress", id, seed, lambda, times, probe, drop20, peak, peakAt, positiveSum };
+    return {
+      kind: "progress",
+      id,
+      seed,
+      lambda,
+      times,
+      probe,
+      drop20,
+      peak,
+      peakAt,
+      positiveSum,
+      positiveSum80,
+      peakAt80,
+      trace,
+      progressWindow: window,
+      boutSteps,
+    };
   });
 }
 
@@ -305,6 +364,7 @@ export function runCycleEpisode(job: Extract<CycleJob, { kind: "episode" }>): Ep
       signal: job.signal,
       policyTemperature: job.policyTemperature,
     };
+    if (job.progressWindow != null) options.progressWindow = job.progressWindow;
     if (job.forgettingRate > 0) options.forgettingRate = job.forgettingRate;
     if (job.add !== 0) {
       options.periodicBoost = { add: job.add, region: 1, period: job.period, offset: job.offset ?? 0 };
@@ -344,13 +404,14 @@ export function runCycleEpisode(job: Extract<CycleJob, { kind: "episode" }>): Ep
       foods: k.foods,
       lives: k.lives,
       checksum: checksumOf(bits),
+      progressWindow: job.progressWindow ?? SHIPPED_PROGRESS_WINDOW,
     };
   });
 }
 
 export function runCycleJob(job: CycleJob): CycleResult {
   if (job.kind === "curve") return runForgettingCurve(job.id, job.seed, job.lambda ?? CYCLE_LAMBDA);
-  if (job.kind === "progress") return runProgressBout(job.id, job.seed, job.lambda);
+  if (job.kind === "progress") return runProgressBout(job.id, job.seed, job.lambda, job.progressWindow, job.boutSteps);
   return runCycleEpisode(job);
 }
 

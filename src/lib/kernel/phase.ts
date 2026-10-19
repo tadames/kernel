@@ -486,3 +486,140 @@ export function heldOutProjection(
   const values = confirmation.map((row) => project(row.c, row.s, phi));
   return { ...bootstrapMeanCI(values, 2000, 0.05, salt), phi };
 }
+
+/**
+ * Progress windows for the forgetting-lag hunch. Half, one, and twice the
+ * shipped EMA of 50. The option already exists. 50 stays the default.
+ */
+export const WINDOW_GRID = [25, 50, 100] as const;
+
+/**
+ * Relearning bout used when the window can be 100. The historical bout is 80,
+ * which cannot show a peak past that step. 240 is twice the longest window
+ * plus a margin, so a peak near 2× the window is not forced onto the last step.
+ */
+export const WINDOW_BOUT_STEPS = 240;
+
+/**
+ * Shortest signed step from `earlier`'s onset to `later`'s, in (−period/2, period/2].
+ * The two arms share seeds. Each replicate draws one index and uses it on both.
+ */
+export function bootstrapOnsetDiff(
+  later: readonly { seed: number; c: number; s: number }[],
+  earlier: readonly { seed: number; c: number; s: number }[],
+  period: number,
+  iters = 2000,
+  seed = 1,
+): Interval {
+  const a = later.slice().sort((x, y) => x.seed - y.seed);
+  const b = earlier.slice().sort((x, y) => x.seed - y.seed);
+  if (a.length !== b.length || a.length === 0 || a.some((row, i) => row.seed !== b[i]!.seed)) {
+    throw new Error("onset diff is not paired");
+  }
+  const n = a.length;
+  const onsetOfMean = (c: number, s: number) => onsetOf(c / n, s / n, period);
+  let cL = 0;
+  let sL = 0;
+  let cE = 0;
+  let sE = 0;
+  for (let i = 0; i < n; i++) {
+    cL += a[i]!.c;
+    sL += a[i]!.s;
+    cE += b[i]!.c;
+    sE += b[i]!.s;
+  }
+  const mean = wrapSigned(onsetOfMean(cL, sL) - onsetOfMean(cE, sE), period);
+  if (n < 2) return { mean, lo: mean, hi: mean, n };
+  const rand = mulberry32(seed >>> 0);
+  const values = new Float64Array(iters);
+  for (let draw = 0; draw < iters; draw++) {
+    let cl = 0;
+    let sl = 0;
+    let ce = 0;
+    let se = 0;
+    for (let i = 0; i < n; i++) {
+      const j = (rand() * n) | 0;
+      cl += a[j]!.c;
+      sl += a[j]!.s;
+      ce += b[j]!.c;
+      se += b[j]!.s;
+    }
+    values[draw] = wrapSigned(onsetOfMean(cl, sl) - onsetOfMean(ce, se), period);
+  }
+  values.sort();
+  const ends = percentile(values, iters, 0.05);
+  return { mean, lo: ends.lo, hi: ends.hi, n };
+}
+
+export type MoveCall = "later" | "sooner" | "same";
+
+/** A paired difference. Positive is the predicted direction. */
+export function moveCall(diff: Ends): MoveCall {
+  if (diff.lo > 0) return "later";
+  if (diff.hi < 0) return "sooner";
+  return "same";
+}
+
+export type ScalePrediction = "scales" | "fixed" | "reversed" | "partial" | "censored";
+
+/**
+ * Two adjacent steps, short to long. `scales` is both later. `fixed` is both
+ * inside zero. A censored endpoint blocks the call.
+ */
+export function scalePrediction(moves: readonly MoveCall[], censored: boolean): ScalePrediction {
+  if (censored || moves.length !== 2) return "censored";
+  if (moves.every((move) => move === "later")) return "scales";
+  if (moves.every((move) => move === "same")) return "fixed";
+  if (moves.some((move) => move === "sooner")) return "reversed";
+  return "partial";
+}
+
+export type HunchVerdict = "confirmed" | "refuted" | "split" | "inconclusive";
+
+/**
+ * The window artifact needs the bout, the onset, and the half-contrast to
+ * move together. Both lags staying put refutes it. One moving without the
+ * other splits it. A blind instrument does not get a verdict.
+ */
+export function hunchVerdict(input: {
+  instrument: "confirmed" | "refuted" | "inconclusive";
+  bout: ScalePrediction;
+  onset: ScalePrediction;
+  contrast: ScalePrediction;
+}): HunchVerdict {
+  if (input.instrument !== "confirmed") return "inconclusive";
+  const { bout, onset, contrast } = input;
+  if (bout === "scales" && onset === "scales" && contrast === "scales") return "confirmed";
+  if (bout === "fixed" && onset === "fixed") return "refuted";
+  if (bout === "scales" && onset === "scales") return "split";
+  if ((bout === "scales" && onset === "fixed") || (bout === "fixed" && onset === "scales")) return "split";
+  return "inconclusive";
+}
+
+export type LatePattern = "late" | "absent" | "shifted" | "unlocated";
+
+/** The previous entry's pattern: a negative half-contrast whose high half starts late. */
+export function latePattern(sign: SignCall, location: LocationCall): LatePattern {
+  if (sign !== "negative") return "absent";
+  if (location === "delayed" || location === "half-cycle") return "late";
+  if (location === "unresolved") return "unlocated";
+  return "shifted";
+}
+
+export type SpecificityCall = "specific" | "shared" | "confounded";
+
+export function specificityCall(input: { randomSign: SignCall; otherExists: boolean }): SpecificityCall {
+  if (input.randomSign !== "null") return "confounded";
+  if (input.otherExists) return "shared";
+  return "specific";
+}
+
+/** A peak step is usable when it is positive and not stuck on the final sample. */
+export function usablePeak(peakAt: number | null, boutSteps: number) {
+  return peakAt != null && peakAt < boutSteps - 1;
+}
+
+/** Fewer uncensored seeds than a majority blocks that window's peak. */
+export function peakMajority(nSeeds: number, nUncensored: number) {
+  return nUncensored * 2 > nSeeds;
+}

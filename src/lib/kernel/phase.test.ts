@@ -5,15 +5,25 @@ import { periodicBoostOn } from "./kernel.ts";
 import { fundamental, onsetOf, phaseBinMeans } from "./phase.ts";
 import {
   boutCall,
+  bootstrapOnsetDiff,
   excessCall,
   hunchCall,
+  hunchVerdict,
+  latePattern,
   locationCall,
   matchCall,
+  moveCall,
   offsetCall,
+  peakMajority,
   phaseInstrumentCall,
   profileSummary,
   scaleCall,
+  scalePrediction,
   signCall,
+  specificityCall,
+  usablePeak,
+  WINDOW_BOUT_STEPS,
+  WINDOW_GRID,
   wrapSigned,
 } from "./phase.ts";
 
@@ -158,4 +168,64 @@ test("the summary stays blind until the instrument passes, and a shared explorer
 test("CI does not run the phase-profile sweep", () => {
   const yml = readFileSync(".github/workflows/ci.yml", "utf8");
   assert.equal(yml.includes("phase-profile"), false);
+  assert.equal(yml.includes("window-sweep"), false);
+});
+
+test("the window grid is half, one, and twice the shipped 50, and the bout can hold the long one", () => {
+  assert.deepEqual([...WINDOW_GRID], [25, 50, 100]);
+  assert.equal(WINDOW_BOUT_STEPS, 240);
+  assert.ok(WINDOW_BOUT_STEPS > 2 * 100);
+});
+
+test("onset difference recovers a shift and wraps the short way", () => {
+  const period = 160;
+  const early = fundamental(square(period, 0, 8), period);
+  const late = fundamental(square(period, 40, 8), period);
+  const rows = (wave: { c: number; s: number }) => Array.from({ length: 8 }, (_, seed) => ({ seed: seed + 1, ...wave }));
+  const forward = bootstrapOnsetDiff(rows(late), rows(early), period, 200, 3);
+  assert.ok(Math.abs(forward.mean - 40) < 1, `forward ${forward.mean}`);
+  const wrapped = fundamental(square(period, 140, 8), period);
+  const across = bootstrapOnsetDiff(rows(early), rows(wrapped), period, 200, 4);
+  assert.ok(Math.abs(across.mean - 20) < 1, `wrapped ${across.mean}`);
+});
+
+test("window scaling confirms only when the bout, the onset, and the contrast all move later", () => {
+  const later = { lo: 2, hi: 8 };
+  const same = { lo: -1, hi: 1 };
+  const sooner = { lo: -8, hi: -2 };
+  assert.equal(moveCall(later), "later");
+  assert.equal(moveCall(same), "same");
+  assert.equal(moveCall(sooner), "sooner");
+  assert.equal(scalePrediction(["later", "later"], false), "scales");
+  assert.equal(scalePrediction(["same", "same"], false), "fixed");
+  assert.equal(scalePrediction(["later", "same"], false), "partial");
+  assert.equal(scalePrediction(["sooner", "later"], false), "reversed");
+  assert.equal(scalePrediction(["later", "later"], true), "censored");
+  const instrument = "confirmed" as const;
+  assert.equal(
+    hunchVerdict({ instrument, bout: "scales", onset: "scales", contrast: "scales" }),
+    "confirmed",
+  );
+  assert.equal(hunchVerdict({ instrument, bout: "fixed", onset: "fixed", contrast: "scales" }), "refuted");
+  assert.equal(hunchVerdict({ instrument, bout: "fixed", onset: "fixed", contrast: "fixed" }), "refuted");
+  assert.equal(hunchVerdict({ instrument, bout: "scales", onset: "fixed", contrast: "scales" }), "split");
+  assert.equal(hunchVerdict({ instrument, bout: "scales", onset: "scales", contrast: "fixed" }), "split");
+  assert.equal(hunchVerdict({ instrument, bout: "censored", onset: "scales", contrast: "scales" }), "inconclusive");
+  assert.equal(
+    hunchVerdict({ instrument: "inconclusive", bout: "scales", onset: "scales", contrast: "scales" }),
+    "inconclusive",
+  );
+  assert.equal(latePattern("negative", "delayed"), "late");
+  assert.equal(latePattern("negative", "half-cycle"), "late");
+  assert.equal(latePattern("negative", "prompt"), "shifted");
+  assert.equal(latePattern("negative", "unresolved"), "unlocated");
+  assert.equal(latePattern("null", "delayed"), "absent");
+  assert.equal(specificityCall({ randomSign: "null", otherExists: false }), "specific");
+  assert.equal(specificityCall({ randomSign: "null", otherExists: true }), "shared");
+  assert.equal(specificityCall({ randomSign: "negative", otherExists: false }), "confounded");
+  assert.equal(usablePeak(55, 240), true);
+  assert.equal(usablePeak(239, 240), false);
+  assert.equal(usablePeak(null, 240), false);
+  assert.equal(peakMajority(200, 101), true);
+  assert.equal(peakMajority(200, 100), false);
 });
