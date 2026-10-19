@@ -1,5 +1,145 @@
 # Journal
 
+## 2026-10-19 window track (America/New_York)
+
+Written before `npm run window-track`. No peak, onset, or half-contrast from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The previous entry left the late-return hunch inconclusive. The progress peak moved with the window, 60.0, 91.8, and 133.4 steps at windows 25, 50, and 100. The occupancy onset was located only at 50, at 93.66 steps, and the half-contrast was negative only there. The onset intervals at 25 and 100 were wider than half a period. The 80-step bout used by the earlier progress measurement ends before the uncapped peak at window 50. This run asks whether that late return is a window-tracked effect once the bout and the episode can see it, or an artifact of the shipped window. It adds no curiosity term. The default temperature stays 0.45. `forgettingRate` stays 0. `progressWindow` stays 50. `periodicBoost` stays off.
+
+### Preregister window track
+
+Hypothesis. Rho's occupancy onset and half-contrast track the progress window. The estimator's peak moves later as the window grows, and the return follows that peak. The half-contrast is the first half of the forgetting period minus the second half. A later onset makes that contrast more negative only while the onset is still approaching half a period. Once the onset passes half a period, a later onset makes the contrast less negative, because the high half wraps into the first half of the clock. The previous sweep assumed the first direction at every step. That assumption has the wrong sign between a peak near 92 and a peak near 133. This run predicts each contrast step from the square-wave template of the measured peak.
+
+Alternative. The late pattern exists only at the shipped window 50, or it does not replicate on fresh seeds once the onset is given a longer episode. A single-setting bump, or a bump that disappears, closes the thread. It is not a learning-progress lag.
+
+World. The previous entry's. Wide-door distractor, layout seed 3000, learnability 1, relevance 0, drift 0, no food, no metabolism. λ = 0.012924125031568812. Temperature 0.15. Seeds 1–200. The curve uses the historical stream `seed * 10007 + 9201` and salts 8001–8005. It is a harness, not a claim seed. `curveDecision` is the previous rule. If it is not `run`, no episode is run and the hypothesis is not confirmed and not refuted.
+
+Harness. The curve's learn drop, the decay-minus-held endpoint, the half-recovery, and the locked period must match `bench/phase-profile/profile.json` within 1e-9, and the decision must be `run`. A miss aborts. The progress peaks and the occupancy use fresh streams and are not required to match the previous numbers.
+
+Bout. The body is held still. Learn region 1 for 200 steps with decay off, the same transition seed as the curve. Checkpoints stay 0, 43, 86, 129, 172, 258, 344, 400. At each one the learned brain is restored, the cell net is decayed that many steps, and the baseline the progress formula reads is set to the learned probe. The bout is 400 steps. That is the away endpoint, and it is longer than twice the longest window, so a peak near twice the window is not forced onto the last sample. The call is the argmax at the 400-step checkpoint. A peak that is not positive is censored. A peak on the final step is right-censored. A window is censored when the uncensored seeds are not a majority. A pair drops a seed that is censored on either window, and the pair is censored when the kept seeds are not a majority of 200. `peak80` is the argmax inside the first 80 steps. It is reported and is not the call. Seed stream `seed * 10007 + 16101`.
+
+Windows. 25, 35, 50, 70, and 100. The two interior points are this run's choice, so a smooth slope can be told from a bump that exists only at 50. Rho is scored at all five. Count, surprise, RND, and random are scored at all five as well. A unit test already locks that those four do not read the window. Running them here asks whether a late pattern appears in a matched room under the longer episode.
+
+`boutPrediction` is `chainPrediction` on the four adjacent peak differences, longer minus shorter. Salts 17620 through 17623, in window order. `scales` when every difference lies entirely above 0. `fixed` when every difference includes 0. `reversed` when any lies entirely below 0. `partial` when the steps disagree without a reversal. `censored` when any window or any pair is censored. The ratio of adjacent mean peaks is reported, salts 17650 through 17653, and is not a cutoff.
+
+Positive control, before an onset is a where-claim. Same world, decay off, temperature 0.15, seeds 1–200, the locked period, the new episode length. Seed stream `seed * 10007 + 16201`. Dose 0.05 only. The on-half is `floor(P/2)` steps at offsets 0, round(P/4), twice that, and three times that. Rho is planted at each window and all four offsets. The flat arm omits the bonus and is separate for each window, because the window changes rho's policy. Projection salt is 17700 plus 10 times the window index plus the offset index. Lag salt is 17800 on the same index. `offsetCall` is the previous rule. A window's instrument is `phaseInstrumentCall` on its four offsets. The sweep's instrument is confirmed only when all five windows are confirmed. It is refuted when all five are refuted. Otherwise inconclusive. This is the check that the longer episode still recovers a planted wave. The historical 1600-step lags are not the target.
+
+Episode length. `trackEpisodeSteps`. The longest multiple of the period that is at most 27 cycles and at most 4800 steps, and at least 8 cycles. For period 172 that is 27 × 172 = 4644 steps. The previous occupancy episode was 1600 steps, nine complete cycles. Twenty-seven cycles is three times that count. The onset was censored when its interval was wider than half a period. More cycles per seed is how this run makes a real onset locatable. It does not assign a phase to a zero vector.
+
+Forgetting occupancy. Explorers random, count, surprise, RND, and rho, at every window. The forget arm sets `forgettingRate` to λ. The held arm omits it. Seed stream `seed * 10007 + 16301`. Window index is 0 for 25, 1 for 35, 2 for 50, 3 for 70, 4 for 100. Explorer index is the curiosity-signal order, and rho's index is 4. Half-contrast salt is 17000 plus 100 times the window index plus the explorer index. Half-period salt is 17100 on that index. East salt is 17200. Bin salt is 17300 plus 100 times the window index plus 10 times the explorer index plus the bin. Onset salt is 17400. Held-out salt is 17500. Sign is `signCall` on the half-contrast, decay minus held. Location is `locationCall` on the onset of the mean vector. Held-out projection freezes the angle on seeds 1–100 and scores seeds 101–200. Existence is a negative sign or a held-out interval entirely above 0. `latePattern` is the previous rule.
+
+Onset chain. The number is the longer window's onset minus the shorter one's, wrapped into (−P/2, P/2]. The bootstrap draws one seed index and uses it on both windows. Salts 17600 through 17603. A pair is scorable only when both locations are resolved. The chain is censored when any pair is not scorable or the instrument is not confirmed. `onsetPrediction` is `chainPrediction`.
+
+Contrast chain. The template is `squareHalfContrast` of that window's mean uncensored peak. The observed number is the longer window's half-contrast minus the shorter one's, paired on the seed. Salts 17610 through 17613. `templateStep` uses a flat threshold of 0.05. A template step inside ±0.05 is predicted flat, and an observed interval that excludes 0 is then a mismatch. A larger template step matches when the observed interval lies entirely on that side, mismatches when it lies entirely on the other side, and is unresolved when it includes 0. `contrastTrack` is `tracks` when every informative step matches, `reversed` when any step mismatches, `flat` when every step is predicted flat, and `partial` otherwise. The contrast chain is not censored by the instrument.
+
+Specificity. The shipped window uses `specificityCall`: confounded when random's sign is not null, shared when count, surprise, or RND exists, specific otherwise. `gridSpecificity` also calls the run confounded when random's sign is not null at two or more windows, and shared when any one of those three explorers is late at two or more windows. One off-window miss is reported and does not flip a specific shipped window. That repeat rule is this run's choice. It keeps a single noisy window from closing a real track, and it still catches a pattern that is not rho's.
+
+Verdict, `trackReason`. `inconclusive` when the curve is not `run`, the instrument is not confirmed, or the bout is censored. The occupancy numbers are still reported, and the hypothesis is not closed. `confirmed` when the bout scales, the onset scales, the contrast tracks, and the specificity is specific. `refuted` otherwise. A pattern that is late only at window 50, a pattern that is absent at window 50, an onset chain that stays censored after the longer episode, a contrast that does not follow the peak, a shared pattern, or a random confound is a refutation. The previous sweep stayed inconclusive because a censored onset blocked the call. Here that censor, once the bout outlasts the peak and the episode is three times as long, is a failure of the window-tracked account.
+
+No policy retune and no new term in any of these. No window replaces the shipped default of 50. If the verdict is refuted, the late-return thread is closed in this journal and in the research priorities, and the next measurement is a phase-diagram summary of where rho fails against the baselines under noise, drift, and forgetting. If the verdict is confirmed, decay stays off and the next measurement is the count of returns that begin after the room probe has risen. If the verdict is inconclusive, that count stays the next measurement and the late-return thread stays open.
+
+The sweep aborts before any call if a cycle-world episode records a meal or a death, if a random-walk checksum differs across arms that share a tag, a length, a period, and a seed, or if the curve harness misses.
+
+Figures: `bench/window-track/forget-curve.png`, `bench/window-track/peak-vs-window.png`, `bench/window-track/progress-trace.png`, `bench/window-track/positive-onset.png`, `bench/window-track/half-contrast.png`, `bench/window-track/onset-vs-window.png`, `bench/window-track/phase-by-window.png`, and `bench/window-track/baseline-contrast.png`. Source: `bench/window-track/window.json`. The sweep is `npm run window-track`. It is not part of CI.
+
+### Results
+
+The curve reproduced. The planted wave was recovered at every window on the longer episode. The progress peak still moves later as the window grows. The occupancy onset was not located at any window, including the shipped 50, and every half-contrast includes 0. The verdict is refuted. The late-return thread is closed. No term was added. The window stays 50.
+
+200 curve seeds, 1000 progress bouts, and 15000 episodes, 4 workers, 15329 seconds. The bouts were 60 seconds. The episodes were 15262 seconds. Source: `bench/window-track/window.json`.
+
+#### Curve. Reproduced.
+
+λ = 0.012924125031568812. Half-recovery 86.15 [85.45, 86.85], 200 of 200 uncensored. P = 172. The historical episode is 1600 steps. This run's episode is 4644 steps, 27 cycles. `curveDecision` is `run`. These intervals match the previous entry.
+
+| check | value | call |
+|---|---|---|
+| learns | 0.1558 [0.1547, 0.1569] | confirmed |
+| consolidates | 0.0519 [0.0513, 0.0526] | confirmed |
+| forgets, decay minus held | 0.1490 [0.1485, 0.1494] | confirmed |
+| interference minus held, not a gate | 0.0099 [0.0093, 0.0106] | confirmed |
+
+Figure: `bench/window-track/forget-curve.png`.
+
+#### Progress peak. Scales. The absolute step is not the previous stream's step.
+
+The call is the argmax over the 400-step bout after 400 steps of decay. A peak on the final step is dropped. One seed at window 50, and two seeds at 70 and at 100, are dropped. The other peaks are inside the bout.
+
+| window | peak step | inside the first 80, not the call |
+|---|---|---|
+| 25 | 78.99 [68.45, 91.45] | 44.71 [43.15, 46.44] |
+| 35 | 94.78 [83.19, 107.34] | 50.21 [48.46, 51.98] |
+| 50 | 131.36 [117.67, 145.27], 199 seeds | 55.33 [53.45, 57.17] |
+| 70 | 176.62 [161.63, 191.23], 198 seeds | 58.06 [56.25, 59.85] |
+| 100 | 239.90 [224.55, 254.58], 198 seeds | 59.30 [57.41, 61.01] |
+
+35 minus 25 is 15.79 [5.96, 26.55]. 50 minus 35 is 37.13 [26.16, 50.07], 199 pairs. 70 minus 50 is 44.84 [33.09, 57.38], 198 pairs. 100 minus 70 is 63.28 [48.65, 77.94], 198 pairs. All four lie entirely above 0. `boutPrediction` is scales.
+
+The 80-step column at window 50 is 55.33 [53.45, 57.17]. The previous entry, on the historical progress stream, was 55.26 [53.52, 57.10]. The first 80 steps agree across streams. The uncapped peak does not. This stream puts window 50 at 131.36. The previous stream put it at 91.82 inside a 240-step bout. The call is the ordering. The absolute step is a property of the weight stream.
+
+The ratios of adjacent mean peaks are 1.20 [1.07, 1.36], 1.39 [1.26, 1.56], 1.34 [1.24, 1.46], and 1.36 [1.27, 1.47]. They are reported and are not a cutoff. A 400-step bout holds every window. The longest peak, 239.90, is inside the bout.
+
+Figure: `bench/window-track/peak-vs-window.png`. The trace of the mean progress at the 400-step checkpoint is `bench/window-track/progress-trace.png`.
+
+#### Positive control. Instrument confirmed at every window.
+
+Temperature 0.15, decay off, period 172, dose 0.05, episode 4644. The lag is recovered onset minus the planted offset. Every offset at every window is delayed: the projection lies entirely above 0, and the lag lies entirely above 0 and inside a quarter period. The sweep's instrument is confirmed. The longer episode still recovers a planted wave.
+
+| window | offset 0 | offset 43 | offset 86 | offset 129 |
+|---|---|---|---|---|
+| 25 | 21.54 [19.25, 23.82] | 21.99 [19.87, 24.28] | 20.91 [18.87, 22.79] | 21.96 [19.88, 23.93] |
+| 35 | 20.01 [17.99, 22.04] | 20.74 [18.76, 22.80] | 20.49 [18.23, 22.74] | 21.00 [18.85, 23.28] |
+| 50 | 20.64 [18.78, 22.58] | 19.47 [17.37, 21.64] | 20.86 [18.74, 23.04] | 21.01 [19.03, 23.05] |
+| 70 | 18.91 [16.97, 20.92] | 20.51 [18.56, 22.43] | 20.55 [18.50, 22.58] | 21.71 [19.55, 23.70] |
+| 100 | 20.69 [18.68, 22.65] | 22.24 [20.51, 23.96] | 20.42 [18.76, 22.09] | 18.85 [16.74, 20.98] |
+
+The planted lag stays between 19 and 22 steps. It does not grow with the progress window. The response delay of a dose-0.05 wave is not the estimator's time constant.
+
+Figure: `bench/window-track/positive-onset.png`.
+
+#### Occupancy. The late return is absent at every window.
+
+Temperature 0.15, fresh seeds, decay minus held, 27 cycles. Rho's half-contrast includes 0 at all five windows. Every onset interval is wider than half a period, so every location is unresolved and every `latePattern` is absent. `onsetPrediction` is censored. `contrastPrediction` is partial. The 25-to-35 template step sits inside the flat band of 0.05, and that observed interval includes 0. The other three observed intervals include 0.
+
+| window | half-contrast | onset | location | late pattern |
+|---|---|---|---|---|
+| 25 | −0.0020 [−0.0105, 0.0061] | 51.45, width 133.1 | unresolved | absent |
+| 35 | −0.0048 [−0.0136, 0.0030] | 91.71, width 125.6 | unresolved | absent |
+| 50 | 0.0012 [−0.0065, 0.0086] | 148.86, width 155.8 | unresolved | absent |
+| 70 | −0.0018 [−0.0091, 0.0058] | 87.59, width 139.3 | unresolved | absent |
+| 100 | 0.0015 [−0.0060, 0.0090] | 37.07, width 133.2 | unresolved | absent |
+
+The previous episode, 1600 steps on the historical occupancy stream, had window 50 at −0.0177 [−0.0301, −0.0051] with onset 93.66 [75.45, 114.73]. That row is absent here. The point estimate at window 50 has the other sign, and the interval is about half as wide.
+
+East fraction, not a call. Window 70 is 0.0170 [0.0015, 0.0328]. The other four include 0: window 25 is 0.0072 [−0.0089, 0.0235], window 35 is 0.0142 [−0.0016, 0.0291], window 50 is 0.0067 [−0.0104, 0.0227], and window 100 is 0.0066 [−0.0096, 0.0226]. The previous level shift, about 0.04 to 0.05 at every window, is absent from this episode except for that one window.
+
+Figure: `bench/window-track/half-contrast.png`, `bench/window-track/onset-vs-window.png`, and `bench/window-track/phase-by-window.png`.
+
+#### Baselines. Specific.
+
+Same fresh seeds, same long episode, all five windows. Random is a point mass at 0. Count, surprise, and RND include 0 on the half-contrast at every window, and none is late. `randomNonNull` is 0. The late counts are 0, 0, 0. `gridSpecificity` is specific.
+
+| explorer | half-contrast at 50 | east fraction at 50 |
+|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| count | 0.0027 [−0.0069, 0.0125] | −0.0354 [−0.0443, −0.0268] |
+| surprise | 0.0036 [−0.0042, 0.0117] | 0.0308 [0.0069, 0.0552] |
+| rnd | −0.0037 [−0.0116, 0.0041] | −0.0327 [−0.0486, −0.0161] |
+
+Count's east fraction is negative at every window, and surprise's is positive at every window. RND's is negative at every window. The four non-rho rows agree across windows to the third digit, which is the unit-test fact that they do not read the progress window. Those level shifts are not phase-locked. They are not the late-return claim.
+
+Figure: `bench/window-track/baseline-contrast.png`.
+
+#### Verdict. Refuted.
+
+`boutPrediction` is scales. `onsetPrediction` is censored. `contrastPrediction` is partial. The instrument is confirmed. Specificity is specific. `trackReason` is refuted, reason `onset-not-scaling`. The progress peak moves later when the window is longer, on a fresh weight stream, and the 400-step bout holds it. The occupancy onset does not follow that peak. The late pattern is absent at 25, 35, 50, 70, and 100. It is not a bump that exists only at the shipped window and survives a finer grid. A fresh stream and 27 cycles remove it, including at window 50. The planted control shows that the longer episode can still locate a real wave of dose 0.05.
+
+`forgettingRate` stays 0. `progressWindow` omitted is still 50. `policyTemperature` omitted is still 0.45. `periodicBoost` stays off. No Loop flag was added, and none was turned on. The window was not retuned. Five-seed bench, seeds 1–5, sha `50c95db`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn decay on, do not retune the progress window, and do not add a curiosity term. The late return under forgetting is closed. On fresh seeds and a 27-cycle episode the half-contrast includes 0 at every window from 25 to 100, and no onset is located. The progress peak still scales with the window. The next measurement is a phase-diagram summary of where rho fails against random, count, surprise, and RND under stationary noise, matched drift, and forgetting. The summary is descriptive. It adds no term. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-19 progress window (America/New_York)
 
 Written before `npm run window-sweep`. No peak, onset, or half-contrast from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

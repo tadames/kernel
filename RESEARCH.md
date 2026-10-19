@@ -77,6 +77,10 @@ S2 is the load-bearing test. Measuring surprise on a sliding window would cheat 
 
 Seeds are fixed. If a claim flickers, that is a result: the kernel is too noisy, or the threshold is theatre. Either way, log it in `JOURNAL.md`. It is not a license to loosen the test until it passes.
 
+## Measurement priorities
+
+Closed on 2026-10-19. Rho's late return to a forgotten room is not a window-tracked effect. Fresh seeds, matched decay-versus-held rooms, temperature 0.15, and an episode of 27 forgetting cycles put the half-contrast through zero at windows 25, 35, 50, 70, and 100. No onset was located. The planted dose 0.05 was still recovered, and the progress peak still moved later as the window grew. Stationary noise and matched drift had already shown no attraction for rho against the same baselines. The next measurement is one summary of those three failures. It adds no curiosity term.
+
 ## Open problems (ordered)
 
 1. **Action-conditional ρ̂.** Curiosity uses expected residual plus the residual *drop* across horizon-2 imagination (prefer moves the model expects to make more certain). Global ρ still scales. A true model-of-learning — a second kernel whose observations are the first kernel’s hidden state — remains Phase 1.
