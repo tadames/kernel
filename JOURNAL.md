@@ -1,5 +1,152 @@
 # Journal
 
+## 2026-10-18 phase profile (America/New_York)
+
+Written before `npm run phase-profile`. No onset, sign, or progress number from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The previous entry's next hypothesis was a count of returns that begin after the room probe has risen. That count is not this run. The phase contrast there was rho −0.0172 [−0.0300, −0.0041] at temperature 0.15: the first half of each period of 172 was the low half. Count, surprise, RND, and random included 0. This run asks where in the period that excess sits. It adds no curiosity term. The default temperature stays 0.45. `forgettingRate` stays 0. `periodicBoost` stays off. An offset on that boost is measurement only and defaults to 0, which is the old first-half clock.
+
+### Preregister phase profile
+
+Hypothesis. Rho's negative half-contrast is a late return to the forgotten room, not a rejection of periodicity and not a delay shared with the other explorers. A late return has its high half starting after the first quarter of the period. The matched arm is still decay against the same rooms and the same patterns with the decay constant omitted. Count, surprise, and RND are scored with the same profile. Random is the confound check. A second, slower forgetting rate asks whether the lag is a fraction of the forgetting period or a fixed number of steps. The progress signal during a forced return is measured against decay time. That measurement tests the hunch that the signal peaks only after partial decay. It is not assumed, and it does not enter the policy.
+
+The world, the primary decay constant, and the curve are the previous entry's. λ = 0.012924125031568812. The slow rate has twice the half-life, λ_slow = 1 − exp(−ln 2 / (2τ)), with the same τ. Seeds 1–200. The primary curve uses seed stream `seed * 10007 + 9201` and the previous salts, so it has to reproduce. The slow curve uses the same stream, so the learned weights match, and only the decay constant changes. Slow forgets uses salt 8021, slow half-recovery salt 8022, slow consolidation salt 8023. Learns and interference keep salts 8001 and 8004. `curveDecision` is the previous rule. If the primary decision is not `run`, no episode is run. The sign and the location are then not claims. If the slow decision is not `run`, the scaling call is `unavailable` and the slow occupancy is not run.
+
+Estimator. Occupancy is the region-1 bit, taken before the move. Only complete periods are scored. Eight bins split each period. Bin b is the steps whose position inside the period falls in `[b/8, (b+1)/8)`. The Fourier coefficients C and S are the mean of the mean-centered series against cos(2πt/P) and sin(2πt/P). The peak step is atan2(S, C) × P / (2π). The onset is that peak minus P/4, wrapped into [0, P). A 50% square whose on-half starts at offset δ has onset δ. A zero vector has onset 0 and amplitude 0, and the location call treats it as unresolved. The arm difference is per seed, on the coefficients and on the bins, before the mean. The onset is the onset of the mean vector, not the mean of the onsets. Its 95% interval is a percentile bootstrap of the wrapped deviation from that onset, 2000 resamples. The signed onset wraps the same number into (−P/2, P/2].
+
+Checked on synthetic series, as a unit test, not as the claim. A square of period 160 at offsets 0, 40, 80, and 120 recovers its onset within one step. The same square's first four bins are 1 and its last four are 0. Offset 86 of period 172 turns the first half off and the second half on. A constant has coefficients under 1e−12.
+
+Positive control, before the location is a claim. Same world, decay off, temperature 0.15, seeds 1–200, the locked primary P and episode length. Seed stream `seed * 10007 + 9501`. The on-half is `floor(P/2)` steps starting at a planted offset. Offsets are 0, round(P/4), 2× that, and 3× that. Dose 0.05 is the gate. Dose 0.0085 is sensitivity and is not the gate. Rho is planted at both doses and all four offsets. The other explorers are planted at dose 0.05 and offset 0 only. The flat arm omits the bonus and is shared across offsets and doses. Imagined follow-ups do not receive the bonus.
+
+For one offset, the projection is the Fourier vector dotted with the unit vector at the planted peak, which sits P/4 after the planted onset. The lag is the recovered onset minus the planted offset, wrapped into (−P/2, P/2]. Projection salt is 10000 + 10×explorer + offset index + 40×dose index. Lag salt is 10100 plus the same index. Dose index is 0 for 0.05 and 1 for 0.0085. Offset index follows the list above. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. `offsetCall` is `flipped` when the projection interval lies entirely below 0, `missed` when it does not lie entirely above 0, `distorted` when it does and the lag interval lies entirely outside ±floor(P/4), `delayed` when the lag interval lies entirely above 0, `early` when it lies entirely below 0, and `tracked` when the lag interval includes 0. `phaseInstrumentCall` is confirmed when all four rho offsets at dose 0.05 are tracked, delayed, or early. It is refuted when all four are flipped. Otherwise inconclusive.
+
+Forgetting occupancy. Temperature 0.15. Explorers random, count, surprise, RND, rho. The forget arm sets `forgettingRate` to the rate under test. The held arm omits it. Primary seed stream `seed * 10007 + 9401`. Slow seed stream `seed * 10007 + 9701`, and only if the slow curve decision is `run`. A rho-only planted wave at dose 0.05 and offset 0, on the slow period, uses seed stream `seed * 10007 + 9801`. Its projection salt is 10300 and its lag salt is 10301.
+
+Sign, `signCall`. The number is the first-half contrast, decay minus held, the same contrast as the previous entry. Salt 11000 + 100×rate + explorer. Rate index is 0 for the primary rate and 1 for the slow rate. Confirmed replication is an interval entirely below 0. An interval entirely above 0 is `positive`. An interval that includes 0 is `null`. The half-period contrast uses salt 11200 + 100×rate + explorer and is not a call. East fraction uses salt 11800 + 100×rate + explorer and is not a call. Bin means use salt 11600 + 100×rate + 10×explorer + bin and are the profile. Onset bootstrap salt is 11400 + 100×rate + explorer.
+
+Held-out existence. Seeds 1–100 freeze the peak angle. Seeds 101–200 are projected onto that angle. Salt 12000 + 100×rate + explorer. The held-out interval lying entirely above 0 is existence without using the half-contrast. A run with no confirmation seed does not clear it.
+
+Location, `locationCall`, only as a claim when the instrument is confirmed. The arc is the onset interval. `unresolved` when the amplitude is 0 or the interval is at least P/2 wide. `half-cycle` when the whole arc lies within P/8 of P/2. `delayed` when the whole arc lies within P/4 of P/2 and it is not a half-cycle. `prompt` when the whole arc lies within P/8 of 0. Otherwise `other`.
+
+Existence for an explorer is a negative sign or a held-out interval entirely above 0.
+
+Summary, `profileSummary`. `no-period` when the primary curve does not run. `instrument-blind` when the offset ladder is not confirmed: the sign is still reported, and the onset is not a where-claim. `confounded` when random's sign is not null. `sign-reversed` when rho's sign is positive and the held-out does not clear. `sign-null` when rho's sign is null and the held-out does not clear. `shared` when rho exists and at least one of count, surprise, and RND exists. Otherwise `replicated-half`, `replicated-delayed`, `replicated-prompt`, or `replicated-other` when the sign is negative, and the same four with the prefix `heldout` when only the held-out projection cleared. `unresolved` location is reported as `other`.
+
+Scaling, `scaleCall`. Available only when the instrument is confirmed, the slow occupancy ran, both rho locations are not unresolved, and both rates exist. The phase difference is the slow signed-onset fraction minus the primary fraction, wrapped into (−1/2, 1/2]. The step difference is the slow signed onset minus the primary signed onset. Salt 12200. `timescale` when the phase interval includes 0 and the step interval lies entirely above 0. `fixed-lag` when the step interval includes 0 and the phase interval does not. `indistinguishable` when both include 0. `incompatible` when both exclude 0. Otherwise `unavailable`.
+
+Excess, `excessCall`. The number is the forgetting signed onset minus the signed onset of the dose-0.05 offset-0 control on that same period. Primary salt 12300. Slow salt 12310. Certified only when the instrument is confirmed, that rate exists, its location is not unresolved, and that control offset was tracked, delayed, or early. `beyond-response` when the interval lies entirely above 0. `sooner` when it lies entirely below 0. `same-as-response` when it includes 0. Otherwise `uncertified`.
+
+Progress hunch. Seed stream `seed * 10007 + 9601`. Learn region 1 for 200 steps with decay off, the same transition seed as the curve. Checkpoints are 0, 43, 86, 129, 172, 258, 344, 400. At each one the learned brain is restored, the cell net is decayed that many steps, and the ema is set to the learned probe. An 80-step bout then trains region 1 with no further decay. Progress is ema minus surprise, the shipped update. `positiveSum` adds the positive samples. `drop20` is the probe before the bout minus the probe after 20 steps. The peak step is censored when the largest sample is not positive. The call uses `positiveSum`. Primary salts: marginal sums 8500+index, drops 8600+index, probes 8700+index, endpoint minus start 8301, each middle checkpoint minus start 8310+index, each middle minus the endpoint 8340+index, peak step at the last checkpoint 8370. Slow salts are 8800, 8900, 9000, 8401, 8410, 8440, 8470 in that same order. `hunchCall` is `intermediate` when a middle checkpoint's interval lies entirely above both ends, `grows` when the endpoint lies entirely above the start and no middle lies entirely above the endpoint, `falls` when the endpoint lies entirely below the start and no middle lies entirely above the start, `flat` when the endpoint interval includes 0 and neither of those clearances happens, and `other` otherwise. `boutCall` at the last checkpoint is `silent` unless a majority of seeds have a positive peak, `lagged` when that peak-step interval lies entirely above 20, `immediate` when it lies entirely below 10, and `mid` otherwise.
+
+Match, `matchCall`. Applicable only when the instrument is confirmed, the primary hunch is `intermediate`, rho exists, and the location is not unresolved. H* is the checkpoint with the highest mean positive sum. The difference is rho's signed onset minus H*, salt 12400 on the onset. `matches` when that interval includes 0. `differs` when it does not. Otherwise `not-applicable`.
+
+The sweep aborts before any call if a cycle-world episode records a meal or a death, or if any random-walk occupancy checksum differs across arms that share a tag, a length, and a period.
+
+Decision, locked before the run. Primary curve not `run`: report the curve and do not claim a phase. `instrument-blind`: the planted offsets were not recovered, and the where-question stays unanswered; a negative sign on the fresh seeds is still a replication of the previous contrast. `replicated-delayed` or `replicated-half`: rho's fresh-seed contrast is negative, the other directed explorers do not show it, and the high half starts late. `replicated-prompt`: the contrast is negative but the onset is the first half, so the profile is not a late square. `replicated-other`: the contrast is negative and the onset is neither late nor prompt. `heldout-*`: the half-contrast does not replicate and the held-out projection does. `shared`: the pattern is not specific to learning progress. `sign-null` or `sign-reversed`: this run does not reproduce the negative contrast. `confounded`: random moved. Scaling and the hunch are reported beside that summary and do not flip it. No policy retune and no new term in any of these.
+
+Figures: `bench/phase-profile/forget-curve.png`, `bench/phase-profile/positive-onset.png`, `bench/phase-profile/phase-profile.png`, `bench/phase-profile/progress-decay.png`, and `bench/phase-profile/phase-profile-slow.png` only if the slow occupancy runs. Source: `bench/phase-profile/profile.json`. The sweep is `npm run phase-profile`. It is not part of CI.
+
+### Results
+
+The curve reproduced. The planted offsets were recovered, so the location is a claim. Rho's fresh-seed half-contrast is negative, and the fitted onset is late. The summary is replicated-delayed. The slower rate did not locate an onset, so scaling is unavailable. The progress signal is largest before any decay, so the partial-decay hunch falls. No term was added. Decay stays off.
+
+400 curve seeds, 400 progress bouts, and 7800 episodes, 4 workers, 2961 seconds. The episode pool was 2949 seconds. Source: `bench/phase-profile/profile.json`.
+
+#### Curve. Reproduced. The slow rate locks a longer period.
+
+Primary λ = 0.012924125031568812. Half-recovery 86.15 [85.45, 86.85], 200 of 200 uncensored. P = 172. The episode is 1600 steps. These are the previous entry's intervals. `curveDecision` is `run`.
+
+| check | value | call |
+|---|---|---|
+| learns | 0.1558 [0.1547, 0.1569] | confirmed |
+| consolidates | 0.0519 [0.0513, 0.0526] | confirmed |
+| forgets, decay minus held | 0.1490 [0.1485, 0.1494] | confirmed |
+| interference minus held, not a gate | 0.0099 [0.0093, 0.0106] | confirmed |
+
+Slow λ = 0.0064830776637817555, twice the half-life. The learned weights match the primary curve on every seed. Half-recovery 166.95 [166.00, 168.00], 200 of 200 uncensored. The locked half is 167. P = 334. The episode is 2672 steps. Forgets 0.1432 [0.1427, 0.1437], confirmed. Consolidation 0.0640 [0.0634, 0.0646], confirmed. `curveDecision` is `run`. The half-recovery grew by 166.95 / 86.15 = 1.94, against a half-life factor of 2.
+
+Figure: `bench/phase-profile/forget-curve.png`.
+
+#### Positive control. Instrument confirmed.
+
+Temperature 0.15, decay off, period 172. The lag is recovered onset minus the planted offset. Rho at dose 0.05 is the gate. Every offset is delayed: the projection lies entirely above 0, and the lag lies entirely above 0 and inside a quarter period. `phaseInstrumentCall` is confirmed. The four lags sit between 21 and 26 steps.
+
+| offset | projection | lag | call |
+|---|---|---|---|
+| 0 | 0.0248 [0.0197, 0.0296] | 25.87 [22.90, 28.91] | delayed |
+| 43 | 0.0313 [0.0266, 0.0361] | 22.46 [19.50, 25.43] | delayed |
+| 86 | 0.0291 [0.0240, 0.0342] | 20.97 [17.95, 24.20] | delayed |
+| 129 | 0.0255 [0.0207, 0.0303] | 22.43 [19.01, 25.88] | delayed |
+
+Dose 0.0085 is not the gate. Rho's projection clears 0 at all four offsets there too, and every lag is delayed. The lags are 24.59 [10.45, 40.71], 19.20 [6.81, 30.39], 22.28 [12.46, 31.86], and 25.32 [9.48, 40.46]. Phase recovery works at the dose the half-contrast instrument could just see. The intervals are wider than at 0.05.
+
+At dose 0.05 and offset 0, count, surprise, and RND are delayed as well. Their lags are 18.14 [12.64, 23.26], 21.44 [17.69, 24.96], and 22.91 [19.80, 26.01]. Random's projection is a point mass at 0, so its offset is missed. The wave is on the shared progress channel. The gate is rho's four offsets.
+
+Figure: `bench/phase-profile/positive-onset.png`.
+
+#### Occupancy. Replicated, and the onset is late.
+
+Temperature 0.15, fresh seeds, decay minus held. Rho's half-contrast is −0.0177 [−0.0301, −0.0051]. The sign is negative. The previous entry, on a different seed stream, was −0.0172 [−0.0300, −0.0041]. The half-period contrast includes 0, −0.0067 [−0.0143, 0.0012]. The held-out projection also clears 0, 0.0080 [0.0009, 0.0151]. Existence holds on both tests.
+
+The onset is 93.66 steps. The deviation interval is [−18.21, 21.07], so the arc is [75.45, 114.73]. P/2 is 86. The arc includes the midpoint and runs past P/8 of it, and the whole arc stays inside P/4 of the midpoint. The location is delayed, not half-cycle and not prompt. Amplitude of the mean vector is 0.0070.
+
+Every bin of rho's excess lies entirely above 0. The means are 0.034, 0.036, 0.036, 0.036, 0.040, 0.055, 0.064, 0.055. The highest mean is the bin covering steps 129 through 150, 0.064 [0.039, 0.090]. The first bin is 0.034 [0.010, 0.056]. The late onset is a peak on a positive level. It is not a square that is low in the first half and high in the second. Decay adds east-room time at every phase, and more of it late.
+
+| explorer | half-contrast | onset | location | sign |
+|---|---|---|---|---|
+| random | 0.0000 [0.0000, 0.0000] | — | unresolved | null |
+| count | −0.0029 [−0.0220, 0.0152] | width 158.8 | unresolved | null |
+| surprise | 0.0014 [−0.0134, 0.0170] | width 111.3 | unresolved | null |
+| rnd | −0.0013 [−0.0142, 0.0106] | 124.79, width 47.2 | other | null |
+| rho | −0.0177 [−0.0301, −0.0051] | 93.66 [75.45, 114.73] | delayed | negative |
+
+Count, surprise, and RND do not exist on either test. Random is a point mass at 0. The summary is not shared and not confounded. `profileSummary` is replicated-delayed.
+
+East fraction, not a call. Rho 0.0464 [0.0245, 0.0666]. Surprise 0.0950 [0.0732, 0.1170]. RND 0.0380 [0.0170, 0.0587]. Count includes 0, 0.0081 [−0.0020, 0.0184]. Surprise's eight bins are all above 0 and flat, which is why its half-contrast includes 0. The level shift is real for surprise and is not phase-locked. Rho's level is smaller and it rises toward the end of the period.
+
+The response lag at offset 0 and dose 0.05 is 25.87 [22.90, 28.91]. Rho's onset arc starts at 75.45. The two intervals do not overlap. The preregistered excess wraps the onset into (−P/2, P/2]. The point onset 93.66 is past 86, so the signed onset is −78.34, and the bootstrap straddles the cut. The excess interval is −104.21 [−111.56, 59.67]. It includes 0. The call is same-as-response. That interval is the wrap, not a measurement of 93.66 minus 25.87. The excess call does not say the forgetting peak arrives with the planted-wave delay.
+
+Figure: `bench/phase-profile/phase-profile.png`.
+
+#### Slow rate. The phase does not clear. Scaling is unavailable.
+
+Temperature 0.15, period 334. Rho's half-contrast includes 0, −0.0105 [−0.0281, 0.0063]. The held-out projection includes 0, 0.0044 [−0.0042, 0.0127]. The onset point is 139.10 and the deviation interval is [−91.44, 68.51], width 159.9. The location is other. Rho does not exist on this rate, so scaling is unavailable. The printed phase difference is −0.128 [−0.416, 0.155] and the step difference is 217 [−208, 241]. Both include 0. They are not a call.
+
+Count, surprise, and RND are null. Random is a point mass at 0. East fraction, not a call, still rises for rho, 0.0549 [0.0389, 0.0716], and for surprise, 0.1073 [0.0888, 0.1247]. The level shift survived the slower decay. The phase lock did not clear.
+
+The slow planted wave at dose 0.05 and offset 0 is delayed. Projection 0.0430 [0.0372, 0.0488]. Lag 43.44 [38.43, 48.75]. The response lag grew with the period, from 26 steps at period 172 to 43 steps at period 334. The slow excess is uncertified because rho's slow location is not a claim. Its interval includes 0.
+
+Figure: `bench/phase-profile/phase-profile-slow.png`.
+
+#### Progress hunch. Falls. The within-bout peak is late at both rates.
+
+`positiveSum` is the rectified shipped progress, ema minus surprise, over an 80-step forced return. The ema starts at the learned probe at every checkpoint. Primary:
+
+| decay steps | positive sum |
+|---|---|
+| 0 | 1.5875 [1.5621, 1.6115] |
+| 43 | 1.0625 [1.0412, 1.0847] |
+| 86 | 0.8865 [0.8674, 0.9056] |
+| 129 | 0.7983 [0.7803, 0.8169] |
+| 172 | 0.8030 [0.7824, 0.8235] |
+| 258 | 0.8952 [0.8752, 0.9150] |
+| 344 | 0.9963 [0.9753, 1.0173] |
+| 400 | 1.0449 [1.0250, 1.0647] |
+
+The endpoint lies entirely below the start, and no middle checkpoint lies entirely above the start. `hunchCall` is falls. The signal does not peak after partial decay. It is largest when the room has not decayed. The slow rate is falls as well, and its maximum is also at 0. The match to the occupancy onset is not-applicable.
+
+The bout at 400 steps of decay is lagged. All 200 seeds have a positive peak. The peak step is 55.26 [53.52, 57.10]. At the slow rate it is 52.45 [50.12, 54.72], also lagged, 200 of 200. The within-visit delay sits on the 50-step progress window and does not grow when the forgetting half-life doubles.
+
+The 20-step probe drop is not the call. It is 0.0010 [0.0005, 0.0015] at 0 steps of decay, 0.1055 [0.1051, 0.1060] at 172, and 0.0606 [0.0597, 0.0616] at 400. The weight-level error reduction is small on a room that was just learned, larger after a period of decay, and smaller again at 400. That curve is not a confirmation of the hunch. The hunch was the progress signal, and the signal falls.
+
+Figure: `bench/phase-profile/progress-decay.png`.
+
+`cycleWorld` and `periodicBoost` stay off. The offset on that boost defaults to 0. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. No Loop flag was added, and none was turned on. The phase profile is computed after the episode. It does not enter the score. Five-seed bench, seeds 1–5, sha `9a4efa9`, rho, transition still the only default-on flag. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn decay on, and do not add a curiosity term. The fresh seeds replicate rho's negative half-contrast, and the fitted onset is late, on a level that is already positive in the first bin. The slower forgetting rate did not clear a phase, so the lag is not shown to scale, and it is not shown to be a fixed number of steps. The shipped progress signal falls as the room decays, and the within-visit peak sits near 55 steps at both rates. The open measurement is the count of returns that begin after the room probe has risen, decay minus held, at temperature 0.15, in the same no-food world. The doorway score at r* and at 0.3003 stays open and is not the next measurement. Field probe late is still 0.1079. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-18 phase-locked cycles (America/New_York)
 
 Written before `npm run cycle-phase`. No phase contrast from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

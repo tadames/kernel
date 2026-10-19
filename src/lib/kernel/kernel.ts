@@ -111,22 +111,32 @@ export type KernelOptions = {
    */
   policyTemperature?: number;
   /**
-   * Measurement-only square wave on the progress channel. On for the first
-   * half of each period, off for the second, and only for actions that land
-   * in `region`. Omitted is the shipped policy. Not a Loop feature flag.
+   * Measurement-only square wave on the progress channel. On for one half
+   * of each period, off for the other, and only for actions that land in
+   * `region`. `offset` 0 is the first half, the same clock as before.
+   * A positive offset delays the on-half. Omitted is the shipped policy.
+   * Not a Loop feature flag.
    */
   periodicBoost?: {
     add: number;
     region: 0 | 1;
     period: number;
+    /** Steps to delay the on-half. Omitted is 0, the first half of the period. */
+    offset?: number;
   };
 };
 
-/** True during the first half of each period, including step 0. */
-export function periodicBoostOn(age: number, period: number) {
+/**
+ * True during the on-half of each period. Offset 0 is the first half,
+ * including step 0. The on-half is `floor(period / 2)` steps long.
+ */
+export function periodicBoostOn(age: number, period: number, offset = 0) {
   const half = Math.floor(period / 2);
   if (half < 1) return false;
-  return Math.floor(age / half) % 2 === 0;
+  const cycle = half * 2;
+  let shifted = age - offset;
+  shifted = ((shifted % cycle) + cycle) % cycle;
+  return Math.floor(shifted / half) % 2 === 0;
 }
 
 export type Thought = { t: number; text: string };
@@ -186,7 +196,7 @@ export class Kernel {
   /** Place bonus on the progress channel. Null is the shipped policy. */
   readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
   /** Square-wave place bonus. Null is the shipped policy. */
-  readonly periodicBoost: { add: number; region: 0 | 1; period: number } | null;
+  readonly periodicBoost: { add: number; region: 0 | 1; period: number; offset: number } | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -247,8 +257,11 @@ export class Kernel {
       if (!(Number.isFinite(wave.add) && wave.add !== 0)) throw new Error("periodicBoost.add must be a non-zero finite number");
       if (wave.region !== 0 && wave.region !== 1) throw new Error("periodicBoost.region must be 0 or 1");
       if (!Number.isInteger(wave.period) || wave.period < 2) throw new Error("periodicBoost.period must be an integer of at least 2");
+      if (wave.offset != null && !Number.isInteger(wave.offset)) throw new Error("periodicBoost.offset must be an integer");
     }
-    this.periodicBoost = wave ?? null;
+    this.periodicBoost = wave
+      ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
+      : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
@@ -349,7 +362,7 @@ export class Kernel {
     const boost = this.intrinsicBoost;
     if (boost && region === boost.region) extra += boost.add;
     const wave = this.periodicBoost;
-    if (wave && region === wave.region && periodicBoostOn(this.age, wave.period)) extra += wave.add;
+    if (wave && region === wave.region && periodicBoostOn(this.age, wave.period, wave.offset)) extra += wave.add;
     return extra;
   }
 
