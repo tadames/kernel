@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-20T01:29:48.949Z",
-  "sha": "7d5a2bc",
+  "date": "2026-10-20T11:07:21.509Z",
+  "sha": "5d9b7e1",
   "seeds": [
     1,
     2,
@@ -27,6 +27,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -235,6 +236,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -443,6 +445,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -651,6 +654,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -859,6 +863,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -1067,6 +1072,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -1275,6 +1281,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -1483,6 +1490,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -1691,6 +1699,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -1899,6 +1908,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -2107,6 +2117,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -2315,6 +2326,7 @@
         "slowWindow3": true,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -2523,6 +2535,7 @@
         "slowWindow3": false,
         "slowSelfWindow": true,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -2731,6 +2744,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": true,
+        "discard": false,
         "transition": true
       },
       "seeds": [
@@ -2924,6 +2938,215 @@
       }
     },
     {
+      "name": "on-discard",
+      "features": {
+        "encoder": false,
+        "slowEncoder": false,
+        "encoderMix": false,
+        "wake": false,
+        "latentRho": false,
+        "latentRhoHat": false,
+        "slowRho": false,
+        "slowRhoHat": false,
+        "slowWindow": false,
+        "slowWindow2": false,
+        "slowWindow3": false,
+        "slowSelfWindow": false,
+        "slowSelfWindow2": false,
+        "discard": true,
+        "transition": true
+      },
+      "seeds": [
+        {
+          "seed": 1,
+          "fieldEarly": 0.16090232760933615,
+          "fieldLate": 0.11056751710296338,
+          "fieldProbeEarly": 0.1121370064401558,
+          "fieldProbeLate": 0.1219475884596299,
+          "fieldFoods": 5,
+          "fieldLives": 1,
+          "roomsFoods": 10,
+          "roomsLives": 0,
+          "structEarly": 0.1904254424062355,
+          "structLate": 0.025776591664460613,
+          "noiseEarly": 0.24904690061345205,
+          "noiseLate": 0.2624309720417986,
+          "structCommitEarly": 0.08271461084529223,
+          "structCommitLate": 0.5813145304038192,
+          "noiseCommitLate": 0.04848640014795477,
+          "meanB": 3.725,
+          "meanH": 0.8333189311090827,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.3560814182063866,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 2,
+          "fieldEarly": 0.1677923116723273,
+          "fieldLate": 0.08328924431251651,
+          "fieldProbeEarly": 0.11802922479587508,
+          "fieldProbeLate": 0.13180796319191151,
+          "fieldFoods": 4,
+          "fieldLives": 1,
+          "roomsFoods": 6,
+          "roomsLives": 0,
+          "structEarly": 0.23794134154088747,
+          "structLate": 0.041417891967928645,
+          "noiseEarly": 0.25925713143087,
+          "noiseLate": 0.26272199480965386,
+          "structCommitEarly": 0.06266686470330181,
+          "structCommitLate": 0.4912431785755341,
+          "noiseCommitLate": 0.058040881157936354,
+          "meanB": 3.6125,
+          "meanH": 0.8578655087470658,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.5020570231194673,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 3,
+          "fieldEarly": 0.16960433044538017,
+          "fieldLate": 0.08970461861263428,
+          "fieldProbeEarly": 0.14097020625952592,
+          "fieldProbeLate": 0.11252516211491362,
+          "fieldFoods": 4,
+          "fieldLives": 1,
+          "roomsFoods": 8,
+          "roomsLives": 0,
+          "structEarly": 0.21769591594074467,
+          "structLate": 0.03220503089662059,
+          "noiseEarly": 0.2681026647378944,
+          "noiseLate": 0.27430725320598964,
+          "structCommitEarly": 0.06984937660036383,
+          "structCommitLate": 0.5395261915571152,
+          "noiseCommitLate": 0.09384534054597135,
+          "meanB": 2.775,
+          "meanH": 0.9460928838567005,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.21658931747355378,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 4,
+          "fieldEarly": 0.16308032487171242,
+          "fieldLate": 0.11762760987882123,
+          "fieldProbeEarly": 0.13288327599001776,
+          "fieldProbeLate": 0.13291461724314532,
+          "fieldFoods": 4,
+          "fieldLives": 1,
+          "roomsFoods": 4,
+          "roomsLives": 1,
+          "structEarly": 0.22397657411943422,
+          "structLate": 0.03928813852892269,
+          "noiseEarly": 0.2696256003787002,
+          "noiseLate": 0.25571571617096633,
+          "structCommitEarly": 0.04966763188772268,
+          "structCommitLate": 0.5126343873580024,
+          "noiseCommitLate": 0.045139410432271924,
+          "meanB": 2.575,
+          "meanH": 0.8902499874252385,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.5184402234485065,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 5,
+          "fieldEarly": 0.16344769867950604,
+          "fieldLate": 0.08796534233035383,
+          "fieldProbeEarly": 0.1071612054460406,
+          "fieldProbeLate": 0.11176142030646934,
+          "fieldFoods": 7,
+          "fieldLives": 1,
+          "roomsFoods": 7,
+          "roomsLives": 0,
+          "structEarly": 0.2422333122483921,
+          "structLate": 0.06311106774297034,
+          "noiseEarly": 0.27081368411285683,
+          "noiseLate": 0.2625439976874521,
+          "structCommitEarly": 0.07241300954435606,
+          "structCommitLate": 0.4105822533903524,
+          "noiseCommitLate": 0.04366419442692528,
+          "meanB": 1.9125,
+          "meanH": 0.9422406274762294,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.20528268101073582,
+          "g2": true,
+          "s1": false,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        }
+      ],
+      "mean": {
+        "fieldEarly": 0.1649653986556524,
+        "fieldLate": 0.09783086644745784,
+        "fieldProbeEarly": 0.12223618378632303,
+        "fieldProbeLate": 0.12219135026321393,
+        "fieldFoods": 4.8,
+        "fieldLives": 1,
+        "roomsFoods": 7,
+        "roomsLives": 0.2,
+        "structLate": 0.04035974416018058,
+        "noiseLate": 0.2635439867831721,
+        "meanB": 2.92,
+        "fieldSkill": -0.35969013265173
+      },
+      "passes": {
+        "g1": false,
+        "g2": true,
+        "s1": true,
+        "s2": true,
+        "s3": true,
+        "c1": true,
+        "c2": true
+      },
+      "passCount": {
+        "g1": 0,
+        "g2": 5,
+        "s1": 4,
+        "s2": 5,
+        "s3": 5,
+        "c1": 5,
+        "c2": 5
+      }
+    },
+    {
       "name": "off-transition",
       "features": {
         "encoder": false,
@@ -2939,6 +3162,7 @@
         "slowWindow3": false,
         "slowSelfWindow": false,
         "slowSelfWindow2": false,
+        "discard": false,
         "transition": false
       },
       "seeds": [
@@ -3288,6 +3512,18 @@
       "onG2": "5/5",
       "offG2": "5/5",
       "note": "probe (off−on) 0.0014; decision is npm run gate, not this 5-seed table"
+    },
+    {
+      "feature": "discard",
+      "onProbe": 0.12219135026321393,
+      "offProbe": 0.10794365412732661,
+      "onPolicyOn": 0.09783086644745784,
+      "onPolicyOff": 0.07040224865553016,
+      "onLives": 1,
+      "offLives": 0.8,
+      "onG2": "5/5",
+      "offG2": "5/5",
+      "note": "probe (off−on) -0.0142; decision is npm run gate, not this 5-seed table"
     },
     {
       "feature": "transition",

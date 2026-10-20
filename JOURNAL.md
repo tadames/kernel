@@ -1,5 +1,53 @@
 # Journal
 
+## 2026-10-20 incompressible bits (America/New_York)
+
+Written before `npm run gate -- --flag discard --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in that block are the parent learner, seeds 1–5, sha `5d9b7e1`, and are not this claim.
+
+Open problem 1 in `RESEARCH.md` is not a new mechanism. The text says curiosity uses expected residual plus the residual drop across horizon-2 imagination, and that global ρ still scales. That is the shipped score in `imagineScores`: Bernoulli expected residual in the explore mix, `max(0, res1 − bestRes2)` added to ρ̂ when `horizonRho` is on, and `progressEma` still scaling. `horizonRho` defaults on for rho. The same paragraph says a second kernel whose observations are the first kernel's hidden state remains Phase 1, so that half is not this experiment. The copy in the progress law that still called action-conditional ρ̂ an open problem was stale. It now matches the act law. The horizon drop is not put behind a new flag, and it is not turned off. The occupancy grid is not rerun.
+
+The next open problem is latent prediction. The latent curiosity flags already failed the probe gate and stay off. A pure latent objective that stops emitting cells cannot be scored by this probe, because the probe is cell error. The piece the probe can score is the second sentence: discard incompressible bits. `discard` is that piece. It is learning-side. It does not enter the progress bonus.
+
+### Preregister discard
+
+Hypothesis. On Field, a channel the model is not predicting better than that channel's own running mean is incompressible to this learner. Dropping it from the cell loss, after a short warmup, leaves the hidden state for the bits that are compressing, and late held-out probe error falls. The comparison is the same learner with the mask absent.
+
+Instrument. Flag `discard`, default off. Rho, transition still on, every other flag at its default. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The mask is not a curiosity term.
+
+Rule, locked here. Family 2 is already out of the cell loss. For every other output, a running mean of the target starts at 0.5 and a running marginal error starts at 0.25. Both use rate 0.1, the same rate as the model residual EMA. The marginal error on a step is the squared distance from the target to the mean before that target is folded in. The model residual EMA is updated first, from the real target, as it is today. Surprise and progress read that real residual. They do not read the mask. After 40 training updates have completed, a non-scent channel whose model residual EMA is greater than or equal to its marginal EMA is copied from the prediction into the training target. That gradient is zero. The first kernel step does not train, so the mask begins on the 42nd kernel step. The early probe at step 40 is still the unmasked learner. A tie with the mean is dropped. A channel the model is strictly beating is kept. Once dropped, a channel can stay dropped, because its residual is no longer driven down.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged, discard on lowers late held-out probe error versus discard off.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. The mean fraction of non-scent outputs dropped on the last training step is reported for both arms. It is not a cutoff. The off arm is 0.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `5d9b7e1`.
+
+### Results
+
+The prediction is refuted. Discard on is worse than discard off, and lives rise. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there.
+
+40 episodes, 4 workers, 3.8 seconds. Source: `bench/gate.json`.
+
+| arm | probe late | last-step mask |
+|---|---:|---:|
+| discard off | 0.1114 | 0.000 |
+| discard on | 0.1276 | 0.741 |
+
+Off minus on is −0.0162 [−0.0256, −0.0070]. The interval lies entirely below zero. On is higher probe error. The mask was not idle: at the last step it had dropped 0.741 of the non-scent outputs. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is 0.25 [0.10, 0.45]. That interval lies entirely above zero, so deaths rose. Both failures are the preregistered ones. The threshold was not loosened.
+
+Figure: `bench/discard/discard-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar sits entirely to the left of it.
+
+`discard` remains default off. It does not enter the progress bonus. `transition` stays the only default-on flag. `horizonRho` stays on for rho. No occupancy grid was rerun.
+
+Kept defaults after the flag was added, seeds 1–5, sha `5d9b7e1`. The row matches the parent. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `discard` agrees in sign and is not the decision: on 0.1222, off 0.1079, lives 1.00 versus 0.80. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `discard` on, and do not rerun the mask with more seeds. The interval already excludes zero on the wrong side, and lives move with it. Do not add a second loss mask in the next run. The remainder of open problem 2 is a latent training target that still decodes to cells, so this probe can score it. It has to ship behind a flag, off unless it beats its absence, and it must not raise lives. Horizon 2 and horizon 3 are already the shipped imagination, so open problem 3's "one tick" sentence is not an unbuilt mechanism. An option, a direction held for more than one tick, is the unread part of that problem and comes after the decoder.
+
 ## 2026-10-19 phase diagram (America/New_York)
 
 Written before `npm run phase-diagram`. No occupancy contrast from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

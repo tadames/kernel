@@ -79,12 +79,12 @@ Seeds are fixed. If a claim flickers, that is a result: the kernel is too noisy,
 
 ## Measurement priorities
 
-Closed on 2026-10-19. The occupancy summary is in. On one instrument, matched rooms, temperature 0.15, 400 steps, and fresh seeds, rho is not attracted by stationary noise, by drift below, at, or above 1/τ, or by forgetting at those same scales. A planted bonus of 0.0085 still moves rho, by 0.0360 [0.0167, 0.0552]. Eight of the nine nonzero cells are inconclusive. The only sensitive null is drift at sixteen times below 1/τ. The late-return thread stays closed. The next experiment is open problem 1, and it has to beat its own absence on the probe.
+Closed on 2026-10-20. Open problem 1 was already the shipped score: expected residual, the horizon-2 residual drop, and global ρ. It was not re-gated. The probe-scorable half of open problem 2 drops a channel the model is not beating its own running mean on. That mask, flag `discard`, raised Field probe late by 0.0162 [0.0070, 0.0256] against its absence (the gate's off − on interval is −0.0162 [−0.0256, −0.0070]) and raised lives by 0.25 [0.10, 0.45]. Seeds 1–20. The flag stays off. The occupancy summary stays closed, and so does the late-return thread.
 
 ## Open problems (ordered)
 
-1. **Action-conditional ρ̂.** Curiosity uses expected residual plus the residual *drop* across horizon-2 imagination (prefer moves the model expects to make more certain). Global ρ still scales. A true model-of-learning — a second kernel whose observations are the first kernel’s hidden state — remains Phase 1.
-2. **Latent prediction.** Reconstructing cells is the wrong objective for anything richer than this grid (LeCun). Predict in a latent, discard incompressible bits.
+1. **Action-conditional ρ̂.** Curiosity uses expected residual plus the residual *drop* across horizon-2 imagination (prefer moves the model expects to make more certain). Global ρ still scales. Shipped: that is the default rho score. A true model-of-learning — a second kernel whose observations are the first kernel’s hidden state — remains Phase 1.
+2. **Latent prediction.** Reconstructing cells is the wrong objective for anything richer than this grid (LeCun). Predict in a latent, discard incompressible bits. The cell-loss mask was tested on 2026-10-20 and made the probe worse. It stays off. A latent target that still decodes to cells, so this probe can score it, is the remainder.
 3. **Credit assignment longer than one step.** Imagination is one tick. A roll-out, or an option, is the next honest increase in search.
 4. **Self-revision.** Learning rate, curiosity, even architecture as part of the world the loop can model (Phase 3). That is when complexity is allowed to grow in the *shape* of the mind, not only in commitment of its predictions.
 5. **Grounded language.** Tokens as a compression of *this* agent’s stream, not a scrape of the web (Phase 2).

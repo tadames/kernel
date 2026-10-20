@@ -46,7 +46,7 @@ The 5-seed table is descriptive. It does not keep or remove a flag. That decisio
 
 ## Flags
 
-`Loop` takes `features` as its fifth argument. `Kernel` takes the same object as its third, and options as its fourth. Defaults live in `DEFAULT_LOOP_FEATURES`. A term that is off does not enter the progress bonus. Learning-side flags (`encoder`, `slowEncoder`, `encoderMix`, `wake`) skip that update. `transition` is also learning-side: it commits the pre-move window and steps the cell net at `TRANSITION_LR`, so the loss matches the probe. It does not enter the bonus. Calling the rho-hat method directly still runs the trace, so a unit test can opt in.
+`Loop` takes `features` as its fifth argument. `Kernel` takes the same object as its third, and options as its fourth. Defaults live in `DEFAULT_LOOP_FEATURES`. A term that is off does not enter the progress bonus. Learning-side flags (`encoder`, `slowEncoder`, `encoderMix`, `wake`, `discard`) skip that update. `transition` is also learning-side: it commits the pre-move window and steps the cell net at `TRANSITION_LR`, so the loss matches the probe. It does not enter the bonus. `discard` is learning-side too: after 40 training steps it drops a non-scent channel from the cell loss when the model's residual is not below that channel's running mean. It does not enter the bonus and defaults off. Calling the rho-hat method directly still runs the trace, so a unit test can opt in.
 
 ## Claims
 
