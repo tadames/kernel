@@ -779,6 +779,106 @@ test("feature flags default to the kept set and a shut encoder does not step", (
   assert.equal(shut.slowWakes, 0);
 });
 
+test("discard drops a channel that loses to its mean and stays shut until the warmup", () => {
+  const target = new Float32Array([0, 1, 0.2, 1, 0, 0.7]);
+  const on = new Loop(8, 4, 6, 5, { discard: true });
+  on.lastPred.fill(0.5);
+  on.assimilateSteps = Loop.DISCARD_WARMUP;
+  on.residualEma[0] = 0.3;
+  on.marginalEma[0] = 0.05;
+  on.residualEma[1] = 0.02;
+  on.marginalEma[1] = 0.2;
+  on.residualEma[3] = 0.19;
+  on.marginalEma[3] = 0.19;
+  on.residualEma[4] = 0.1;
+  on.marginalEma[4] = 0.3;
+  const train = on.cellTrainTarget(target);
+  assert.equal(train[0], 0.5, "a channel worse than its mean is copied from the prediction");
+  assert.equal(train[1], 1, "a channel better than its mean keeps its target");
+  assert.equal(train[2], 0.5, "family 2 stays out of the cell loss");
+  assert.equal(train[3], 0.5, "a tie with the mean is not a compression");
+  assert.equal(train[4], 0);
+  assert.equal(train[5], 0.5);
+  assert.equal(on.discardFraction, 0.5);
+
+  on.assimilateSteps = Loop.DISCARD_WARMUP - 1;
+  const warm = on.cellTrainTarget(target);
+  assert.equal(warm[0], 0, "the first 40 training steps still fit every non-scent channel");
+  assert.equal(on.discardFraction, 0);
+
+  const off = new Loop(8, 4, 6, 5);
+  off.lastPred.fill(0.5);
+  off.assimilateSteps = Loop.DISCARD_WARMUP;
+  off.residualEma[0] = 0.3;
+  off.marginalEma[0] = 0.05;
+  const kept = off.cellTrainTarget(target);
+  assert.equal(kept[0], 0);
+  assert.equal(kept[2], 0.5);
+  assert.equal(off.discardFraction, 0);
+  assert.equal(DEFAULT_LOOP_FEATURES.discard, false);
+});
+
+test("discard does not step a dropped output, and the warmup matches the flag off", () => {
+  Math.random = mulberry32(11);
+  const on = new Loop(8, 4, 6, 5, { discard: true });
+  Math.random = mulberry32(11);
+  const off = new Loop(8, 4, 6, 5);
+  const input = new Float32Array(8);
+  input[0] = 1;
+  on.commit(input);
+  off.commit(input.slice());
+  on.assimilateSteps = Loop.DISCARD_WARMUP;
+  on.residualEma.fill(0);
+  on.marginalEma.fill(1);
+  on.targetMean.fill(0);
+  on.residualEma[0] = 0.4;
+  on.marginalEma[0] = 0.01;
+  const row0 = Array.from(on.net.w2.subarray(0, on.net.h));
+  const b0 = on.net.b2[0];
+  const row1 = Array.from(on.net.w2.subarray(on.net.h, on.net.h * 2));
+  const target = new Float32Array(6);
+  target[1] = 1;
+  on.assimilate(target, 0.5);
+  off.assimilate(target, 0.5);
+  for (let j = 0; j < on.net.h; j++) assert.equal(on.net.w2[j], row0[j]);
+  assert.equal(on.net.b2[0], b0);
+  let moved = false;
+  for (let j = 0; j < on.net.h; j++) if (on.net.w2[on.net.h + j] !== row1[j]) moved = true;
+  assert.ok(moved, "a channel the model is beating still takes a gradient");
+  assert.equal(on.surprise, off.surprise);
+  assert.equal(on.assimilateSteps, Loop.DISCARD_WARMUP + 1);
+  assert.equal(off.assimilateSteps, 0);
+
+  const dumped = on.exportBrain();
+  const restored = new Loop(8, 4, 6, 5, { discard: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.assimilateSteps, on.assimilateSteps);
+  assert.ok(Math.abs(restored.marginalEma[0]! - on.marginalEma[0]!) < 1e-9);
+
+  const walk = (features?: { discard: boolean }) => {
+    Math.random = mulberry32(4);
+    const loop = new Loop(6, 8, 6, 5, features);
+    for (let t = 0; t < 30; t++) {
+      const x = new Float32Array(6);
+      x[0] = t % 2;
+      x[1] = 1 - (t % 2);
+      loop.assimilate(x, 0.2);
+      const committed = new Float32Array(6 + 5);
+      committed.set(x);
+      committed[6] = 1;
+      loop.commit(committed);
+    }
+    return { w2: Array.from(loop.net.w2), steps: loop.assimilateSteps };
+  };
+  const plain = walk();
+  const explicitOff = walk({ discard: false });
+  const duringWarmup = walk({ discard: true });
+  assert.deepEqual(explicitOff.w2, plain.w2);
+  assert.deepEqual(duringWarmup.w2, plain.w2);
+  assert.equal(plain.steps, 0);
+  assert.equal(duringWarmup.steps, 29);
+});
+
 test("food, stream, and band claims hold under a pinned init", () => {
   Math.random = mulberry32(20261015);
   const claims = evaluateClaims();

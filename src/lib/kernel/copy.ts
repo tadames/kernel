@@ -98,7 +98,7 @@ export const STAGES = [
     id: "progress",
     code: "\u03c1 \u2190 \u03b4\u0304 \u2212 \u03b4",
     name: "Progress",
-    note: "Not surprise itself \u2014 the improvement. This is curiosity\u2019s true signal. Noise does not pay. Structure does. Action-conditional \u03c1\u0302 is still an open problem (Phase 1).",
+    note: "Not surprise itself \u2014 the improvement. This is curiosity\u2019s true signal. Noise does not pay. Structure does. Action-conditional \u03c1\u0302, the residual drop across horizon 2, is the shipped score. A second kernel that models learning itself remains Phase 1.",
   },
   {
     id: "act",

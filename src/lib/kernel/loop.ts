@@ -34,6 +34,10 @@
  * code, so ρ̂ can score a window the latent predictor has not already compressed.
  * A second self-step scores past a wall that first self-prediction treats as a
  * wall, and only after slowEma < 0.12.
+ * `discard` is learning-side and off by default. After 40 training steps it
+ * drops a non-scent channel from the cell loss when that channel's model
+ * residual is not below the error of its own running mean. Surprise and the
+ * progress bonus still see the real residual.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -45,7 +49,9 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * probe ablation says it beats its own absence. See AGENTS.project.md.
  * The 2026-10-15 probe gate turned the noisy set off. None of them lowered
  * held-out probe error. `transition` is the cell learner, not a bonus term:
- * the same gate kept it because probe error fell.
+ * the same gate kept it because probe error fell. `discard` is also
+ * learning-side. It does not enter the bonus. It stays off unless a
+ * preregistered probe gate says it beats its absence.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -61,6 +67,7 @@ export const LOOP_FEATURE_KEYS = [
   "slowWindow3",
   "slowSelfWindow",
   "slowSelfWindow2",
+  "discard",
   "transition",
 ] as const;
 
@@ -89,6 +96,11 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   slowWindow3: false,
   slowSelfWindow: false,
   slowSelfWindow2: false,
+  /**
+   * Drop non-scent channels the model is not beating their running mean on.
+   * Off is the shipped loss. The probe gate decides whether it stays off.
+   */
+  discard: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -160,6 +172,12 @@ export type BrainDump = {
   slowSelfWindow?: number;
   /** Second self-step past a first self-window wall. Absent on older brains. */
   slowSelfWindow2?: number;
+  /** Running per-channel target mean used by `discard`. Absent on older brains. */
+  targetMean?: number[];
+  /** Running marginal error used by `discard`. Absent on older brains. */
+  marginalEma?: number[];
+  /** Training steps completed while `discard` was on. Absent on older brains. */
+  assimilateSteps?: number;
 };
 
 export class Loop {
@@ -174,6 +192,12 @@ export class Loop {
   static readonly SLOW_WAKE = 0.06;
   /** Second slow window stays shut until the slow code has earned the same line as horizon 3. */
   static readonly SLOW_WINDOW2_EMA = 0.12;
+  /**
+   * Training updates that stay on the full cell loss before `discard` may
+   * drop a channel. The first kernel step does not train, so this is 40
+   * gradient steps, and the early probe at step 40 is still unmasked.
+   */
+  static readonly DISCARD_WARMUP = 40;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
@@ -262,6 +286,17 @@ export class Loop {
   slowSelfWindow = 0;
   /** Last second self-step drop that cleared the floor past a first self-window wall. */
   slowSelfWindow2 = 0;
+  /** Per-output running mean of the training target. Used only by `discard`. */
+  targetMean: Float32Array;
+  /** Per-output error of predicting that running mean. Used only by `discard`. */
+  marginalEma: Float32Array;
+  /** Training steps taken while `discard` is on. The off path leaves this at 0. */
+  assimilateSteps = 0;
+  /**
+   * Share of non-scent outputs dropped on the last training step.
+   * Zero during warmup and whenever `discard` is off.
+   */
+  discardFraction = 0;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -291,6 +326,10 @@ export class Loop {
     this.lastPred.fill(0.5);
     this.residualEma = new Float32Array(out);
     this.residualEma.fill(0.25);
+    this.targetMean = new Float32Array(out);
+    this.targetMean.fill(0.5);
+    this.marginalEma = new Float32Array(out);
+    this.marginalEma.fill(0.25);
     this.scentCells = out % 3 === 0 ? out / 3 : 0;
     this.scentPred = new Float32Array(Math.max(1, this.scentCells));
     this.scentPred.fill(0.5);
@@ -1008,13 +1047,59 @@ export class Loop {
     this.project(target, this.latentNow);
     this.noteEncObs(target);
 
-    const trainTarget = target.slice();
-    if (fam === 3) {
-      for (let i = 2; i < this.out; i += 3) trainTarget[i] = this.lastPred[i];
-    }
+    if (this.features.discard) this.noteMarginal(target);
+    const trainTarget = this.cellTrainTarget(target);
+    if (this.features.discard) this.assimilateSteps += 1;
     this.net.train(this.prevInput, trainTarget, lr);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
+  }
+
+  /**
+   * Marginal of each non-scent channel. The mean is the value before this
+   * target is folded in, so the error is what a constant predictor would
+   * have paid. Rate 0.1 matches `residualEma`. Family 2 is not tracked.
+   */
+  private noteMarginal(target: Float32Array) {
+    const fam = this.families();
+    const n = Math.min(target.length, this.out);
+    for (let i = 0; i < n; i++) {
+      if (fam === 3 && i % 3 === 2) continue;
+      const mean = this.targetMean[i]!;
+      const d = target[i]! - mean;
+      this.marginalEma[i] = 0.9 * this.marginalEma[i]! + 0.1 * d * d;
+      this.targetMean[i] = 0.9 * mean + 0.1 * target[i]!;
+    }
+  }
+
+  /**
+   * Cell-net target. Family 2 is always the prediction, so scent never
+   * trains the plan. When `discard` is on and 40 training steps are done,
+   * a non-scent channel whose model residual is not strictly below its
+   * marginal error is copied from the prediction too. That is a zero
+   * gradient. The comparison reads the EMAs after this step's update.
+   */
+  cellTrainTarget(target: Float32Array): Float32Array {
+    const trainTarget = target.slice();
+    const fam = this.families();
+    const n = Math.min(target.length, this.out);
+    if (fam === 3) {
+      for (let i = 2; i < n; i += 3) trainTarget[i] = this.lastPred[i]!;
+    }
+    if (!this.features.discard) return trainTarget;
+    let masked = 0;
+    let scored = 0;
+    const drop = this.assimilateSteps >= Loop.DISCARD_WARMUP;
+    for (let i = 0; i < n; i++) {
+      if (fam === 3 && i % 3 === 2) continue;
+      scored += 1;
+      if (drop && this.residualEma[i]! >= this.marginalEma[i]!) {
+        trainTarget[i] = this.lastPred[i]!;
+        masked += 1;
+      }
+    }
+    this.discardFraction = scored ? masked / scored : 0;
+    return trainTarget;
   }
 
   /**
@@ -1119,6 +1204,9 @@ export class Loop {
       slowWindow3: this.slowWindow3,
       slowSelfWindow: this.slowSelfWindow,
       slowSelfWindow2: this.slowSelfWindow2,
+      targetMean: Array.from(this.targetMean),
+      marginalEma: Array.from(this.marginalEma),
+      assimilateSteps: this.assimilateSteps,
     };
   }
 
@@ -1164,6 +1252,9 @@ export class Loop {
     this.slowWindow3 = w.slowWindow3 ?? 0;
     this.slowSelfWindow = w.slowSelfWindow ?? 0;
     this.slowSelfWindow2 = w.slowSelfWindow2 ?? 0;
+    if (w.targetMean && w.targetMean.length === this.targetMean.length) this.targetMean.set(w.targetMean);
+    if (w.marginalEma && w.marginalEma.length === this.marginalEma.length) this.marginalEma.set(w.marginalEma);
+    this.assimilateSteps = w.assimilateSteps ?? 0;
     return true;
   }
 }
