@@ -79,7 +79,7 @@ Seeds are fixed. If a claim flickers, that is a result: the kernel is too noisy,
 
 ## Measurement priorities
 
-Closed on 2026-10-19. Rho's late return to a forgotten room is not a window-tracked effect. Fresh seeds, matched decay-versus-held rooms, temperature 0.15, and an episode of 27 forgetting cycles put the half-contrast through zero at windows 25, 35, 50, 70, and 100. No onset was located. The planted dose 0.05 was still recovered, and the progress peak still moved later as the window grew. Stationary noise and matched drift had already shown no attraction for rho against the same baselines. The next measurement is one summary of those three failures. It adds no curiosity term.
+Closed on 2026-10-19. The occupancy summary is in. On one instrument, matched rooms, temperature 0.15, 400 steps, and fresh seeds, rho is not attracted by stationary noise, by drift below, at, or above 1/τ, or by forgetting at those same scales. A planted bonus of 0.0085 still moves rho, by 0.0360 [0.0167, 0.0552]. Eight of the nine nonzero cells are inconclusive. The only sensitive null is drift at sixteen times below 1/τ. The late-return thread stays closed. The next experiment is open problem 1, and it has to beat its own absence on the probe.
 
 ## Open problems (ordered)
 
