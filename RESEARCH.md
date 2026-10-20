@@ -77,6 +77,10 @@ S2 is the load-bearing test. Measuring surprise on a sliding window would cheat 
 
 Seeds are fixed. If a claim flickers, that is a result: the kernel is too noisy, or the threshold is theatre. Either way, log it in `JOURNAL.md`. It is not a license to loosen the test until it passes.
 
+## Measurement priorities
+
+Closed on 2026-10-19. The occupancy summary is in. On one instrument, matched rooms, temperature 0.15, 400 steps, and fresh seeds, rho is not attracted by stationary noise, by drift below, at, or above 1/τ, or by forgetting at those same scales. A planted bonus of 0.0085 still moves rho, by 0.0360 [0.0167, 0.0552]. Eight of the nine nonzero cells are inconclusive. The only sensitive null is drift at sixteen times below 1/τ. The late-return thread stays closed. The next experiment is open problem 1, and it has to beat its own absence on the probe.
+
 ## Open problems (ordered)
 
 1. **Action-conditional ρ̂.** Curiosity uses expected residual plus the residual *drop* across horizon-2 imagination (prefer moves the model expects to make more certain). Global ρ still scales. A true model-of-learning — a second kernel whose observations are the first kernel’s hidden state — remains Phase 1.
