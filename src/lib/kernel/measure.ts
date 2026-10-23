@@ -51,6 +51,8 @@ export type EpisodeResult = {
   decodeResidual: number;
   /** Fraction of steps that repeated a committed direction. Zero when `option` is off. */
   optionHeld: number;
+  /** Fraction of steps whose second tick took a different imagined follow-up. Zero when `rollout` is off. */
+  rolloutSwitched: number;
   g1: boolean;
   /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
   skill: number;
@@ -120,6 +122,7 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
       discardFraction: k.loop.discardFraction,
       decodeResidual: k.loop.decodeResidual,
       optionHeld: k.age > 0 ? k.optionHeld / k.age : 0,
+      rolloutSwitched: k.age > 0 ? k.rolloutSwitched / k.age : 0,
     };
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));

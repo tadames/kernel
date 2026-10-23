@@ -1,5 +1,59 @@
 # Journal
 
+## 2026-10-23 roll-out (America/New_York)
+
+Written before `npm run gate -- --flag rollout --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `50fa241`, and are not this claim.
+
+`discard` stays off. `decode` stays off. Neither is rerun. `option` stays on. It is not rerun and its span stays 2. Horizon 2 and horizon 3 stay the shipped imagination. This is not a third tick and not a new score. Open problem 3's unread part is a roll-out: on the second tick of the two-tick option, execute the follow-up the imagination already selected, instead of repeating the primitive. The cell loss does not change. The progress bonus does not change.
+
+### Preregister rollout
+
+Hypothesis. On Field, the option's second tick executes the horizon-2 follow-up imagined at the commitment, instead of the same primitive again. Late held-out probe error falls relative to the shipped two-tick option. The comparison is the flag absent. `option` stays on in both arms.
+
+Instrument. Flag `rollout`, default off. Rho, transition still on, option still on, every other flag at its default, including `discard` off and `decode` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is action-side. It does not enter the progress bonus. Surprise and the cell step still run on every tick, including the second tick.
+
+Rule, locked here. The span stays 2. It is not searched. Actions are north, east, south, west, and wait. On the commitment tick the policy samples as it does today, with one `softmaxSample` draw. During that same imagination, the follow-up for the sampled action is the first horizon-2 action whose value strictly won (`s2 > best2`), the comparison `imagineScores` already uses to score the second window. A tie keeps the earlier index. Horizon 3 does not re-rank it, and its third action is not executed. The follow-up is that argmax. It is not a second sample. The on path draws no extra `Math.random`.
+
+The next tick executes that stored follow-up and does not sample. It does not re-imagine from the real next window. Scores, entropy, and branching stay at the commitment step's values, because the policy was not consulted. If the follow-up equals the primitive, the second tick repeats it. If imagination did not run (the random signal), the second tick repeats the primitive. A wall does not cancel the second tick. A death does not cancel it. There is no termination probability. Learning still commits `(window, executed action)` before the body moves, so a changed follow-up is the transition the cell net sees.
+
+`option` off does not read the hold and does not execute a follow-up. `rollout` is then inert. An explicit `rollout: false` with the other defaults is the same learner as the default. The off path of `imagineScores` is the omitted follow buffer: no index is written, and the score path is unchanged.
+
+`optionHeld` stays the fraction of steps that repeated the committed primitive. `rolloutSwitched` is the fraction of steps that executed a follow-up different from that primitive. It is 0 when the flag is off. It is not a cutoff. On an even-length episode their sum is 1/2 when every option runs its second tick: the off arm puts all of that mass in `optionHeld`.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, option on, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged (option on), rollout on lowers late held-out probe error versus rollout off.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second span is run. The follow-up is not re-ranked by residual drop.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `50fa241`.
+
+### Results
+
+The prediction is refuted. Roll-out on is worse than the shipped option, and lives rise. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there.
+
+40 episodes, 4 workers, 1.4 seconds. Source: `bench/gate.json`, copied at `bench/rollout/gate-20.json`.
+
+| arm | probe late | option held | rollout switched |
+|---|---:|---:|---:|
+| rollout off | 0.1008 | 0.500 | 0.000 |
+| rollout on | 0.1138 | 0.0509 | 0.4491 |
+
+Off minus on is −0.0130 [−0.0234, −0.0018]. The interval lies entirely below zero. On is higher probe error. The follow-up was not idle: 0.4491 of steps executed a different action, and 0.0509 repeated the primitive. Those two fractions sum to 0.500, the second tick of every option. The off arm repeated the primitive on all of those ticks and switched on none. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is 0.65 [0.40, 0.85]. That interval lies entirely above zero, so deaths rose. Both failures are the preregistered ones. The threshold was not loosened.
+
+Figure: `bench/rollout/rollout-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar sits entirely to the left of it.
+
+`rollout` remains default off. It does not enter the progress bonus. `option` stays on. `discard` stays off. `decode` stays off. `transition` stays on. No occupancy grid was rerun. No second span was run. The follow-up was not re-ranked.
+
+Kept defaults after the flag was added, seeds 1–5, sha `50fa241`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `rollout` is not the decision: on 0.1013, off 0.1102, so off minus on is 0.0089 on those five seeds, the other sign from the paired gate. Lives on that row are 1.20 versus 0.40, the same sign as the gate. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `rollout` on, and do not rerun it with more seeds or a different follow-up rule. The interval already excludes zero on the wrong side, and lives move with it. Do not add a second action rule in the next run. `option` stays the two-tick hold. Open problem 3's roll-out is closed on this probe. The next experiment is open problem 4: self-revision of the learning rate, one flag, off unless it beats the constant `TRANSITION_LR` on the probe, and it must not raise lives. Horizon 2, horizon 3, and the option stay as they are.
+
 ## 2026-10-23 option (America/New_York)
 
 Written before `npm run gate -- --flag option --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `f95a475`, and are not this claim.

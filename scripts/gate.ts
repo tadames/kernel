@@ -188,6 +188,8 @@ async function main() {
       decodeOn: avg(on.map((row) => row.decodeResidual)),
       optionOff: avg(off.map((row) => row.optionHeld)),
       optionOn: avg(on.map((row) => row.optionHeld)),
+      rolloutOff: avg(off.map((row) => row.rolloutSwitched)),
+      rolloutOn: avg(on.map((row) => row.rolloutSwitched)),
       diff: decision.probe,
       lives: decision.lives,
       g2On: on.filter((row) => row.g2).length,

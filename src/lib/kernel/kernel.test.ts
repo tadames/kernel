@@ -1069,6 +1069,161 @@ test("option holds the sampled direction for a second tick and the off path samp
   assert.equal(reset.optionHeld, 0, "a new mind samples; it does not finish the old hold");
 });
 
+test("horizon-2 follow index is the first strict winner and does not change the score", () => {
+  const acts = 3;
+  const base = {
+    acts,
+    curiosity: 0,
+    goal: 1,
+    progressEma: 0,
+    ema: 0.2,
+    horizonRho: false,
+    uncertainty: false,
+    imagined: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+    imagined2: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+    predict: (a: number, into: Float32Array) => {
+      into[0] = a;
+      into[1] = 0;
+      return into;
+    },
+    predictFrom: (pred: Float32Array, a1: number, into: Float32Array) => {
+      into[0] = a1;
+      into[1] = pred[0]!;
+      return into;
+    },
+    read: () => ({ reward: 0, cost: 0, novelty: 0 }),
+  };
+  const score = (readPred: (pred: Float32Array, a: number) => { reward: number; cost: number; novelty: number }, follow?: Int32Array) => {
+    const scores = new Float32Array(acts);
+    imagineScores({
+      ...base,
+      imagined: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+      imagined2: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+      scores,
+      readPred,
+      follow,
+    });
+    return scores;
+  };
+  const winner = (pred: Float32Array) => (pred[1]! + 1) % acts;
+  const readPred = (pred: Float32Array, a: number) => ({
+    reward: a === winner(pred) ? 5 : 0,
+    cost: 0,
+    novelty: 0,
+  });
+  const follow = new Int32Array(acts);
+  const withFollow = score(readPred, follow);
+  const plain = score(readPred);
+  assert.deepEqual(Array.from(withFollow), Array.from(plain));
+  for (let a = 0; a < acts; a++) assert.equal(follow[a], (a + 1) % acts);
+
+  const tied = new Int32Array(acts);
+  score((_pred, a) => ({ reward: a === 0 || a === 1 ? 3 : 0, cost: 0, novelty: 0 }), tied);
+  for (let a = 0; a < acts; a++) assert.equal(tied[a], 0, "a tie keeps the earlier follow-up");
+
+  const omitted = new Int32Array(acts);
+  omitted.fill(7);
+  score(readPred);
+  for (let a = 0; a < acts; a++) assert.equal(omitted[a], 7, "omitted buffer is not written");
+});
+
+test("rollout executes the imagined follow-up on the second tick and the off path matches the option", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.rollout, false);
+
+  const walk = (features?: { option?: boolean; rollout?: boolean }) => {
+    Math.random = mulberry32(31);
+    const k = new Kernel("field", 9, features);
+    const actions: number[] = [];
+    for (let t = 0; t < 24; t++) {
+      k.step();
+      actions.push(k.lastAction);
+    }
+    return {
+      actions,
+      x: k.x,
+      y: k.y,
+      foods: k.foods,
+      lives: k.lives,
+      energy: k.energy,
+      surprise: k.surprise,
+      w1: Array.from(k.loop.net.w1),
+      w2: Array.from(k.loop.net.w2),
+      held: k.optionHeld,
+      switched: k.rolloutSwitched,
+      follow: k.rolloutFollow,
+    };
+  };
+  const shipped = walk();
+  const explicitOff = walk({ rollout: false });
+  const optionOff = walk({ option: false });
+  const rolloutWithoutOption = walk({ option: false, rollout: true });
+  assert.deepEqual(explicitOff, shipped);
+  assert.equal(shipped.switched, 0);
+  assert.equal(shipped.held, 12);
+  assert.deepEqual(rolloutWithoutOption, optionOff, "rollout does nothing when the option is off");
+
+  Math.random = mulberry32(31);
+  const off = new Kernel("field", 9, { rollout: false });
+  Math.random = mulberry32(31);
+  const on = new Kernel("field", 9, { rollout: true });
+  off.step();
+  on.step();
+  assert.equal(on.lastAction, off.lastAction, "the commitment tick is the same sample");
+  assert.deepEqual(Array.from(on.loop.net.w1), Array.from(off.loop.net.w1));
+  const committed = on.lastAction;
+  const follow = on.rolloutFollow;
+  const branching = on.branching;
+  assert.equal(on.rolloutSwitched, 0);
+  assert.equal(on.optionHeld, 0);
+  on.step();
+  assert.equal(on.lastAction, follow, "the second tick is the stored follow-up");
+  assert.equal(on.branching, branching, "a roll-out tick does not consult the policy");
+  if (follow === committed) assert.equal(on.optionHeld, 1);
+  else assert.equal(on.rolloutSwitched, 1);
+  off.step();
+  assert.equal(off.lastAction, committed, "the option still repeats the primitive");
+
+  let switched = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    Math.random = mulberry32(40 + seed);
+    const k = new Kernel("field", seed, { rollout: true });
+    let seen = 0;
+    for (let t = 0; t < 40; t++) {
+      const before = k.rolloutFollow;
+      k.step();
+      if (t % OPTION_SPAN === 0) {
+        assert.equal(k.rolloutSwitched, seen);
+      } else {
+        assert.equal(k.lastAction, before);
+        seen = k.rolloutSwitched;
+      }
+    }
+    assert.equal(k.optionHeld + k.rolloutSwitched, 20);
+    switched += k.rolloutSwitched;
+  }
+  assert.ok(switched > 0, "the follow-up was never a different action");
+
+  Math.random = mulberry32(11);
+  const random = new Kernel("field", 3, { rollout: true }, { signal: "random" });
+  const actions: number[] = [];
+  for (let t = 0; t < 8; t++) {
+    random.step();
+    actions.push(random.lastAction);
+  }
+  assert.equal(random.rolloutSwitched, 0, "no imagination, so the second tick repeats");
+  for (let i = 0; i < actions.length; i += OPTION_SPAN) assert.equal(actions[i + 1], actions[i]);
+
+  Math.random = mulberry32(32);
+  const reset = new Kernel("blank", 3, { rollout: true });
+  reset.step();
+  reset.step();
+  reset.resetBrain();
+  assert.equal(reset.rolloutSwitched, 0);
+  assert.equal(reset.optionHeld, 0);
+  reset.step();
+  assert.equal(reset.rolloutSwitched, 0, "a new mind samples; it does not finish the old roll-out");
+});
+
 test("food, stream, and band claims hold under a pinned init", () => {
   Math.random = mulberry32(20261015);
   const claims = evaluateClaims();

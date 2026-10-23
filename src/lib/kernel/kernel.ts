@@ -228,6 +228,22 @@ export class Kernel {
    * Stays 0 when `option` is off, so the off path can be checked against it.
    */
   optionHeld = 0;
+  /** Horizon-2 follow-up per first action. Written only when `rollout` is on. */
+  private followBuf = new Int32Array(ACTS);
+  /** True after a commitment whose imagination wrote `followBuf`. */
+  private followReady = false;
+  /** Action stored for the option's second tick. The primitive when `rollout` is off. */
+  private rolloutAction = 4;
+  /**
+   * Follow-up from the last commitment. Stays at wait when `rollout` is off,
+   * so the off path can be checked against it.
+   */
+  rolloutFollow = 4;
+  /**
+   * Second ticks that executed a follow-up different from the committed primitive.
+   * Stays 0 when `rollout` is off.
+   */
+  rolloutSwitched = 0;
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
   policyEntropy = 1;
@@ -348,6 +364,10 @@ export class Kernel {
     this.optionLeft = 0;
     this.heldAction = 4;
     this.optionHeld = 0;
+    this.followReady = false;
+    this.rolloutAction = 4;
+    this.rolloutFollow = 4;
+    this.rolloutSwitched = 0;
   }
 
   private placeAgent() {
@@ -525,6 +545,10 @@ export class Kernel {
     this.optionLeft = 0;
     this.heldAction = 4;
     this.optionHeld = 0;
+    this.followReady = false;
+    this.rolloutAction = 4;
+    this.rolloutFollow = 4;
+    this.rolloutSwitched = 0;
   }
 
   get ema() {
@@ -673,23 +697,36 @@ export class Kernel {
   }
 
   /**
-   * Sample, then repeat that direction until `OPTION_SPAN` ticks have run.
-   * Called only when `option` is on. The off path never reaches this, so it
-   * draws no extra policy noise and does not read the hold counter.
+   * Sample, then either repeat that direction or execute the imagined
+   * follow-up, until `OPTION_SPAN` ticks have run. Called only when `option`
+   * is on. The off path never reaches this, so it draws no extra policy noise
+   * and does not read the hold counter. `rollout` off takes the repeat branch
+   * and does not read the follow-up.
    */
   private heldOrChoose(obs: Float32Array): number {
     if (this.optionLeft > 0) {
       this.optionLeft -= 1;
+      if (this.features.rollout) {
+        const action = this.rolloutAction;
+        if (action === this.heldAction) this.optionHeld += 1;
+        else this.rolloutSwitched += 1;
+        return action;
+      }
       this.optionHeld += 1;
       return this.heldAction;
     }
     const action = this.choose(obs);
     this.heldAction = action;
+    if (this.features.rollout) {
+      this.rolloutAction = this.followReady ? this.followBuf[action]! : action;
+      this.rolloutFollow = this.rolloutAction;
+    }
     this.optionLeft = OPTION_SPAN - 1;
     return action;
   }
 
   private choose(obs: Float32Array): number {
+    this.followReady = false;
     if (this.signal === "random") {
       this.scores.fill(0);
       this.policyEntropy = 1;
@@ -763,7 +800,9 @@ export class Kernel {
         this.intrinsicBoost || this.periodicBoost
           ? (a) => this.progressExtra(view.destGrid, a)
           : undefined,
+      follow: this.features.rollout ? this.followBuf : undefined,
     });
+    if (this.features.rollout) this.followReady = true;
     let temp = this.params.temperature;
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
     this.policyEntropy = entropyNorm(this.scores, temp);

@@ -48,6 +48,12 @@
  * executed for two ticks. The second tick does not sample. It does not
  * enter the progress bonus and it does not change the cell loss. The
  * off path still samples every tick and draws no extra random number.
+ * `rollout` is action-side and off by default. On the option's second
+ * tick it executes the horizon-2 follow-up imagined at the commitment,
+ * instead of repeating the primitive. It does not enter the progress
+ * bonus and it does not change the cell loss. The off path is the
+ * shipped option: the second tick repeats the primitive, and the score
+ * path writes no follow-up index.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -66,7 +72,9 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * that same gate says the latent target beats the cell loss. `option`
  * is action-side. It does not enter the bonus. The same gate kept it:
  * holding the sampled direction lowered Field probe error on seeds 1–20
- * and on seeds 1–200, and lives did not rise.
+ * and on seeds 1–200, and lives did not rise. `rollout` is action-side
+ * too. It does not enter the bonus. Seeds 1–20 put the paired probe
+ * interval of off minus on entirely below zero, and lives rose. It stays off.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -85,6 +93,7 @@ export const LOOP_FEATURE_KEYS = [
   "discard",
   "decode",
   "option",
+  "rollout",
   "transition",
 ] as const;
 
@@ -128,6 +137,12 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Kept on: the probe gate, seeds 1–20 and seeds 1–200.
    */
   option: true,
+  /**
+   * On the option's second tick, execute the horizon-2 follow-up imagined
+   * at the commitment instead of repeating the primitive. Off repeats it.
+   * Seeds 1–20: probe error rose and lives rose. Stays off.
+   */
+  rollout: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
