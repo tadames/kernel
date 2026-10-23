@@ -1,5 +1,66 @@
 # Journal
 
+## 2026-10-23 option (America/New_York)
+
+Written before `npm run gate -- --flag option --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `f95a475`, and are not this claim.
+
+`discard` stays off. `decode` stays off. Neither is rerun. Horizon 2 and horizon 3 stay the shipped imagination. This is not another imagined window. Open problem 3's unread part is an option: one primitive direction, executed for more than one tick. The cell loss does not change. The progress bonus does not change.
+
+### Preregister option
+
+Hypothesis. On Field, holding the sampled direction for a second tick gives the transition learner two consecutive windows under that same action. Late held-out probe error falls relative to sampling a new action every tick. The comparison is the flag absent.
+
+Instrument. Flag `option`, default off. Rho, transition still on, every other flag at its default, including `discard` off and `decode` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is action-side. It does not enter the progress bonus. Surprise and the cell step still run on every tick, including a held tick.
+
+Rule, locked here. The span is 2. It is not searched. Actions are north, east, south, west, and wait. Wait is a direction in this set and can be held. On the commitment tick the policy samples as it does today, with one `softmaxSample` draw. The next tick executes that same action and does not sample. The counter is then zero, and the following tick samples again. A wall does not cancel the hold. A death does not cancel it. There is no termination probability, so the on path draws no extra policy noise to decide when to stop. On a held tick the scores, the entropy, and the branching stay at the commitment step's values, because the policy was not consulted. Learning still commits `(window, held action)` before the body moves.
+
+The off path calls `choose` on every tick. The hold counter is not read. The constructor draws no extra `Math.random`. An explicit `option: false` is the same learner as the default.
+
+`optionHeld` is the fraction of steps that repeated a committed direction. It is 0 when the flag is off. It is not a cutoff. On an even-length episode with this span it is 1/2 when every option runs its second tick.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged, option on lowers late held-out probe error versus option off.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second span is run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `f95a475`.
+
+### Results
+
+The prediction is confirmed. Late probe error is lower with the hold on. The paired interval lies entirely above zero at 20 seeds and again at 200. G2 and C2 keep the majority they held with the flag off. Lives do not rise. The flag stays on.
+
+Decision gate, seeds 1–20. 40 episodes, 4 workers, 2.4 seconds. Source: `bench/option/gate-20.json`.
+
+| arm | probe late | option held |
+|---|---:|---:|
+| option off | 0.1114 | 0.000 |
+| option on | 0.1008 | 0.500 |
+
+Off minus on is 0.0107 [0.0032, 0.0179]. The interval lies entirely above zero. The hold was not idle: half the steps repeated the committed direction, and the off arm repeated none. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is −0.10 [−0.40, 0.20]. That interval includes zero, so deaths did not rise. The threshold was not loosened.
+
+Headline, seeds 1–200. The 20-seed pass is not the headline. 400 episodes, 4 workers, 17.2 seconds. Source: `bench/gate.json`, copied at `bench/option/gate-200.json`.
+
+| arm | probe late | option held |
+|---|---:|---:|
+| option off | 0.1081 | 0.000 |
+| option on | 0.1033 | 0.500 |
+
+Off minus on is 0.0048 [0.0022, 0.0076]. The interval lies entirely above zero, same sign as the decision gate. G2 was 200/200 on both arms. C2 was 200/200 on both arms. Lives on minus lives off is −0.105 [−0.205, −0.005]. That interval lies entirely below zero, so deaths fell. The preregistered bar was that deaths do not rise. They did not. The drop was not a separate prediction.
+
+Figure: `bench/option/option-ci.png`. The bar is the 200-seed paired interval of off minus on. Zero is the vertical line. The bar sits entirely to the right of it.
+
+`option` is now default on. It does not enter the progress bonus. The span stays 2. `discard` stays off. `decode` stays off. `transition` stays on. With both default-on flags in one gate, seeds 1–20, transition off minus on is 0.1347 [0.1255, 0.1416] and option repeats the decision interval above. No occupancy grid was rerun. No second span was run.
+
+Kept learner after the flag was turned on, seeds 1–5, sha `f95a475`. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip is not the decision: on 0.1102, off 0.1079, so off minus on is −0.0022 on those five seeds, the other sign from the paired gates. Lives on that row are 0.40 versus 0.80. The off-option row matches the parent bench on every stored mean: probe early 0.1222, probe late 0.1079, on-policy ema 0.1641 → 0.0704, foods 5.60, lives 0.80, Rooms foods 7.00, Rooms lives 0.40, and the same claim counts. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `option` off, and do not rerun it at another span. The span was locked at 2 before the run, and both preregistered intervals cleared. Do not rerun `discard` or `decode`. The unread remainder of open problem 3 is a roll-out: on the second tick, execute the imagined follow-up when that follow-up is a different action, instead of repeating the primitive. It has to ship behind a flag, off unless it beats this option learner on the probe, and it must not raise lives.
+
 ## 2026-10-22 latent target (America/New_York)
 
 Written before `npm run gate -- --flag decode --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `dc60f55`, and are not this claim.

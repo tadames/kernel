@@ -49,6 +49,8 @@ export type EpisodeResult = {
   discardFraction: number;
   /** Hidden-versus-code gap on the last step. Zero when `decode` is off. */
   decodeResidual: number;
+  /** Fraction of steps that repeated a committed direction. Zero when `option` is off. */
+  optionHeld: number;
   g1: boolean;
   /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
   skill: number;
@@ -117,6 +119,7 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
       checkpoints,
       discardFraction: k.loop.discardFraction,
       decodeResidual: k.loop.decodeResidual,
+      optionHeld: k.age > 0 ? k.optionHeld / k.age : 0,
     };
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));

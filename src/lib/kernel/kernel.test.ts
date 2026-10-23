@@ -6,7 +6,7 @@ import { mulberry32 } from "./presets.ts";
 
 // Weight init uses Math.random. Pin it so the suite does not flicker in CI.
 Math.random = mulberry32(20261015);
-import { Kernel } from "./kernel.ts";
+import { Kernel, OPTION_SPAN } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
 import { evaluateClaims } from "./experiments.ts";
 import { expectedResidual, imagineScores } from "./policy.ts";
@@ -1007,6 +1007,66 @@ test("decode off matches the cell loss, and surprise stays the real residual", (
   assert.equal(restored.importBrain(dumped), true);
   assert.deepEqual(Array.from(restored.decW), Array.from(left.decW));
   assert.deepEqual(Array.from(restored.decB), Array.from(left.decB));
+});
+
+test("option holds the sampled direction for a second tick and the off path samples every tick", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.option, true);
+  assert.equal(OPTION_SPAN, 2);
+
+  const walk = (features?: { option: boolean }) => {
+    Math.random = mulberry32(31);
+    const k = new Kernel("field", 9, features);
+    const actions: number[] = [];
+    for (let t = 0; t < 24; t++) {
+      k.step();
+      actions.push(k.lastAction);
+    }
+    return {
+      actions,
+      x: k.x,
+      y: k.y,
+      foods: k.foods,
+      lives: k.lives,
+      energy: k.energy,
+      surprise: k.surprise,
+      w1: Array.from(k.loop.net.w1),
+      w2: Array.from(k.loop.net.w2),
+      held: k.optionHeld,
+    };
+  };
+  const offA = walk({ option: false });
+  const offB = walk({ option: false });
+  const on = walk({ option: true });
+  const shipped = walk();
+  assert.deepEqual(offA, offB);
+  assert.deepEqual(on, shipped);
+  assert.equal(offA.held, 0);
+  assert.equal(on.held, 12);
+  assert.equal(on.actions[0], offA.actions[0], "the commitment tick is the same sample as the flag off");
+  for (let i = 0; i < on.actions.length; i += OPTION_SPAN) {
+    assert.equal(on.actions[i + 1], on.actions[i]);
+  }
+  assert.notDeepEqual(on.actions, offA.actions);
+
+  Math.random = mulberry32(33);
+  const held = new Kernel("field", 4, { option: true });
+  held.step();
+  const committed = held.lastAction;
+  const branching = held.branching;
+  assert.equal(held.optionHeld, 0);
+  held.step();
+  assert.equal(held.lastAction, committed);
+  assert.equal(held.branching, branching, "a held tick does not consult the policy");
+  assert.equal(held.optionHeld, 1);
+
+  Math.random = mulberry32(32);
+  const reset = new Kernel("blank", 3, { option: true });
+  reset.step();
+  assert.equal(reset.optionHeld, 0);
+  reset.resetBrain();
+  assert.equal(reset.optionHeld, 0);
+  reset.step();
+  assert.equal(reset.optionHeld, 0, "a new mind samples; it does not finish the old hold");
 });
 
 test("food, stream, and band claims hold under a pinned init", () => {

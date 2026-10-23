@@ -44,6 +44,10 @@
  * probe reads. The code is trained so the current readout can decode it,
  * and the predictor cannot move the encoder. Surprise still sees the real
  * residual. The code width is the hidden width. There is no second mask.
+ * `option` is action-side and on by default. The sampled direction is
+ * executed for two ticks. The second tick does not sample. It does not
+ * enter the progress bonus and it does not change the cell loss. The
+ * off path still samples every tick and draws no extra random number.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -59,7 +63,10 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * learning-side. It does not enter the bonus. It stays off unless a
  * preregistered probe gate says it beats its absence. `decode` is
  * learning-side too. It does not enter the bonus. It stays off unless
- * that same gate says the latent target beats the cell loss.
+ * that same gate says the latent target beats the cell loss. `option`
+ * is action-side. It does not enter the bonus. The same gate kept it:
+ * holding the sampled direction lowered Field probe error on seeds 1–20
+ * and on seeds 1–200, and lives did not rise.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -77,6 +84,7 @@ export const LOOP_FEATURE_KEYS = [
   "slowSelfWindow2",
   "discard",
   "decode",
+  "option",
   "transition",
 ] as const;
 
@@ -89,7 +97,7 @@ export type LoopFeatures = Record<LoopFeatureKey, boolean>;
  * probe). Every previously noisy term failed: the paired CI of (off − on)
  * did not lie above zero. encoderMix and wake were exact ties. latentRho
  * and slowRhoHat made probe error worse. The code remains; the defaults
- * are off. See JOURNAL.md.
+ * are off. `option` was added later and kept on 2026-10-23. See JOURNAL.md.
  */
 export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   encoder: false,
@@ -115,6 +123,11 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * The probe gate decides whether it stays off.
    */
   decode: false,
+  /**
+   * Hold the sampled direction for a second tick. Off samples every tick.
+   * Kept on: the probe gate, seeds 1–20 and seeds 1–200.
+   */
+  option: true,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };

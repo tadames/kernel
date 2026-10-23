@@ -22,7 +22,7 @@ export const LAWS = [
   {
     id: "05",
     title: "Action is imagined, not scripted",
-    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel imagines each move, then a second step from the predicted window (horizon 2, discounted, confidence-gated). A third window runs only once ema is under 0.12, so early model error is not multiplied. The slow code's second latent step uses that same line: it stays shut until slowEma < 0.12. The second self-step uses the same line. Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
+    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel imagines each move, then a second step from the predicted window (horizon 2, discounted, confidence-gated). A third window runs only once ema is under 0.12, so early model error is not multiplied. The sampled direction is then held for one more tick before the policy samples again. That hold is the option. It is not another imagined window. The slow code's second latent step uses that same line: it stays shut until slowEma < 0.12. The second self-step uses the same line. Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
   },
   {
     id: "06",
