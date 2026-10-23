@@ -47,6 +47,13 @@ export const DIRS = [
 ] as const;
 export const DIR_NAMES = ["north", "east", "south", "west", "wait"] as const;
 
+/**
+ * Ticks a sampled direction is executed before the policy samples again.
+ * 2 is the locked option: the commitment tick plus one held tick.
+ * The probe gate is the test of that choice. It is not a searched length.
+ */
+export const OPTION_SPAN = 2;
+
 const HISTORY = 140;
 
 export type Params = {
@@ -212,6 +219,15 @@ export class Kernel {
   lives = 0;
   history: number[] = [];
   lastAction = 4;
+  /** Ticks remaining in the current option, after the commitment tick. Zero when `option` is off. */
+  private optionLeft = 0;
+  /** Direction committed by the last sample. Unused when `option` is off. */
+  private heldAction = 4;
+  /**
+   * Steps that repeated a committed direction instead of sampling.
+   * Stays 0 when `option` is off, so the off path can be checked against it.
+   */
+  optionHeld = 0;
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
   policyEntropy = 1;
@@ -329,6 +345,9 @@ export class Kernel {
     this.thinkCooldown = 0;
     this.burnIn = 0;
     this.obsMean.fill(0);
+    this.optionLeft = 0;
+    this.heldAction = 4;
+    this.optionHeld = 0;
   }
 
   private placeAgent() {
@@ -503,6 +522,9 @@ export class Kernel {
     this.applyProgress();
     this.visitCounts.fill(0);
     this.rnd = new RndCuriosity(this.seed ^ 0x51ed, OBS);
+    this.optionLeft = 0;
+    this.heldAction = 4;
+    this.optionHeld = 0;
   }
 
   get ema() {
@@ -650,6 +672,23 @@ export class Kernel {
     else this.cells[i] = this.cells[i] === 2 ? 0 : 2;
   }
 
+  /**
+   * Sample, then repeat that direction until `OPTION_SPAN` ticks have run.
+   * Called only when `option` is on. The off path never reaches this, so it
+   * draws no extra policy noise and does not read the hold counter.
+   */
+  private heldOrChoose(obs: Float32Array): number {
+    if (this.optionLeft > 0) {
+      this.optionLeft -= 1;
+      this.optionHeld += 1;
+      return this.heldAction;
+    }
+    const action = this.choose(obs);
+    this.heldAction = action;
+    this.optionLeft = OPTION_SPAN - 1;
+    return action;
+  }
+
   private choose(obs: Float32Array): number {
     if (this.signal === "random") {
       this.scores.fill(0);
@@ -769,7 +808,7 @@ export class Kernel {
     if (this.forgettingRate > 0) this.loop.net.decay(this.forgettingRate);
     this.history.push(this.loop.surprise);
     if (this.history.length > HISTORY) this.history.shift();
-    const action = this.choose(obs);
+    const action = this.features.option ? this.heldOrChoose(obs) : this.choose(obs);
     this.lastAction = action;
     // Held-out probe and imagination both ask M(window, action) for the next window.
     // Commit that pair before the body moves. The historical commit stored the
