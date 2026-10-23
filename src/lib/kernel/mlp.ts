@@ -104,6 +104,54 @@ export class MLP {
     }
   }
 
+  /**
+   * Match the hidden code from the last forward to a stop-grad `code`.
+   * Updates W1 and b1 only. Returns the mean squared gap before the step.
+   * Scale is 2/hidden, the same mean-square factor `train` uses on its outputs.
+   */
+  matchHidden(x: Float32Array, code: Float32Array, lr: number): number {
+    const { in: inn, h, w1, b1, ha, dz1 } = this;
+    const scale = 2 / h;
+    let loss = 0;
+    for (let i = 0; i < h; i++) {
+      const d = ha[i]! - (code[i] ?? 0);
+      loss += d * d;
+      dz1[i] = d * scale * (1 - ha[i]! * ha[i]!);
+    }
+    for (let i = 0; i < h; i++) {
+      const row = i * inn;
+      const g = dz1[i]!;
+      for (let j = 0; j < inn; j++) w1[row + j]! -= lr * g * x[j]!;
+      b1[i]! -= lr * g;
+    }
+    return h ? loss / h : 0;
+  }
+
+  /**
+   * Train the readout to decode the hidden code from the last forward.
+   * The hidden is stop-grad: W1 and b1 do not move. Scale is 2/out.
+   */
+  decodeReadout(target: Float32Array, lr: number) {
+    const { h, out, w2, b2, ha, dz2 } = this;
+    const scale = 2 / out;
+    for (let i = 0; i < out; i++) {
+      let s = b2[i]!;
+      const row = i * h;
+      for (let j = 0; j < h; j++) s += w2[row + j]! * ha[j]!;
+      const clipped = s < -12 ? -12 : s > 12 ? 12 : s;
+      // Float32 store, same as forward into the probe. An exact prediction is a zero step.
+      const y = Math.fround(1 / (1 + Math.exp(-clipped)));
+      const err = (y - (target[i] ?? 0)) * scale;
+      dz2[i] = err * y * (1 - y);
+    }
+    for (let i = 0; i < out; i++) {
+      const row = i * h;
+      const g = dz2[i]!;
+      for (let j = 0; j < h; j++) w2[row + j]! -= lr * g * ha[j]!;
+      b2[i]! -= lr * g;
+    }
+  }
+
   lastHidden(): Float32Array {
     return this.ha;
   }
