@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-18T11:38:17.289Z",
+  "date": "2026-10-23T16:58:57.925Z",
   "seeds": [
     1,
     2,
@@ -24,35 +24,90 @@
   ],
   "steps": 280,
   "flags": [
-    "transition"
+    "rollout"
   ],
   "results": [
     {
-      "flag": "transition",
-      "hypothesis": "On Field, seeds 1–20, rho, committing the pre-move window and stepping the cell net at lr 4 lowers late held-out probe error versus the historical commit at lr 0.035.",
+      "flag": "rollout",
+      "hypothesis": "On Field, seeds 1–20, rho, with the other defaults unchanged (option on), rollout on lowers late held-out probe error versus rollout off.",
       "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
-      "pass": true,
-      "probeOff": 0.2348206070754651,
-      "probeOn": 0.11142970029517858,
+      "pass": false,
+      "probeOff": 0.10076232193829512,
+      "probeOn": 0.11376671208125015,
+      "probeOffSeeds": [
+        0.1623112530549418,
+        0.10782481036206275,
+        0.08830553773557465,
+        0.09162438981849862,
+        0.10084287769886326,
+        0.09238939239678652,
+        0.0905512688982893,
+        0.1070954227875213,
+        0.10004422430002938,
+        0.08973239074540594,
+        0.09077952347877104,
+        0.09281165057837347,
+        0.10556044655383681,
+        0.0901779327405354,
+        0.0939225155829952,
+        0.1281992882904854,
+        0.09993840969281227,
+        0.09639900940917036,
+        0.09160141435173462,
+        0.09513468028921471
+      ],
+      "probeOnSeeds": [
+        0.10942639992493872,
+        0.10271130322936252,
+        0.09892519795194349,
+        0.10150604101760952,
+        0.09405056663348428,
+        0.13199506020175578,
+        0.09598328952292792,
+        0.14175366330253014,
+        0.09976657645431498,
+        0.09629939838945009,
+        0.13822424048415716,
+        0.10694066829746958,
+        0.1326119323851423,
+        0.11743204606328467,
+        0.09677301124825706,
+        0.0989079546782317,
+        0.1341811544651512,
+        0.10126139483470324,
+        0.13624737840973364,
+        0.14033696413055538
+      ],
+      "discardOff": 0,
+      "discardOn": 0,
+      "decodeOff": 0,
+      "decodeOn": 0,
+      "optionOff": 0.5,
+      "optionOn": 0.05089285714285714,
+      "rolloutOff": 0,
+      "rolloutOn": 0.44910714285714287,
       "diff": {
-        "mean": 0.12339090678028646,
-        "lo": 0.11504765552501565,
-        "hi": 0.13074119238506068,
+        "mean": -0.013004390142955027,
+        "lo": -0.02335465886219969,
+        "hi": -0.0018078458289018432,
         "n": 20,
         "excludesZero": true
       },
       "lives": {
-        "mean": -0.15,
-        "lo": -0.35,
-        "hi": 0.05,
+        "mean": 0.65,
+        "lo": 0.4,
+        "hi": 0.85,
         "n": 20,
-        "excludesZero": false
+        "excludesZero": true
       },
       "g2On": 20,
       "g2Off": 20,
       "c2On": 20,
       "c2Off": 20,
-      "reasons": []
+      "reasons": [
+        "probe CI of (off − on) is [-0.0234, -0.0018]; on must be lower and the interval must exclude zero",
+        "Field lives rise: paired CI of (on − off) lies above zero"
+      ]
     }
   ]
 }

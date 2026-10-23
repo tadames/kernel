@@ -172,13 +172,24 @@ async function main() {
     }, 3);
     if (!decision.pass) failed += 1;
     const pre = readPreregister(journal, flag)!;
+    const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
     results.push({
       flag,
       hypothesis: pre.hypothesis,
       threshold: pre.threshold,
       pass: decision.pass,
-      probeOff: off.map((row) => row.probeLate).reduce((s, x) => s + x, 0) / off.length,
-      probeOn: on.map((row) => row.probeLate).reduce((s, x) => s + x, 0) / on.length,
+      probeOff: avg(off.map((row) => row.probeLate)),
+      probeOn: avg(on.map((row) => row.probeLate)),
+      probeOffSeeds: off.map((row) => row.probeLate),
+      probeOnSeeds: on.map((row) => row.probeLate),
+      discardOff: avg(off.map((row) => row.discardFraction)),
+      discardOn: avg(on.map((row) => row.discardFraction)),
+      decodeOff: avg(off.map((row) => row.decodeResidual)),
+      decodeOn: avg(on.map((row) => row.decodeResidual)),
+      optionOff: avg(off.map((row) => row.optionHeld)),
+      optionOn: avg(on.map((row) => row.optionHeld)),
+      rolloutOff: avg(off.map((row) => row.rolloutSwitched)),
+      rolloutOn: avg(on.map((row) => row.rolloutSwitched)),
       diff: decision.probe,
       lives: decision.lives,
       g2On: on.filter((row) => row.g2).length,

@@ -22,7 +22,7 @@ export const LAWS = [
   {
     id: "05",
     title: "Action is imagined, not scripted",
-    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel imagines each move, then a second step from the predicted window (horizon 2, discounted, confidence-gated). A third window runs only once ema is under 0.12, so early model error is not multiplied. The slow code's second latent step uses that same line: it stays shut until slowEma < 0.12. The second self-step uses the same line. Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
+    body: "A model that cannot act is a spectator. A policy that cannot model is a reflex. The body may use what it already sees in the destination cell — that is sensing. It may not scan the window for food in a half-plane — that is a script. The kernel imagines each move, then a second step from the predicted window (horizon 2, discounted, confidence-gated). A third window runs only once ema is under 0.12, so early model error is not multiplied. The sampled direction is then held for one more tick before the policy samples again. That hold is the option. It is not another imagined window. A roll-out that executes the imagined follow-up on that second tick was measured on 2026-10-23 and stays off: late probe error rose, and so did lives. The slow code's second latent step uses that same line: it stays shut until slowEma < 0.12. The second self-step uses the same line. Early on the model is uncalibrated, so sensors dominate. Later the guess starts to matter.",
   },
   {
     id: "06",
@@ -98,7 +98,7 @@ export const STAGES = [
     id: "progress",
     code: "\u03c1 \u2190 \u03b4\u0304 \u2212 \u03b4",
     name: "Progress",
-    note: "Not surprise itself \u2014 the improvement. This is curiosity\u2019s true signal. Noise does not pay. Structure does. Action-conditional \u03c1\u0302 is still an open problem (Phase 1).",
+    note: "Not surprise itself \u2014 the improvement. This is curiosity\u2019s true signal. Noise does not pay. Structure does. Action-conditional \u03c1\u0302, the residual drop across horizon 2, is the shipped score. A second kernel that models learning itself remains Phase 1.",
   },
   {
     id: "act",
