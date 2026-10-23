@@ -879,6 +879,136 @@ test("discard does not step a dropped output, and the warmup matches the flag of
   assert.equal(duringWarmup.steps, 29);
 });
 
+test("decode matches the hidden to a stop-grad code and does not backprop cell error into it", () => {
+  Math.random = mulberry32(21);
+  const loop = new Loop(4, 2, 4, 2, { decode: true });
+  const input = new Float32Array(4);
+  input[0] = 1;
+  input[1] = 0.25;
+  loop.commit(input);
+  loop.net.w1.fill(0);
+  loop.net.b1[0] = 0.3;
+  loop.net.b1[1] = -0.4;
+  loop.decW.fill(0);
+  loop.decB[0] = 0.3;
+  loop.decB[1] = -0.4;
+  const w1 = Array.from(loop.net.w1);
+  const b1 = Array.from(loop.net.b1);
+  const w2 = Array.from(loop.net.w2);
+  const target = new Float32Array([1, 0, 1, 0]);
+  loop.assimilate(target, 0.5);
+  assert.deepEqual(Array.from(loop.net.w1), w1);
+  assert.deepEqual(Array.from(loop.net.b1), b1);
+  assert.equal(loop.decodeResidual, 0);
+  let moved = false;
+  for (let i = 0; i < w2.length; i++) if (loop.net.w2[i] !== w2[i]) moved = true;
+  assert.ok(moved, "the readout still fits cells");
+  assert.equal(DEFAULT_LOOP_FEATURES.decode, false);
+});
+
+test("decode leaves the readout alone when the cell target is already the prediction", () => {
+  Math.random = mulberry32(22);
+  const loop = new Loop(4, 2, 4, 2, { decode: true });
+  const input = new Float32Array(4);
+  input[0] = 0.8;
+  loop.commit(input);
+  loop.net.b1[0] = 0.5;
+  const pred = new Float32Array(4);
+  loop.net.forward(input, pred);
+  loop.decW.fill(0);
+  loop.decB.fill(0);
+  const w1 = Array.from(loop.net.w1);
+  const b1 = Array.from(loop.net.b1);
+  const w2 = Array.from(loop.net.w2);
+  const b2 = Array.from(loop.net.b2);
+  loop.assimilate(pred, 0.5);
+  assert.deepEqual(Array.from(loop.net.w2), w2);
+  assert.deepEqual(Array.from(loop.net.b2), b2);
+  let moved = false;
+  for (let i = 0; i < w1.length; i++) if (loop.net.w1[i] !== w1[i]) moved = true;
+  for (let i = 0; i < b1.length; i++) if (loop.net.b1[i] !== b1[i]) moved = true;
+  assert.ok(moved, "a zero code still pulls the hidden");
+});
+
+test("decode encoder ignores the predictor hidden and family 2", () => {
+  const make = () => {
+    Math.random = mulberry32(23);
+    return new Loop(6, 4, 6, 2, { decode: true });
+  };
+  const a = make();
+  const b = make();
+  b.net.w1[0] += 0.4;
+  b.net.b1[0] += 0.2;
+  for (let j = 0; j < b.net.h; j++) b.net.w2[2 * b.net.h + j]! += 0.5;
+  b.net.b2[2] += 0.3;
+  const input = new Float32Array(6);
+  input[0] = 1;
+  input[2] = 0.5;
+  a.commit(input.slice());
+  b.commit(input.slice());
+  const target = new Float32Array([0.2, 0.8, 0.4, 0.7, 0.3, 0.6]);
+  a.assimilate(target, 0.25);
+  b.assimilate(target, 0.25);
+  assert.deepEqual(Array.from(a.decW), Array.from(b.decW));
+  assert.deepEqual(Array.from(a.decB), Array.from(b.decB));
+  const fresh = make();
+  let moved = false;
+  for (let i = 0; i < a.decW.length; i++) if (a.decW[i] !== fresh.decW[i]) moved = true;
+  assert.ok(moved, "encoder did not step");
+});
+
+test("decode off matches the cell loss, and surprise stays the real residual", () => {
+  const walk = (features?: { decode: boolean }) => {
+    Math.random = mulberry32(24);
+    const loop = new Loop(6, 8, 6, 5, features);
+    let surprise = 0;
+    for (let t = 0; t < 30; t++) {
+      const x = new Float32Array(6);
+      x[0] = t % 2;
+      x[1] = 1 - (t % 2);
+      x[3] = t % 2;
+      loop.assimilate(x, 0.4);
+      surprise = loop.surprise;
+      const committed = new Float32Array(6 + 5);
+      committed.set(x);
+      committed[6] = 1;
+      loop.commit(committed);
+    }
+    return { w1: Array.from(loop.net.w1), w2: Array.from(loop.net.w2), surprise, residual: loop.decodeResidual };
+  };
+  const plain = walk();
+  const explicitOff = walk({ decode: false });
+  const on = walk({ decode: true });
+  assert.deepEqual(explicitOff.w1, plain.w1);
+  assert.deepEqual(explicitOff.w2, plain.w2);
+  assert.equal(explicitOff.surprise, plain.surprise);
+  assert.equal(plain.residual, 0);
+  assert.equal(explicitOff.residual, 0);
+  assert.notDeepEqual(on.w1, plain.w1);
+
+  Math.random = mulberry32(25);
+  const left = new Loop(4, 3, 4, 2, { decode: true });
+  Math.random = mulberry32(25);
+  const right = new Loop(4, 3, 4, 2, { decode: false });
+  const input = new Float32Array(4);
+  input[0] = 1;
+  left.commit(input.slice());
+  right.commit(input.slice());
+  const target = new Float32Array([1, 0, 1, 0]);
+  left.assimilate(target, 4);
+  right.assimilate(target, 4);
+  assert.equal(left.surprise, right.surprise);
+  assert.ok(Number.isFinite(left.decodeResidual));
+  for (let i = 0; i < left.net.w1.length; i++) assert.ok(Number.isFinite(left.net.w1[i]));
+  for (let i = 0; i < left.decW.length; i++) assert.ok(Number.isFinite(left.decW[i]));
+
+  const dumped = left.exportBrain();
+  const restored = new Loop(4, 3, 4, 2, { decode: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.deepEqual(Array.from(restored.decW), Array.from(left.decW));
+  assert.deepEqual(Array.from(restored.decB), Array.from(left.decB));
+});
+
 test("food, stream, and band claims hold under a pinned init", () => {
   Math.random = mulberry32(20261015);
   const claims = evaluateClaims();

@@ -38,6 +38,12 @@
  * drops a non-scent channel from the cell loss when that channel's model
  * residual is not below the error of its own running mean. Surprise and the
  * progress bonus still see the real residual.
+ * `decode` is learning-side and off by default. The cell net's first layer
+ * matches a stop-grad code of the next window instead of the cell error.
+ * The second layer decodes that hidden code to cells, which is what the
+ * probe reads. The code is trained so the current readout can decode it,
+ * and the predictor cannot move the encoder. Surprise still sees the real
+ * residual. The code width is the hidden width. There is no second mask.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -51,7 +57,9 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * held-out probe error. `transition` is the cell learner, not a bonus term:
  * the same gate kept it because probe error fell. `discard` is also
  * learning-side. It does not enter the bonus. It stays off unless a
- * preregistered probe gate says it beats its absence.
+ * preregistered probe gate says it beats its absence. `decode` is
+ * learning-side too. It does not enter the bonus. It stays off unless
+ * that same gate says the latent target beats the cell loss.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -68,6 +76,7 @@ export const LOOP_FEATURE_KEYS = [
   "slowSelfWindow",
   "slowSelfWindow2",
   "discard",
+  "decode",
   "transition",
 ] as const;
 
@@ -101,6 +110,11 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Off is the shipped loss. The probe gate decides whether it stays off.
    */
   discard: false,
+  /**
+   * Latent training target, decoded back to cells. Off is the cell loss.
+   * The probe gate decides whether it stays off.
+   */
+  decode: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -178,6 +192,10 @@ export type BrainDump = {
   marginalEma?: number[];
   /** Training steps completed while `discard` was on. Absent on older brains. */
   assimilateSteps?: number;
+  /** Target encoder for `decode`. Absent on brains saved before the latent target. */
+  decW?: number[];
+  /** Target-encoder bias for `decode`. Absent on older brains. */
+  decB?: number[];
 };
 
 export class Loop {
@@ -297,6 +315,20 @@ export class Loop {
    * Zero during warmup and whenever `discard` is off.
    */
   discardFraction = 0;
+  /**
+   * Mean squared gap between the hidden code and the stop-grad target on the
+   * last training step. Zero whenever `decode` is off.
+   */
+  decodeResidual = 0;
+  /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
+  decW: Float32Array;
+  /** Target-encoder bias. Starts at 0. */
+  decB: Float32Array;
+  private decCode: Float32Array;
+  private decIn: Float32Array;
+  private decHat: Float32Array;
+  private decDz: Float32Array;
+  private decGz: Float32Array;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -373,6 +405,15 @@ export class Loop {
     this.slowBias = new Float32Array(acts * hidden);
     this.slowActionEma = new Float32Array(acts);
     this.slowActionEma.fill(0.25);
+    // After every Math.random draw in this constructor. Copying `proj` does
+    // not move the stream, so a flag that stays off is the same learner.
+    this.decW = new Float32Array(this.proj);
+    this.decB = new Float32Array(hidden);
+    this.decCode = new Float32Array(hidden);
+    this.decIn = new Float32Array(out);
+    this.decHat = new Float32Array(out);
+    this.decDz = new Float32Array(out);
+    this.decGz = new Float32Array(hidden);
   }
 
   private families() {
@@ -1050,7 +1091,8 @@ export class Loop {
     if (this.features.discard) this.noteMarginal(target);
     const trainTarget = this.cellTrainTarget(target);
     if (this.features.discard) this.assimilateSteps += 1;
-    this.net.train(this.prevInput, trainTarget, lr);
+    if (this.features.decode) this.trainDecode(this.prevInput, trainTarget, lr);
+    else this.net.train(this.prevInput, trainTarget, lr);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
   }
@@ -1100,6 +1142,97 @@ export class Loop {
     }
     this.discardFraction = scored ? masked / scored : 0;
     return trainTarget;
+  }
+
+  /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
+  private clipDecode(v: number) {
+    if (v > 1.5) return 1.5;
+    if (v < -1.5) return -1.5;
+    return v;
+  }
+
+  /** z = tanh(E x + b). `src` is the cell target with family 2 already zeroed. */
+  private writeDecodeCode(src: Float32Array, into: Float32Array) {
+    const n = Math.min(src.length, this.out);
+    for (let i = 0; i < this.hidden; i++) {
+      let s = this.decB[i]!;
+      const row = i * this.out;
+      for (let j = 0; j < n; j++) s += this.decW[row + j]! * src[j]!;
+      into[i] = Math.tanh(s);
+    }
+    return into;
+  }
+
+  /**
+   * Latent target for the transition. Three updates, each reading the
+   * weights from before the step. The predictor matches the hidden to a
+   * detached code. The readout decodes that hidden to cells. The encoder
+   * is trained so the current readout can decode the code, and it does not
+   * see the predictor's hidden. Family 2 is not a feature of the code and
+   * takes no encoder gradient. Surprise was already scored on the real cells.
+   */
+  private trainDecode(x: Float32Array, trainTarget: Float32Array, lr: number) {
+    const src = this.decIn;
+    const n = Math.min(trainTarget.length, this.out);
+    src.fill(0);
+    for (let j = 0; j < n; j++) src[j] = trainTarget[j]!;
+    if (this.families() === 3) {
+      for (let i = 2; i < n; i += 3) src[i] = 0;
+    }
+    this.writeDecodeCode(src, this.decCode);
+    this.decodeResidual = this.net.matchHidden(x, this.decCode, lr);
+    this.learnDecodeEncoder(src, trainTarget, lr);
+    this.net.decodeReadout(trainTarget, lr);
+  }
+
+  /**
+   * Reconstruction of the cell target through the current readout.
+   * W2 and b2 are stop-grad. Family 2's error is zero, matching the plan.
+   * Only the encoder moves, and each weight is clipped to ±1.5.
+   */
+  private learnDecodeEncoder(src: Float32Array, target: Float32Array, lr: number) {
+    const h = this.hidden;
+    const nOut = this.out;
+    const z = this.decCode;
+    const y = this.decHat;
+    const gz = this.decGz;
+    const dz2 = this.decDz;
+    const w2 = this.net.w2;
+    const b2 = this.net.b2;
+    const n = Math.min(src.length, nOut);
+    for (let i = 0; i < h; i++) {
+      let s = this.decB[i]!;
+      const row = i * nOut;
+      for (let j = 0; j < n; j++) s += this.decW[row + j]! * src[j]!;
+      z[i] = Math.tanh(s);
+    }
+    const scale = 2 / nOut;
+    const fam = this.families();
+    for (let k = 0; k < nOut; k++) {
+      let s = b2[k]!;
+      const row = k * h;
+      for (let i = 0; i < h; i++) s += w2[row + i]! * z[i]!;
+      const clipped = s < -12 ? -12 : s > 12 ? 12 : s;
+      const yk = 1 / (1 + Math.exp(-clipped));
+      y[k] = yk;
+      const skip = fam === 3 && k % 3 === 2;
+      const err = skip ? 0 : (yk - (target[k] ?? 0)) * scale;
+      dz2[k] = err * yk * (1 - yk);
+    }
+    for (let i = 0; i < h; i++) {
+      let g = 0;
+      for (let k = 0; k < nOut; k++) g += w2[k * h + i]! * dz2[k]!;
+      const zi = z[i]!;
+      gz[i] = g * (1 - zi * zi);
+    }
+    for (let i = 0; i < h; i++) {
+      const g = gz[i]!;
+      const row = i * nOut;
+      for (let j = 0; j < n; j++) {
+        this.decW[row + j] = this.clipDecode(this.decW[row + j]! - lr * g * src[j]!);
+      }
+      this.decB[i] = this.clipDecode(this.decB[i]! - lr * g);
+    }
   }
 
   /**
@@ -1207,6 +1340,8 @@ export class Loop {
       targetMean: Array.from(this.targetMean),
       marginalEma: Array.from(this.marginalEma),
       assimilateSteps: this.assimilateSteps,
+      decW: Array.from(this.decW),
+      decB: Array.from(this.decB),
     };
   }
 
@@ -1255,6 +1390,8 @@ export class Loop {
     if (w.targetMean && w.targetMean.length === this.targetMean.length) this.targetMean.set(w.targetMean);
     if (w.marginalEma && w.marginalEma.length === this.marginalEma.length) this.marginalEma.set(w.marginalEma);
     this.assimilateSteps = w.assimilateSteps ?? 0;
+    if (w.decW && w.decW.length === this.decW.length) this.decW.set(w.decW);
+    if (w.decB && w.decB.length === this.decB.length) this.decB.set(w.decB);
     return true;
   }
 }

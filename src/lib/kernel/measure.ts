@@ -47,6 +47,8 @@ export type EpisodeResult = {
   meanB: number;
   /** Share of non-scent outputs dropped on the last training step. Zero when `discard` is off. */
   discardFraction: number;
+  /** Hidden-versus-code gap on the last step. Zero when `decode` is off. */
+  decodeResidual: number;
   g1: boolean;
   /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
   skill: number;
@@ -114,6 +116,7 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
       meanB,
       checkpoints,
       discardFraction: k.loop.discardFraction,
+      decodeResidual: k.loop.decodeResidual,
     };
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));

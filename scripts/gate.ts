@@ -184,6 +184,8 @@ async function main() {
       probeOnSeeds: on.map((row) => row.probeLate),
       discardOff: avg(off.map((row) => row.discardFraction)),
       discardOn: avg(on.map((row) => row.discardFraction)),
+      decodeOff: avg(off.map((row) => row.decodeResidual)),
+      decodeOn: avg(on.map((row) => row.decodeResidual)),
       diff: decision.probe,
       lives: decision.lives,
       g2On: on.filter((row) => row.g2).length,

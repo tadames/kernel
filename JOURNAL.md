@@ -1,5 +1,59 @@
 # Journal
 
+## 2026-10-22 latent target (America/New_York)
+
+Written before `npm run gate -- --flag decode --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `dc60f55`, and are not this claim.
+
+`discard` stays off. It is not rerun. This is not a second loss mask. Open problem 2's remainder is a training target in a latent that still decodes to cells, so the frozen probe can score cell error. The curiosity latent flags stay off. They score ρ̂. They do not change the cell loss. Horizon 2 and horizon 3 stay the shipped imagination. An option is not this run.
+
+### Preregister decode
+
+Hypothesis. On Field, the cell net's first layer is trained to match a stop-grad code of the next window, and the second layer decodes the hidden code to cells. Late held-out probe error falls relative to the same learner trained on the cells. The comparison is the flag absent.
+
+Instrument. Flag `decode`, default off. Rho, transition still on, every other flag at its default, including `discard` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is learning-side. It does not enter the progress bonus. Surprise and progress read the real cell residual from the forward, before the step.
+
+Rule, locked here. The code width is the hidden width. No narrower bottleneck is searched. The encoder is a linear map plus tanh and a bias. It is initialized as a copy of the existing projection, so the constructor draws no extra `Math.random`, and the off path is the same learner. Bias starts at 0. Its input is the cell training target with family 2 zeroed. Family 2 stays out of the plan the way `cellTrainTarget` already replaces it, and the encoder takes no gradient on those channels.
+
+Three updates read the weights from before the step. The step size is the `lr` passed to assimilate, which is `TRANSITION_LR` on the grid. The mean-square scale is `2` over the width, the same factor the cell step uses.
+
+1. Predictor. The hidden from the forward that scored surprise is matched to a detached code. Only the first layer moves. The tanh derivative multiplies.
+2. Decoder. The second layer maps that same hidden, detached, onto the cell training target. The residual is the float32 forward output, the same value the cell step subtracts. The first layer does not receive this gradient. `imagine` is still that forward, so the probe reads these cells.
+3. Encoder. The code is trained so the current readout decodes it: sigmoid of the detached second layer applied to the code, against the cell target, family 2 zeroed. Only the encoder moves. Each encoder weight and the bias are clipped to ±1.5, the same clip as the curiosity encoder.
+
+`decodeResidual` is the mean squared gap of the hidden and the code on the last training step. It is 0 when the flag is off. It is not a cutoff. The off arm is 0.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged, decode on lowers late held-out probe error versus decode off.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `dc60f55`.
+
+### Results
+
+The prediction is inconclusive. The paired interval includes zero. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there. The fail is that off minus on does not lie entirely above zero. It also does not lie entirely below zero, so this is not a measured regression.
+
+40 episodes, 4 workers, 2.0 seconds. Source: `bench/gate.json`.
+
+| arm | probe late | decode residual |
+|---|---:|---:|
+| decode off | 0.1114 | 0.000 |
+| decode on | 0.1125 | 0.0981 |
+
+Off minus on is −0.0011 [−0.0100, 0.0078]. The interval includes zero. On is not lower. The latent target was not idle: the last-step gap from the hidden to the code, on the on arm, is 0.0981. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is −0.15 [−0.45, 0.15]. That interval includes zero, so deaths did not rise. The threshold was not loosened.
+
+Figure: `bench/decode/decode-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar crosses it.
+
+`decode` remains default off. It does not enter the progress bonus. `discard` stays off. `transition` stays the only default-on flag. `horizonRho` stays on for rho. No occupancy grid was rerun.
+
+Kept defaults after the flag was added, seeds 1–5, sha `dc60f55`. The row matches the parent. Field probe early 0.1222, Field probe late 0.1079, Field on-policy ema 0.1641 → 0.0704, Field foods 5.60, Field lives 0.80, Rooms foods 7.00, Rooms lives 0.40. G1 2/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `decode` is not the decision: on 0.1054, off 0.1079, lives 0.40 versus 0.80. That sign is the other way from the 20-seed point estimate, and the 20-seed interval includes zero. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `decode` on, and do not rerun it with more seeds or a narrower code. Twenty seeds already put zero inside the interval, and a second width would be a new mechanism aimed at a question this sample did not settle as a loss. The cell mask made the probe worse. A latent target that decodes to cells did not beat the cell loss. Open problem 2 is closed on this probe. The next experiment is the unread part of open problem 3: an option, a direction held for more than one tick. Horizon 2 and horizon 3 stay the shipped imagination. An option has to ship behind a flag, off unless it beats its absence on the probe, and it must not raise lives.
+
 ## 2026-10-20 incompressible bits (America/New_York)
 
 Written before `npm run gate -- --flag discard --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in that block are the parent learner, seeds 1–5, sha `5d9b7e1`, and are not this claim.
