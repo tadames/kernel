@@ -6,7 +6,10 @@ function xavier(fanIn: number, fanOut: number) {
 
 export class MLP {
   readonly in: number;
-  readonly h: number;
+  /** Allocated hidden span. Equals `active` until a live unit is added. */
+  h: number;
+  /** Live hidden units. The prefix `[0, active)`. Starts equal to `h`. */
+  active: number;
   readonly out: number;
   w1: Float32Array;
   b1: Float32Array;
@@ -24,6 +27,7 @@ export class MLP {
   constructor(input: number, hidden: number, output: number) {
     this.in = input;
     this.h = hidden;
+    this.active = hidden;
     this.out = output;
     this.w1 = new Float32Array(hidden * input);
     this.b1 = new Float32Array(hidden);
@@ -49,8 +53,8 @@ export class MLP {
   }
 
   forward(x: Float32Array, into: Float32Array = this.y): Float32Array {
-    const { in: inn, h, out, w1, b1, w2, b2, z1, ha } = this;
-    for (let i = 0; i < h; i++) {
+    const { in: inn, h, active, out, w1, b1, w2, b2, z1, ha } = this;
+    for (let i = 0; i < active; i++) {
       let s = b1[i];
       const row = i * inn;
       for (let j = 0; j < inn; j++) s += w1[row + j] * x[j];
@@ -60,7 +64,7 @@ export class MLP {
     for (let i = 0; i < out; i++) {
       let s = b2[i];
       const row = i * h;
-      for (let j = 0; j < h; j++) s += w2[row + j] * ha[j];
+      for (let j = 0; j < active; j++) s += w2[row + j] * ha[j];
       into[i] = 1 / (1 + Math.exp(-Math.max(-12, Math.min(12, s))));
     }
     return into;
@@ -68,7 +72,7 @@ export class MLP {
 
   train(x: Float32Array, target: Float32Array, lr: number) {
     const y = this.forward(x);
-    const { in: inn, h, out, w1, b1, w2, b2, ha, dz2, dh, dz1 } = this;
+    const { in: inn, h, active, out, w1, b1, w2, b2, ha, dz2, dh, dz1 } = this;
     const scale = 2 / out;
     for (let i = 0; i < out; i++) {
       const err = (y[i] - target[i]) * scale;
@@ -79,28 +83,194 @@ export class MLP {
     for (let i = 0; i < out; i++) {
       const row = i * h;
       const g = dz2[i];
-      for (let j = 0; j < h; j++) {
+      for (let j = 0; j < active; j++) {
         dh[j] += w2[row + j] * g;
         w2[row + j] -= lr * g * ha[j];
       }
       b2[i] -= lr * g;
     }
-    for (let i = 0; i < h; i++) {
+    for (let i = 0; i < active; i++) {
       dz1[i] = dh[i] * (1 - ha[i] * ha[i]);
     }
     this.dx.fill(0);
-    for (let i = 0; i < h; i++) {
+    for (let i = 0; i < active; i++) {
       const row = i * inn;
       const g = dz1[i];
       for (let j = 0; j < inn; j++) this.dx[j] += w1[row + j] * g;
     }
-    for (let i = 0; i < h; i++) {
+    for (let i = 0; i < active; i++) {
       const row = i * inn;
       const g = dz1[i];
       for (let j = 0; j < inn; j++) {
         w1[row + j] -= lr * g * x[j];
       }
       b1[i] -= lr * g;
+    }
+  }
+
+  /**
+   * Add one live unit without drawing a random number. The live unit with
+   * the largest outgoing energy is copied. Its outgoing weights are halved
+   * and the new unit takes the other half, which would preserve the function
+   * if the incoming weights matched. They do not: alternating inputs are
+   * scaled by 1 ± 0.05 so gradient descent can pull the copy apart. 0.05 is
+   * the coefficient on the progress trace. A tie keeps the lower index.
+   * Returns false at `ceiling`.
+   */
+  widen(ceiling: number): boolean {
+    if (this.active >= ceiling || this.active < 1) return false;
+    const parent = this.widestUnit();
+    if (this.active >= this.h) this.ensureSpan(this.h + 1);
+    const child = this.active;
+    const inn = this.in;
+    const src = parent * inn;
+    const dst = child * inn;
+    for (let j = 0; j < inn; j++) {
+      const sign = (j & 1) === 0 ? 1 : -1;
+      this.w1[dst + j] = this.w1[src + j]! * (1 + sign * 0.05);
+    }
+    this.b1[child] = this.b1[parent];
+    const span = this.h;
+    for (let k = 0; k < this.out; k++) {
+      const row = k * span;
+      const half = this.w2[row + parent]! * 0.5;
+      this.w2[row + parent] = half;
+      this.w2[row + child] = half;
+    }
+    this.active += 1;
+    return true;
+  }
+
+  /**
+   * Remove the live unit with the smallest outgoing energy. Its outgoing
+   * weights are added onto the other live unit whose incoming weights are
+   * most aligned, then it leaves the live prefix. An energy tie keeps the
+   * higher index. A cosine tie keeps the lower index. Returns false at
+   * `floor` or when only one unit is live. Draws no random number.
+   */
+  narrow(floor: number): boolean {
+    if (this.active <= floor || this.active < 2) return false;
+    const drop = this.thinnestUnit();
+    const keep = this.nearestIncoming(drop);
+    const span = this.h;
+    for (let k = 0; k < this.out; k++) {
+      const row = k * span;
+      this.w2[row + keep] = this.w2[row + keep]! + this.w2[row + drop]!;
+    }
+    const last = this.active - 1;
+    if (drop !== last) this.swapUnits(drop, last);
+    this.active -= 1;
+    return true;
+  }
+
+  /** Grow the allocated span. New weights are 0. Live count stays put. */
+  ensureSpan(span: number) {
+    if (span <= this.h) return;
+    const old = this.h;
+    const inn = this.in;
+    const out = this.out;
+    const w1 = new Float32Array(span * inn);
+    w1.set(this.w1);
+    const b1 = new Float32Array(span);
+    b1.set(this.b1);
+    const w2 = new Float32Array(out * span);
+    for (let i = 0; i < out; i++) w2.set(this.w2.subarray(i * old, i * old + old), i * span);
+    this.w1 = w1;
+    this.b1 = b1;
+    this.w2 = w2;
+    this.z1 = new Float32Array(span);
+    this.ha = new Float32Array(span);
+    this.dh = new Float32Array(span);
+    this.dz1 = new Float32Array(span);
+    this.h = span;
+  }
+
+  private columnEnergy(unit: number) {
+    let s = 0;
+    const span = this.h;
+    for (let k = 0; k < this.out; k++) {
+      const w = this.w2[k * span + unit]!;
+      s += w * w;
+    }
+    return s;
+  }
+
+  private widestUnit() {
+    let best = 0;
+    let bestE = -1;
+    for (let i = 0; i < this.active; i++) {
+      const e = this.columnEnergy(i);
+      if (e > bestE) {
+        bestE = e;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  private thinnestUnit() {
+    let best = this.active - 1;
+    let bestE = Infinity;
+    for (let i = 0; i < this.active; i++) {
+      const e = this.columnEnergy(i);
+      if (e < bestE || (e === bestE && i > best)) {
+        bestE = e;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  private nearestIncoming(drop: number) {
+    const inn = this.in;
+    const dropRow = drop * inn;
+    let dropN = 0;
+    for (let j = 0; j < inn; j++) {
+      const w = this.w1[dropRow + j]!;
+      dropN += w * w;
+    }
+    dropN = Math.sqrt(dropN);
+    let best = drop === 0 ? 1 : 0;
+    let bestC = -Infinity;
+    for (let i = 0; i < this.active; i++) {
+      if (i === drop) continue;
+      let dot = 0;
+      let n = 0;
+      const row = i * inn;
+      for (let j = 0; j < inn; j++) {
+        const w = this.w1[row + j]!;
+        dot += w * this.w1[dropRow + j]!;
+        n += w * w;
+      }
+      const denom = dropN * Math.sqrt(n);
+      const c = denom > 0 ? dot / denom : 0;
+      if (c > bestC) {
+        bestC = c;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  private swapUnits(a: number, b: number) {
+    if (a === b) return;
+    const inn = this.in;
+    const span = this.h;
+    const aRow = a * inn;
+    const bRow = b * inn;
+    for (let j = 0; j < inn; j++) {
+      const tmp = this.w1[aRow + j]!;
+      this.w1[aRow + j] = this.w1[bRow + j]!;
+      this.w1[bRow + j] = tmp;
+    }
+    const bias = this.b1[a]!;
+    this.b1[a] = this.b1[b]!;
+    this.b1[b] = bias;
+    for (let k = 0; k < this.out; k++) {
+      const row = k * span;
+      const tmp = this.w2[row + a]!;
+      this.w2[row + a] = this.w2[row + b]!;
+      this.w2[row + b] = tmp;
     }
   }
 

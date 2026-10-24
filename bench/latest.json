@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-24T11:04:40.835Z",
-  "sha": "2cff49e",
+  "date": "2026-10-24T17:03:23.554Z",
+  "sha": "3ff7c7b",
   "seeds": [
     1,
     2,
@@ -33,6 +33,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -247,6 +248,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -461,6 +463,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -675,6 +678,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -889,6 +893,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -1103,6 +1108,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -1317,6 +1323,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -1531,6 +1538,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -1745,6 +1753,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -1959,6 +1968,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -2173,6 +2183,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -2387,6 +2398,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -2601,6 +2613,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -2815,6 +2828,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -3029,6 +3043,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -3243,6 +3258,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -3457,6 +3473,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -3671,6 +3688,7 @@
         "rollout": true,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -3885,6 +3903,7 @@
         "rollout": false,
         "revise": true,
         "wonder": false,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -4099,6 +4118,7 @@
         "rollout": false,
         "revise": false,
         "wonder": true,
+        "shape": false,
         "transition": true
       },
       "seeds": [
@@ -4292,6 +4312,221 @@
       }
     },
     {
+      "name": "on-shape",
+      "features": {
+        "encoder": false,
+        "slowEncoder": false,
+        "encoderMix": false,
+        "wake": false,
+        "latentRho": false,
+        "latentRhoHat": false,
+        "slowRho": false,
+        "slowRhoHat": false,
+        "slowWindow": false,
+        "slowWindow2": false,
+        "slowWindow3": false,
+        "slowSelfWindow": false,
+        "slowSelfWindow2": false,
+        "discard": false,
+        "decode": false,
+        "option": true,
+        "rollout": false,
+        "revise": false,
+        "wonder": false,
+        "shape": true,
+        "transition": true
+      },
+      "seeds": [
+        {
+          "seed": 1,
+          "fieldEarly": 0.16872532495250553,
+          "fieldLate": 0.0869505922047917,
+          "fieldProbeEarly": 0.10660419477660402,
+          "fieldProbeLate": 0.13585888461050571,
+          "fieldFoods": 22,
+          "fieldLives": 0,
+          "roomsFoods": 11,
+          "roomsLives": 0,
+          "structEarly": 0.1904254424062355,
+          "structLate": 0.025776591664460613,
+          "noiseEarly": 0.24904690061345205,
+          "noiseLate": 0.2624309720417986,
+          "structCommitEarly": 0.08271461084529223,
+          "structCommitLate": 0.5813145304038192,
+          "noiseCommitLate": 0.04848640014795477,
+          "meanB": 3.775,
+          "meanH": 0.8309110292718026,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.5620279390927401,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 2,
+          "fieldEarly": 0.16390549093217524,
+          "fieldLate": 0.0701510283546868,
+          "fieldProbeEarly": 0.10583819551894012,
+          "fieldProbeLate": 0.11204853654858389,
+          "fieldFoods": 4,
+          "fieldLives": 1,
+          "roomsFoods": 4,
+          "roomsLives": 1,
+          "structEarly": 0.23794134154088747,
+          "structLate": 0.041417891967928645,
+          "noiseEarly": 0.25925713143087,
+          "noiseLate": 0.26272199480965386,
+          "structCommitEarly": 0.06266686470330181,
+          "structCommitLate": 0.4912431785755341,
+          "noiseCommitLate": 0.058040881157936354,
+          "meanB": 3.025,
+          "meanH": 0.7978638246871925,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.20953322607225647,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 3,
+          "fieldEarly": 0.16262497476247703,
+          "fieldLate": 0.07115051429501741,
+          "fieldProbeEarly": 0.10787886216988397,
+          "fieldProbeLate": 0.090874392044732,
+          "fieldFoods": 4,
+          "fieldLives": 1,
+          "roomsFoods": 10,
+          "roomsLives": 0,
+          "structEarly": 0.21769591594074467,
+          "structLate": 0.03220503089662059,
+          "noiseEarly": 0.2681026647378944,
+          "noiseLate": 0.27430725320598964,
+          "structCommitEarly": 0.06984937660036383,
+          "structCommitLate": 0.5395261915571152,
+          "noiseCommitLate": 0.09384534054597135,
+          "meanB": 3.7,
+          "meanH": 0.8844754725005087,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": true,
+          "fieldSkill": 0.10393442971039049,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 4,
+          "fieldEarly": 0.16188534202806312,
+          "fieldLate": 0.08048542469307447,
+          "fieldProbeEarly": 0.1495211644737894,
+          "fieldProbeLate": 0.0992898541667375,
+          "fieldFoods": 6,
+          "fieldLives": 0,
+          "roomsFoods": 5,
+          "roomsLives": 1,
+          "structEarly": 0.22397657411943422,
+          "structLate": 0.03928813852892269,
+          "noiseEarly": 0.2696256003787002,
+          "noiseLate": 0.25571571617096633,
+          "structCommitEarly": 0.04966763188772268,
+          "structCommitLate": 0.5126343873580024,
+          "noiseCommitLate": 0.045139410432271924,
+          "meanB": 3,
+          "meanH": 0.8163571863033038,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.020650305376915475,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 5,
+          "fieldEarly": 0.16438055938684445,
+          "fieldLate": 0.05047120122461824,
+          "fieldProbeEarly": 0.14730631594096036,
+          "fieldProbeLate": 0.1100059003390656,
+          "fieldFoods": 5,
+          "fieldLives": 1,
+          "roomsFoods": 6,
+          "roomsLives": 1,
+          "structEarly": 0.2422333122483921,
+          "structLate": 0.06311106774297034,
+          "noiseEarly": 0.27081368411285683,
+          "noiseLate": 0.2625439976874521,
+          "structCommitEarly": 0.07241300954435606,
+          "structCommitLate": 0.4105822533903524,
+          "noiseCommitLate": 0.04366419442692528,
+          "meanB": 3.375,
+          "meanH": 0.8450914010585177,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.17929349742121367,
+          "g2": true,
+          "s1": false,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        }
+      ],
+      "mean": {
+        "fieldEarly": 0.1643043384124131,
+        "fieldLate": 0.07184175215443772,
+        "fieldProbeEarly": 0.12342974657603556,
+        "fieldProbeLate": 0.10961551354192496,
+        "fieldFoods": 8.2,
+        "fieldLives": 0.6,
+        "roomsFoods": 7.2,
+        "roomsLives": 0.6,
+        "structLate": 0.04035974416018058,
+        "noiseLate": 0.2635439867831721,
+        "meanB": 3.375,
+        "fieldSkill": -0.17351410765054703
+      },
+      "passes": {
+        "g1": false,
+        "g2": true,
+        "s1": true,
+        "s2": true,
+        "s3": true,
+        "c1": true,
+        "c2": true
+      },
+      "passCount": {
+        "g1": 1,
+        "g2": 5,
+        "s1": 4,
+        "s2": 5,
+        "s3": 5,
+        "c1": 5,
+        "c2": 5
+      }
+    },
+    {
       "name": "off-transition",
       "features": {
         "encoder": false,
@@ -4313,6 +4548,7 @@
         "rollout": false,
         "revise": false,
         "wonder": false,
+        "shape": false,
         "transition": false
       },
       "seeds": [
@@ -4734,6 +4970,18 @@
       "onG2": "5/5",
       "offG2": "5/5",
       "note": "probe (off−on) 0.0093; decision is npm run gate, not this 5-seed table"
+    },
+    {
+      "feature": "shape",
+      "onProbe": 0.10961551354192496,
+      "offProbe": 0.11018177373398821,
+      "onPolicyOn": 0.07184175215443772,
+      "onPolicyOff": 0.07257583050368144,
+      "onLives": 0.6,
+      "offLives": 0.4,
+      "onG2": "5/5",
+      "offG2": "5/5",
+      "note": "probe (off−on) 0.0006; decision is npm run gate, not this 5-seed table"
     },
     {
       "feature": "transition",

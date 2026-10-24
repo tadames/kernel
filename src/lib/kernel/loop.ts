@@ -65,6 +65,18 @@
  * same band. It does not enter the progress bonus and it does not
  * change the cell step. The off path passes the constant and does
  * not read the gain.
+ * `shape` is learning-side and off by default. The cell net's live
+ * hidden width starts at the constructed width. Positive progress
+ * adds one unit by splitting the unit with the largest outgoing
+ * energy. The copy's incoming weights are scaled by 1 ± 0.05 on
+ * alternating inputs so the new unit is not a twin the gradient
+ * cannot separate. Negative progress removes the unit with the
+ * smallest outgoing energy.
+ * The width stays inside
+ * [round(hidden / TRANSITION_LR), round(hidden * TRANSITION_LR)].
+ * It does not enter the progress bonus and it does not change the
+ * cell step or the curiosity weight. The off path does not read or
+ * write the width. It does not run while `decode` is on.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -90,6 +102,9 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * put zero inside the paired probe interval of off minus on. It stays off.
  * `wonder` is action-side. It does not enter the bonus. Seeds 1–20
  * put zero inside the paired probe interval of off minus on. It stays off.
+ * `shape` is learning-side. It does not enter the bonus. Seeds 1–20
+ * put the paired probe interval of off minus on entirely below zero.
+ * It stays off.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -111,6 +126,7 @@ export const LOOP_FEATURE_KEYS = [
   "rollout",
   "revise",
   "wonder",
+  "shape",
   "transition",
 ] as const;
 
@@ -172,6 +188,11 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Seeds 1–20: the probe interval included zero. Stays off.
    */
   wonder: false,
+  /**
+   * Revise the cell net's hidden width from the sign of progress.
+   * Off is the constructed width. The probe gate decides whether it stays off.
+   */
+  shape: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -263,6 +284,11 @@ export type BrainDump = {
    * saved before this revision. A missing value is gain 1, the constant weight.
    */
   curiosityGain?: number;
+  /**
+   * Live hidden width while `shape` is on. Absent on brains saved before
+   * this revision. A missing value is the constructed width.
+   */
+  shapeWidth?: number;
 };
 
 export class Loop {
@@ -411,6 +437,17 @@ export class Loop {
   revisedCuriosity = 0;
   private wonderMass = 0;
   private wonderCount = 0;
+  /**
+   * Mean live hidden width used on training steps. Zero whenever `shape`
+   * is off, because the off path does not record a width.
+   */
+  shapedWidth = 0;
+  private shapeMass = 0;
+  private shapeCount = 0;
+  /** Lowest live width while `shape` is on. The constructed width divided by TRANSITION_LR. */
+  readonly shapeFloor: number;
+  /** Highest live width while `shape` is on. The constructed width times TRANSITION_LR. */
+  readonly shapeCeiling: number;
   /** True after this assimilate computed progress. The first tick does not. */
   private progressReady = false;
   /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
@@ -444,6 +481,8 @@ export class Loop {
   ) {
     this.acts = acts;
     this.features = resolveLoopFeatures(features);
+    this.shapeFloor = Math.max(1, Math.round(hidden / TRANSITION_LR));
+    this.shapeCeiling = Math.max(this.shapeFloor, Math.round(hidden * TRANSITION_LR));
     this.net = new MLP(inn, hidden, out);
     const latentH = Math.max(4, hidden >> 2);
     this.latent = new MLP(hidden + acts, latentH, hidden);
@@ -1141,7 +1180,7 @@ export class Loop {
       return;
     }
     this.net.forward(this.prevInput, this.lastPred);
-    const encoded = this.net.lastHidden().slice();
+    const encoded = this.net.lastHidden().slice(0, this.net.active);
     const fam = this.families();
     const famErr = [0, 0, 0];
     const famN = [0, 0, 0];
@@ -1191,6 +1230,7 @@ export class Loop {
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
     this.progressReady = true;
+    this.reviseShape();
   }
 
   /**
@@ -1286,6 +1326,25 @@ export class Loop {
     const up = 1 + 0.05;
     if (this.progress > 0) this.curiosityGain = Math.min(this.curiosityGain * up, TRANSITION_LR);
     else if (this.progress < 0) this.curiosityGain = Math.max(this.curiosityGain / up, 1 / TRANSITION_LR);
+  }
+
+  /**
+   * Hidden width under self-revision. This call records the width the step
+   * just used, then moves it for the next step. Positive progress adds one
+   * unit. Negative progress removes one. Zero leaves it. The added unit is
+   * a split with a fixed 0.05 symmetry break, not a new random draw. The width stays inside
+   * [shapeFloor, shapeCeiling]. No training step, no revision. `decode` on
+   * keeps the constructed width, because that code's width is this hidden
+   * size. The off path does not read or write the width.
+   */
+  private reviseShape() {
+    if (!this.features.shape || this.features.decode || !this.progressReady) return;
+    const used = this.net.active;
+    this.shapeMass += used;
+    this.shapeCount += 1;
+    this.shapedWidth = this.shapeMass / this.shapeCount;
+    if (this.progress > 0) this.net.widen(this.shapeCeiling);
+    else if (this.progress < 0) this.net.narrow(this.shapeFloor);
   }
 
   /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
@@ -1488,10 +1547,17 @@ export class Loop {
       decB: Array.from(this.decB),
       stepGain: this.stepGain,
       curiosityGain: this.curiosityGain,
+      shapeWidth: this.net.active,
     };
   }
 
   importBrain(w: BrainDump): boolean {
+    if (this.features.shape && this.inn > 0 && this.out > 0 && w.w1.length % this.inn === 0 && w.w2.length % this.out === 0) {
+      const span = w.w1.length / this.inn;
+      if (span === w.w2.length / this.out && span > this.net.h && span <= this.shapeCeiling && w.b1.length === span) {
+        this.net.ensureSpan(span);
+      }
+    }
     const ok = this.net.importWeights(w);
     if (!ok) return false;
     if (w.latentW1 && w.latentB1 && w.latentW2 && w.latentB2) {
@@ -1543,6 +1609,11 @@ export class Loop {
     }
     if (typeof w.curiosityGain === "number" && Number.isFinite(w.curiosityGain) && w.curiosityGain > 0) {
       this.curiosityGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.curiosityGain));
+    }
+    if (this.features.shape && typeof w.shapeWidth === "number" && Number.isFinite(w.shapeWidth)) {
+      const hi = Math.min(this.shapeCeiling, this.net.h);
+      const lo = Math.min(this.shapeFloor, hi);
+      this.net.active = Math.min(hi, Math.max(lo, Math.round(w.shapeWidth)));
     }
     return true;
   }

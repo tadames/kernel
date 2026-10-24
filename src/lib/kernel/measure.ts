@@ -57,6 +57,8 @@ export type EpisodeResult = {
   revisedLr: number;
   /** Mean curiosity weight passed to the policy. Zero when `wonder` is off. */
   revisedCuriosity: number;
+  /** Mean live hidden width on training steps. Zero when `shape` is off. */
+  shapedWidth: number;
   g1: boolean;
   /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
   skill: number;
@@ -129,6 +131,7 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
       rolloutSwitched: k.age > 0 ? k.rolloutSwitched / k.age : 0,
       revisedLr: k.loop.revisedLr,
       revisedCuriosity: k.loop.revisedCuriosity,
+      shapedWidth: k.loop.shapedWidth,
     };
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));

@@ -1,5 +1,65 @@
 # Journal
 
+## 2026-10-24 hidden width (America/New_York)
+
+Written before `npm run gate -- --flag shape --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `3ff7c7b`, and are not this claim.
+
+`discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. `wonder` stays off. None of them is rerun. `option` stays on. `transition` stays on. Horizon 2 and horizon 3 stay the shipped imagination. The option span stays 2. The cell step stays the constant `TRANSITION_LR`. The curiosity weight stays `params.curiosity`. This is not a second learning rate, not a second curiosity weight, and not a new score. Open problem 4's unread part is self-revision of architecture: the live hidden width of the cell net, instead of the fixed width the constructor allocated. The cell loss does not change its target. The progress bonus does not gain a term. Latent and slow nets stay at the constructed width. They are not what the probe reads.
+
+### Preregister shape
+
+Hypothesis. On Field, the cell net's live hidden width is a state the loop revises from the sign of progress, instead of the fixed constructed width. Late held-out probe error falls relative to that fixed width. The comparison is the flag absent. The absent arm keeps every unit the constructor allocated. On the grid that width is 32.
+
+Instrument. Flag `shape`, default off. Rho, transition still on, option still on, every other flag at its default, including `discard` off, `decode` off, `rollout` off, `revise` off, and `wonder` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is learning-side. It does not enter the progress bonus. It does not change the cell step. It does not change the curiosity weight. Surprise and progress are scored before the revision, as they are today.
+
+Rule, locked here. One integer width starts at `this.hidden`. It is not searched. The off path does not read it and does not write it. The constructor draws no extra `Math.random`. An explicit `shape: false` is the same learner as the default. The first tick does not train, so it does not revise, and the first training step uses the constructed width.
+
+The on path records the width the training step just used, then revises it for the next step. Positive progress adds one unit. Negative progress removes one. Zero leaves it. A width is a count, so the step is one unit. There is no 1.05 and no partial unit. The sign is the same sign already locked for the learning-rate gain and the curiosity gain: compression adds capacity, and a worsening residual removes it.
+
+Adding a unit copies the live unit with the largest outgoing energy. A tie keeps the lower index. The parent's outgoing weights are halved and the new unit takes the other half. That half-split would leave the function unchanged if the incoming weights matched. They must not match. An exact copy is a twin, and the same gradient keeps the twin equal, so the probe would be scoring the fixed width under a longer name. The child's incoming weights are the parent's, scaled by `1 + 0.05` on even coordinates and `1 - 0.05` on odd coordinates. `0.05` is the coefficient already used to fold progress into `progressEma`. It is not a second amplitude and not a grid. The bias is copied. The birth draws no `Math.random`, so it does not move the policy's noise.
+
+Removing a unit takes the live unit with the smallest outgoing energy. An energy tie keeps the higher index. Its outgoing weights are added onto the other live unit whose incoming weights have the highest cosine with it. A cosine tie keeps the lower index. The dropped unit then leaves the live prefix. One unit cannot be removed. The merge is exact only when the two activations still match. After a training step they do not, and the jump is the leftover.
+
+The width stays inside `[round(hidden / TRANSITION_LR), round(hidden * TRANSITION_LR)]`. On the grid that is `[8, 128]`. The factors are the ends already locked for the learning-rate gain, applied to the constructed width. No other band is run. At either end the sign that would leave the band does nothing.
+
+`decode` stays off in both arms. The revision does not run when `decode` is on, because that flag's code width is the constructed hidden width. The guard is not a cell of this contrast.
+
+`shapedWidth` is the mean of the widths used on training steps. It is 0 when the flag is off. It is not a cutoff. The off arm is 0. A mean that sits on 32 means every training step used the constructed width. A mean near 128 means the sign stayed positive and the width sat on the ceiling.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), shape on lowers late held-out probe error versus the fixed hidden width.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second band, no flipped sign, and no second symmetry-break amplitude is run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `3ff7c7b`.
+
+### Results
+
+The prediction is refuted. Late probe error is higher with the width revision on. The paired interval lies entirely below zero. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there. The fail is the probe. Lives did not rise.
+
+40 episodes, 4 workers, 4.5 seconds. Source: `bench/gate.json`, copied at `bench/shape/gate-20.json`.
+
+| arm | probe late | mean width |
+|---|---:|---:|
+| shape off | 0.1008 | 0.000 |
+| shape on | 0.1090 | 107.8946 |
+
+Off minus on is −0.0083 [−0.0172, −0.0002]. The interval lies entirely below zero. On is higher probe error. The revision was not idle: the mean width on the on arm is 107.8946, the constructed width is 32, and the ceiling is 128, so the width sat near the top of the band. The off arm records 0 because that path does not store a width. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is 0.05 [−0.20, 0.30]. That interval includes zero, so deaths did not rise. The threshold was not loosened. The sign was not flipped. The band was not widened. The symmetry break was not retuned.
+
+Figure: `bench/shape/shape-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar sits entirely to the left of it.
+
+`shape` remains default off. It does not enter the progress bonus. `option` stays on. `transition` stays on. `discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. `wonder` stays off. No second band was run.
+
+Kept defaults after the flag was added, seeds 1–5, sha `3ff7c7b`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `shape` is not the decision: on 0.1096, off 0.1102, so off minus on is 0.0006 on those five seeds, the other sign from the paired gate. Lives on that row are 0.60 versus 0.40. The 20-seed interval lies below zero. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `shape` on, and do not rerun it with more seeds, a flipped sign, a different band, or a different symmetry break. Twenty seeds already put the interval entirely below zero. The fixed hidden width remains. Open problem 4 is closed on this probe. The learning rate, the curiosity weight, and the hidden width each failed to beat the constant they revised. The next experiment is open problem 5: grounded language, one flag, off unless it beats its absence on the probe, and it must not raise lives. If this probe cannot score a token stream, say so and take open problem 6 instead of inventing a second architecture rule. Horizon 2, horizon 3, the option, the cell step, and the curiosity weight stay as they are.
+
 ## 2026-10-24 curiosity weight (America/New_York)
 
 Written before `npm run gate -- --flag wonder --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `2cff49e`, and are not this claim.
