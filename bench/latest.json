@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-23T16:59:47.198Z",
-  "sha": "50fa241",
+  "date": "2026-10-24T01:04:24.285Z",
+  "sha": "8be831a",
   "seeds": [
     1,
     2,
@@ -31,6 +31,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -243,6 +244,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -455,6 +457,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -667,6 +670,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -879,6 +883,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -1091,6 +1096,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -1303,6 +1309,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -1515,6 +1522,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -1727,6 +1735,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -1939,6 +1948,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -2151,6 +2161,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -2363,6 +2374,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -2575,6 +2587,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -2787,6 +2800,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -2999,6 +3013,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -3211,6 +3226,7 @@
         "decode": true,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -3423,6 +3439,7 @@
         "decode": false,
         "option": false,
         "rollout": false,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -3635,6 +3652,7 @@
         "decode": false,
         "option": true,
         "rollout": true,
+        "revise": false,
         "transition": true
       },
       "seeds": [
@@ -3828,6 +3846,219 @@
       }
     },
     {
+      "name": "on-revise",
+      "features": {
+        "encoder": false,
+        "slowEncoder": false,
+        "encoderMix": false,
+        "wake": false,
+        "latentRho": false,
+        "latentRhoHat": false,
+        "slowRho": false,
+        "slowRhoHat": false,
+        "slowWindow": false,
+        "slowWindow2": false,
+        "slowWindow3": false,
+        "slowSelfWindow": false,
+        "slowSelfWindow2": false,
+        "discard": false,
+        "decode": false,
+        "option": true,
+        "rollout": false,
+        "revise": true,
+        "transition": true
+      },
+      "seeds": [
+        {
+          "seed": 1,
+          "fieldEarly": 0.1582015467628781,
+          "fieldLate": 0.0700154927001612,
+          "fieldProbeEarly": 0.10446425334783754,
+          "fieldProbeLate": 0.09595218014357393,
+          "fieldFoods": 8,
+          "fieldLives": 1,
+          "roomsFoods": 8,
+          "roomsLives": 1,
+          "structEarly": 0.1904254424062355,
+          "structLate": 0.025776591664460613,
+          "noiseEarly": 0.24904690061345205,
+          "noiseLate": 0.2624309720417986,
+          "structCommitEarly": 0.08271461084529223,
+          "structCommitLate": 0.5813145304038192,
+          "noiseCommitLate": 0.04848640014795477,
+          "meanB": 3.05,
+          "meanH": 0.822524926789805,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": 0.02876150682722766,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 2,
+          "fieldEarly": 0.15313930166850073,
+          "fieldLate": 0.0675119574611975,
+          "fieldProbeEarly": 0.10606838998162466,
+          "fieldProbeLate": 0.10150707468870697,
+          "fieldFoods": 9,
+          "fieldLives": 0,
+          "roomsFoods": 4,
+          "roomsLives": 1,
+          "structEarly": 0.23794134154088747,
+          "structLate": 0.041417891967928645,
+          "noiseEarly": 0.25925713143087,
+          "noiseLate": 0.26272199480965386,
+          "structCommitEarly": 0.06266686470330181,
+          "structCommitLate": 0.4912431785755341,
+          "noiseCommitLate": 0.058040881157936354,
+          "meanB": 3.425,
+          "meanH": 0.8375324801968886,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.05347462653182739,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 3,
+          "fieldEarly": 0.15623975659675587,
+          "fieldLate": 0.06771896947278862,
+          "fieldProbeEarly": 0.16530775916849544,
+          "fieldProbeLate": 0.09940163460319598,
+          "fieldFoods": 3,
+          "fieldLives": 1,
+          "roomsFoods": 7,
+          "roomsLives": 1,
+          "structEarly": 0.21769591594074467,
+          "structLate": 0.03220503089662059,
+          "noiseEarly": 0.2681026647378944,
+          "noiseLate": 0.27430725320598964,
+          "structCommitEarly": 0.06984937660036383,
+          "structCommitLate": 0.5395261915571152,
+          "noiseCommitLate": 0.09384534054597135,
+          "meanB": 3.025,
+          "meanH": 0.8498961033924808,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.022305132629682575,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 4,
+          "fieldEarly": 0.1556957534937857,
+          "fieldLate": 0.08155743045126729,
+          "fieldProbeEarly": 0.10988912405839776,
+          "fieldProbeLate": 0.10252535494890556,
+          "fieldFoods": 6,
+          "fieldLives": 1,
+          "roomsFoods": 4,
+          "roomsLives": 1,
+          "structEarly": 0.22397657411943422,
+          "structLate": 0.03928813852892269,
+          "noiseEarly": 0.2696256003787002,
+          "noiseLate": 0.25571571617096633,
+          "structCommitEarly": 0.04966763188772268,
+          "structCommitLate": 0.5126343873580024,
+          "noiseCommitLate": 0.045139410432271924,
+          "meanB": 3.625,
+          "meanH": 0.8447616328450909,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.06854951780009708,
+          "g2": true,
+          "s1": true,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        },
+        {
+          "seed": 5,
+          "fieldEarly": 0.15972167415932065,
+          "fieldLate": 0.05489160194999724,
+          "fieldProbeEarly": 0.18440418904600878,
+          "fieldProbeLate": 0.1172565735453721,
+          "fieldFoods": 6,
+          "fieldLives": 0,
+          "roomsFoods": 8,
+          "roomsLives": 0,
+          "structEarly": 0.2422333122483921,
+          "structLate": 0.06311106774297034,
+          "noiseEarly": 0.27081368411285683,
+          "noiseLate": 0.2625439976874521,
+          "structCommitEarly": 0.07241300954435606,
+          "structCommitLate": 0.4105822533903524,
+          "noiseCommitLate": 0.04366419442692528,
+          "meanB": 3.3,
+          "meanH": 0.8432824835114587,
+          "g2Action": 1,
+          "g2Foods": 1,
+          "g2x": 6,
+          "g1": false,
+          "fieldSkill": -0.28663438821439213,
+          "g2": true,
+          "s1": false,
+          "s2": true,
+          "s3": true,
+          "c1": true,
+          "c2": true
+        }
+      ],
+      "mean": {
+        "fieldEarly": 0.15659960653624821,
+        "fieldLate": 0.06833909040708237,
+        "fieldProbeEarly": 0.13402674312047283,
+        "fieldProbeLate": 0.10332856358595091,
+        "fieldFoods": 6.4,
+        "fieldLives": 0.6,
+        "roomsFoods": 6.2,
+        "roomsLives": 0.8,
+        "structLate": 0.04035974416018058,
+        "noiseLate": 0.2635439867831721,
+        "meanB": 3.285,
+        "fieldSkill": -0.0804404316697543
+      },
+      "passes": {
+        "g1": false,
+        "g2": true,
+        "s1": true,
+        "s2": true,
+        "s3": true,
+        "c1": true,
+        "c2": true
+      },
+      "passCount": {
+        "g1": 0,
+        "g2": 5,
+        "s1": 4,
+        "s2": 5,
+        "s3": 5,
+        "c1": 5,
+        "c2": 5
+      }
+    },
+    {
       "name": "off-transition",
       "features": {
         "encoder": false,
@@ -3847,6 +4078,7 @@
         "decode": false,
         "option": true,
         "rollout": false,
+        "revise": false,
         "transition": false
       },
       "seeds": [
@@ -4244,6 +4476,18 @@
       "onG2": "5/5",
       "offG2": "5/5",
       "note": "probe (off−on) 0.0089; decision is npm run gate, not this 5-seed table"
+    },
+    {
+      "feature": "revise",
+      "onProbe": 0.10332856358595091,
+      "offProbe": 0.11018177373398821,
+      "onPolicyOn": 0.06833909040708237,
+      "onPolicyOff": 0.07257583050368144,
+      "onLives": 0.6,
+      "offLives": 0.4,
+      "onG2": "5/5",
+      "offG2": "5/5",
+      "note": "probe (off−on) 0.0069; decision is npm run gate, not this 5-seed table"
     },
     {
       "feature": "transition",

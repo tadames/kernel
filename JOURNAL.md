@@ -1,5 +1,61 @@
 # Journal
 
+## 2026-10-23 self-revision (America/New_York)
+
+Written before `npm run gate -- --flag revise --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `8be831a`, and are not this claim.
+
+`discard` stays off. `decode` stays off. `rollout` stays off. None of them is rerun. `option` stays on. `transition` stays on. Horizon 2 and horizon 3 stay the shipped imagination. The option span stays 2. This is not a second action rule and not a new score. Open problem 4's first piece is self-revision of the learning rate. The cell loss does not change its target. The progress bonus does not change.
+
+### Preregister revise
+
+Hypothesis. On Field, the cell step size is a state the loop revises from the sign of progress, instead of the constant `TRANSITION_LR`. Late held-out probe error falls relative to that constant. The comparison is the flag absent. `transition` stays on in both arms, so the absent arm steps at `TRANSITION_LR`.
+
+Instrument. Flag `revise`, default off. Rho, transition still on, option still on, every other flag at its default, including `discard` off, `decode` off, and `rollout` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is learning-side. It does not enter the progress bonus. Surprise and progress are scored before the step, as they are today.
+
+Rule, locked here. One scalar gain starts at 1. It is not searched. The off path does not read it and does not write it. The step size on the off path is the `lr` passed to assimilate, which is `TRANSITION_LR` on the grid. The constructor draws no extra `Math.random`. An explicit `revise: false` is the same learner as the default.
+
+The on path multiplies that same `lr` by the gain. The first training step uses gain 1, so it is the constant. After the step is chosen, the gain is revised from the progress already computed on this residual, which is the shipped line `ema − surprise`. Positive progress multiplies the gain by `1.05`. Negative progress divides it by `1.05`. Zero progress leaves it. `1.05` is `1 + 0.05`, and `0.05` is the coefficient already used to fold progress into `progressEma`. It is not a second rate and not a grid.
+
+The gain is clipped to `[1 / TRANSITION_LR, TRANSITION_LR]`, which is `[0.25, 4]`. On the grid the used step is then inside `[1, 16]`. The ends are the constant divided by itself and the constant times itself. No other band is run. A step cannot fall to 0 or run away. The clip is applied after the multiply or the divide.
+
+The revision is for the next step. This step uses the gain from before. Curiosity encoders are not revised. Their flags stay off, and their rates stay `ENC_LR` and `SLOW_LR`. `decode` is off in both arms. If it were on, the three latent-target updates would use the same revised step, because they are the cell step. The progress bonus does not read the gain.
+
+`revisedLr` is the mean of the step sizes used on training steps. It is 0 when the flag is off. It is not a cutoff. The off arm is 0. A mean that sits on 4 means every training step used the constant.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), revise on lowers late held-out probe error versus the constant TRANSITION_LR.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second rate, no second band, and no per-weight rate is run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `8be831a`.
+
+### Results
+
+The prediction is inconclusive. The paired interval includes zero. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there. The fail is that off minus on does not lie entirely above zero. It also does not lie entirely below zero, so this is not a measured regression.
+
+40 episodes, 4 workers, 2.9 seconds. Source: `bench/gate.json`, copied at `bench/revise/gate-20.json`.
+
+| arm | probe late | mean step |
+|---|---:|---:|
+| revise off | 0.1008 | 0.000 |
+| revise on | 0.1098 | 14.2533 |
+
+Off minus on is −0.0090 [−0.0195, 0.0034]. The interval includes zero. On is not lower. The point estimate is higher. The revision was not idle: the mean step on the on arm is 14.2533, and the constant is 4, so the gain sat near the top of the band. The off arm records 0 because that path does not store a rate. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is 0.00 [−0.25, 0.30]. That interval includes zero, so deaths did not rise. The threshold was not loosened.
+
+Figure: `bench/revise/revise-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar crosses it.
+
+`revise` remains default off. It does not enter the progress bonus. `option` stays on. `transition` stays on. `discard` stays off. `decode` stays off. `rollout` stays off. No occupancy grid was rerun. No second rate was run. The band was not widened.
+
+Kept defaults after the flag was added, seeds 1–5, sha `8be831a`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `revise` is not the decision: on 0.1033, off 0.1102, so off minus on is 0.0069 on those five seeds, the other sign from the 20-seed point estimate. Lives on that row are 0.60 versus 0.40. The 20-seed interval includes zero. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `revise` on, and do not rerun it with more seeds or a different gain. Twenty seeds already put zero inside the interval, and a second band would be a new mechanism aimed at a question this sample did not settle as a loss. The constant `TRANSITION_LR` remains. Open problem 4's learning-rate sentence is closed on this probe. The next experiment is the unread part of open problem 4: self-revision of curiosity, one flag, off unless it beats the constant curiosity weight on the probe, and it must not raise lives. Horizon 2, horizon 3, the option, and the cell step stay as they are.
+
 ## 2026-10-23 roll-out (America/New_York)
 
 Written before `npm run gate -- --flag rollout --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `50fa241`, and are not this claim.

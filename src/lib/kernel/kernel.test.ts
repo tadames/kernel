@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MLP, mse } from "./mlp.ts";
-import { Loop, DEFAULT_LOOP_FEATURES } from "./loop.ts";
+import { Loop, DEFAULT_LOOP_FEATURES, TRANSITION_LR } from "./loop.ts";
 import { mulberry32 } from "./presets.ts";
 
 // Weight init uses Math.random. Pin it so the suite does not flicker in CI.
@@ -1222,6 +1222,143 @@ test("rollout executes the imagined follow-up on the second tick and the off pat
   assert.equal(reset.optionHeld, 0);
   reset.step();
   assert.equal(reset.rolloutSwitched, 0, "a new mind samples; it does not finish the old roll-out");
+});
+
+test("revise scales the cell step from the sign of progress and the off path stays the constant", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.revise, false);
+
+  const x = new Float32Array([1, 0, 1, 0]);
+  const target = new Float32Array([0, 1, 0, 1]);
+  const up = 1 + 0.05;
+
+  Math.random = mulberry32(7);
+  const shipped = new Loop(4, 4, 4, 5);
+  Math.random = mulberry32(7);
+  const explicitOff = new Loop(4, 4, 4, 5, { revise: false });
+  Math.random = mulberry32(7);
+  const constructed = new Loop(4, 4, 4, 5, { revise: true });
+  assert.deepEqual(Array.from(constructed.net.w1), Array.from(shipped.net.w1), "the constructor draws no extra random number");
+  shipped.commit(x);
+  explicitOff.commit(x);
+  shipped.assimilate(target, TRANSITION_LR);
+  explicitOff.assimilate(target, TRANSITION_LR);
+  shipped.commit(x);
+  explicitOff.commit(x);
+  shipped.assimilate(target, TRANSITION_LR);
+  explicitOff.assimilate(target, TRANSITION_LR);
+  assert.equal(shipped.revisedLr, 0);
+  assert.equal(shipped.stepGain, 1);
+  assert.equal(explicitOff.revisedLr, 0);
+  assert.deepEqual(Array.from(explicitOff.net.w1), Array.from(shipped.net.w1));
+  assert.deepEqual(Array.from(explicitOff.net.w2), Array.from(shipped.net.w2));
+
+  Math.random = mulberry32(7);
+  const on = new Loop(4, 4, 4, 5, { revise: true });
+  Math.random = mulberry32(7);
+  const off = new Loop(4, 4, 4, 5, { revise: false });
+  on.commit(x);
+  off.commit(x);
+  assert.equal(on.stepGain, 1);
+  assert.equal(on.revisedLr, 0, "no training step yet, so no rate is recorded");
+  on.ema = 1;
+  off.ema = 1;
+  on.assimilate(target, TRANSITION_LR);
+  off.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress > 0);
+  assert.ok(on.stepGain > 1 && on.stepGain <= TRANSITION_LR);
+  assert.equal(on.revisedLr, TRANSITION_LR, "the first training step is still the constant");
+  assert.deepEqual(Array.from(on.net.w1), Array.from(off.net.w1));
+  assert.equal(off.stepGain, 1);
+  assert.equal(off.revisedLr, 0);
+
+  const gain = on.stepGain;
+  on.ema = 1;
+  off.ema = 1;
+  on.commit(x);
+  off.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  off.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress > 0);
+  assert.ok(Math.abs(on.stepGain - Math.min(gain * up, TRANSITION_LR)) < 1e-12);
+  assert.ok(on.stepGain > gain);
+  let differ = false;
+  for (let i = 0; i < on.net.w1.length; i++) if (on.net.w1[i] !== off.net.w1[i]) differ = true;
+  assert.equal(differ, true, "the next step uses the revised gain");
+  assert.ok(on.revisedLr > TRANSITION_LR);
+
+  const shrunkFrom = on.stepGain;
+  on.ema = 0;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress < 0);
+  assert.ok(Math.abs(on.stepGain - Math.max(shrunkFrom / up, 1 / TRANSITION_LR)) < 1e-12);
+  assert.ok(on.stepGain < shrunkFrom);
+
+  on.stepGain = TRANSITION_LR;
+  on.ema = 1;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.stepGain, TRANSITION_LR, "positive progress cannot leave the top of the band");
+  on.stepGain = 1 / TRANSITION_LR;
+  on.ema = 0;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.stepGain, 1 / TRANSITION_LR, "negative progress cannot leave the bottom of the band");
+
+  const pred = new Float32Array(on.out);
+  on.commit(x);
+  on.net.forward(x, pred);
+  let s = 0;
+  for (let i = 0; i < on.out; i++) {
+    const d = pred[i]! - target[i]!;
+    s += d * d;
+  }
+  on.ema = s / on.out;
+  const held = on.stepGain;
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.progress, 0);
+  assert.equal(on.stepGain, held, "zero progress leaves the gain");
+
+  const dumped = on.exportBrain();
+  assert.equal(dumped.stepGain, held);
+  const restored = new Loop(4, 4, 4, 5, { revise: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.stepGain, held);
+  const older = { ...dumped };
+  delete older.stepGain;
+  const legacy = new Loop(4, 4, 4, 5, { revise: true });
+  assert.equal(legacy.importBrain(older), true);
+  assert.equal(legacy.stepGain, 1, "a brain from before self-revision keeps the constant");
+  const wild = { ...dumped, stepGain: 100 };
+  const clipped = new Loop(4, 4, 4, 5, { revise: true });
+  assert.equal(clipped.importBrain(wild), true);
+  assert.equal(clipped.stepGain, TRANSITION_LR);
+
+  Math.random = mulberry32(11);
+  const kernelOff = new Kernel("field", 4, { revise: false });
+  Math.random = mulberry32(11);
+  const kernelDefault = new Kernel("field", 4);
+  for (let t = 0; t < 16; t++) {
+    kernelOff.step();
+    kernelDefault.step();
+  }
+  assert.equal(kernelOff.loop.revisedLr, 0);
+  assert.equal(kernelDefault.loop.revisedLr, 0);
+  assert.deepEqual(Array.from(kernelOff.loop.net.w1), Array.from(kernelDefault.loop.net.w1));
+  assert.equal(kernelOff.x, kernelDefault.x);
+  assert.equal(kernelOff.y, kernelDefault.y);
+  assert.equal(kernelOff.lives, kernelDefault.lives);
+
+  Math.random = mulberry32(12);
+  const kernelOn = new Kernel("field", 4, { revise: true });
+  for (let t = 0; t < 8; t++) kernelOn.step();
+  assert.ok(kernelOn.loop.revisedLr > 0);
+  assert.ok(kernelOn.loop.stepGain !== 1, "a field episode moves the gain");
+  kernelOn.resetBrain();
+  assert.equal(kernelOn.loop.stepGain, 1);
+  assert.equal(kernelOn.loop.revisedLr, 0, "a new mind does not keep the old rate");
+
+  Math.random = mulberry32(20261015);
 });
 
 test("food, stream, and band claims hold under a pinned init", () => {

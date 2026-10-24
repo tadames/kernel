@@ -54,6 +54,11 @@
  * bonus and it does not change the cell loss. The off path is the
  * shipped option: the second tick repeats the primitive, and the score
  * path writes no follow-up index.
+ * `revise` is learning-side and off by default. The cell step size is
+ * a gain on the passed learning rate, starting at 1. The gain moves
+ * with the sign of progress and is clipped to
+ * [1/TRANSITION_LR, TRANSITION_LR]. It does not enter the progress
+ * bonus. The off path steps at the passed rate and does not read the gain.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -75,6 +80,8 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * and on seeds 1–200, and lives did not rise. `rollout` is action-side
  * too. It does not enter the bonus. Seeds 1–20 put the paired probe
  * interval of off minus on entirely below zero, and lives rose. It stays off.
+ * `revise` is learning-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on. It stays off.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -94,6 +101,7 @@ export const LOOP_FEATURE_KEYS = [
   "decode",
   "option",
   "rollout",
+  "revise",
   "transition",
 ] as const;
 
@@ -143,6 +151,12 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Seeds 1–20: probe error rose and lives rose. Stays off.
    */
   rollout: false,
+  /**
+   * Revise the cell step from the sign of progress. Off is the constant
+   * passed to assimilate (`TRANSITION_LR` on the grid).
+   * Seeds 1–20: the probe interval included zero. Stays off.
+   */
+  revise: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -224,6 +238,11 @@ export type BrainDump = {
   decW?: number[];
   /** Target-encoder bias for `decode`. Absent on older brains. */
   decB?: number[];
+  /**
+   * Gain on the cell step while `revise` is on. Absent on brains saved
+   * before self-revision. A missing value is gain 1, the constant step.
+   */
+  stepGain?: number;
 };
 
 export class Loop {
@@ -348,6 +367,18 @@ export class Loop {
    * last training step. Zero whenever `decode` is off.
    */
   decodeResidual = 0;
+  /**
+   * Multiplier on the cell step while `revise` is on. Starts at 1, so the
+   * first training step is the passed rate. Stays 1 when the flag is off.
+   */
+  stepGain = 1;
+  /**
+   * Mean cell step used on training steps. Zero whenever `revise` is off,
+   * because the off path does not record a rate.
+   */
+  revisedLr = 0;
+  private reviseMass = 0;
+  private reviseCount = 0;
   /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
   decW: Float32Array;
   /** Target-encoder bias. Starts at 0. */
@@ -1119,8 +1150,9 @@ export class Loop {
     if (this.features.discard) this.noteMarginal(target);
     const trainTarget = this.cellTrainTarget(target);
     if (this.features.discard) this.assimilateSteps += 1;
-    if (this.features.decode) this.trainDecode(this.prevInput, trainTarget, lr);
-    else this.net.train(this.prevInput, trainTarget, lr);
+    const step = this.features.revise ? this.reviseRate(lr) : lr;
+    if (this.features.decode) this.trainDecode(this.prevInput, trainTarget, step);
+    else this.net.train(this.prevInput, trainTarget, step);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
   }
@@ -1170,6 +1202,24 @@ export class Loop {
     }
     this.discardFraction = scored ? masked / scored : 0;
     return trainTarget;
+  }
+
+  /**
+   * Cell step under self-revision. This call uses the gain from before,
+   * then moves the gain for the next step. Positive progress multiplies
+   * by 1.05, negative progress divides by 1.05, and zero leaves it.
+   * 0.05 is the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR].
+   */
+  private reviseRate(lr: number): number {
+    const used = lr * this.stepGain;
+    const up = 1 + 0.05;
+    if (this.progress > 0) this.stepGain = Math.min(this.stepGain * up, TRANSITION_LR);
+    else if (this.progress < 0) this.stepGain = Math.max(this.stepGain / up, 1 / TRANSITION_LR);
+    this.reviseMass += used;
+    this.reviseCount += 1;
+    this.revisedLr = this.reviseMass / this.reviseCount;
+    return used;
   }
 
   /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
@@ -1370,6 +1420,7 @@ export class Loop {
       assimilateSteps: this.assimilateSteps,
       decW: Array.from(this.decW),
       decB: Array.from(this.decB),
+      stepGain: this.stepGain,
     };
   }
 
@@ -1420,6 +1471,9 @@ export class Loop {
     this.assimilateSteps = w.assimilateSteps ?? 0;
     if (w.decW && w.decW.length === this.decW.length) this.decW.set(w.decW);
     if (w.decB && w.decB.length === this.decB.length) this.decB.set(w.decB);
+    if (typeof w.stepGain === "number" && Number.isFinite(w.stepGain) && w.stepGain > 0) {
+      this.stepGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.stepGain));
+    }
     return true;
   }
 }

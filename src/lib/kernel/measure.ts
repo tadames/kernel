@@ -53,6 +53,8 @@ export type EpisodeResult = {
   optionHeld: number;
   /** Fraction of steps whose second tick took a different imagined follow-up. Zero when `rollout` is off. */
   rolloutSwitched: number;
+  /** Mean cell step on training steps. Zero when `revise` is off. */
+  revisedLr: number;
   g1: boolean;
   /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
   skill: number;
@@ -123,6 +125,7 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
       decodeResidual: k.loop.decodeResidual,
       optionHeld: k.age > 0 ? k.optionHeld / k.age : 0,
       rolloutSwitched: k.age > 0 ? k.rolloutSwitched / k.age : 0,
+      revisedLr: k.loop.revisedLr,
     };
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));

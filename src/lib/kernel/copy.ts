@@ -7,7 +7,7 @@ export const LAWS = [
   {
     id: "02",
     title: "Prediction is compression",
-    body: "To predict a stream you must find its regularities. Finding regularities is data compression. Hutter’s AIXI makes the ceiling precise: the optimal agent’s world-model is the shortest program that would have produced the observations so far. It is incomputable. Every working mind is an approximation of that ceiling. This one uses gradient descent on a tiny network because that is a compressor you can watch.",
+    body: "To predict a stream you must find its regularities. Finding regularities is data compression. Hutter’s AIXI makes the ceiling precise: the optimal agent’s world-model is the shortest program that would have produced the observations so far. It is incomputable. Every working mind is an approximation of that ceiling. This one uses gradient descent on a tiny network because that is a compressor you can watch. The cell step is a constant. Self-revision of that rate, a gain moved by the sign of progress, was measured on 2026-10-23 and stays off: the paired interval on late probe error included zero.",
   },
   {
     id: "03",
