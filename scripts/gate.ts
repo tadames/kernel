@@ -192,6 +192,8 @@ async function main() {
       rolloutOn: avg(on.map((row) => row.rolloutSwitched)),
       reviseOff: avg(off.map((row) => row.revisedLr)),
       reviseOn: avg(on.map((row) => row.revisedLr)),
+      wonderOff: avg(off.map((row) => row.revisedCuriosity)),
+      wonderOn: avg(on.map((row) => row.revisedCuriosity)),
       diff: decision.probe,
       lives: decision.lives,
       g2On: on.filter((row) => row.g2).length,

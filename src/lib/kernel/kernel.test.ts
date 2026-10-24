@@ -1361,6 +1361,192 @@ test("revise scales the cell step from the sign of progress and the off path sta
   Math.random = mulberry32(20261015);
 });
 
+test("wonder scales the curiosity weight from the sign of progress and the off path stays the constant", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.wonder, false);
+
+  const x = new Float32Array([1, 0, 1, 0]);
+  const target = new Float32Array([0, 1, 0, 1]);
+  const up = 1 + 0.05;
+
+  Math.random = mulberry32(7);
+  const shipped = new Loop(4, 4, 4, 5);
+  Math.random = mulberry32(7);
+  const explicitOff = new Loop(4, 4, 4, 5, { wonder: false });
+  Math.random = mulberry32(7);
+  const constructed = new Loop(4, 4, 4, 5, { wonder: true });
+  assert.deepEqual(Array.from(constructed.net.w1), Array.from(shipped.net.w1), "the constructor draws no extra random number");
+  shipped.commit(x);
+  explicitOff.commit(x);
+  shipped.ema = 1;
+  explicitOff.ema = 1;
+  shipped.assimilate(target, TRANSITION_LR);
+  explicitOff.assimilate(target, TRANSITION_LR);
+  assert.equal(shipped.curiosityWeight(1), 1);
+  shipped.reviseCuriosity();
+  assert.equal(explicitOff.curiosityWeight(1), 1);
+  explicitOff.reviseCuriosity();
+  assert.equal(shipped.revisedCuriosity, 0);
+  assert.equal(shipped.curiosityGain, 1);
+  assert.equal(explicitOff.revisedCuriosity, 0);
+  assert.equal(explicitOff.curiosityGain, 1);
+  assert.deepEqual(Array.from(explicitOff.net.w1), Array.from(shipped.net.w1));
+  assert.deepEqual(Array.from(explicitOff.net.w2), Array.from(shipped.net.w2));
+
+  Math.random = mulberry32(7);
+  const on = new Loop(4, 4, 4, 5, { wonder: true });
+  Math.random = mulberry32(7);
+  const off = new Loop(4, 4, 4, 5, { wonder: false });
+  on.commit(x);
+  off.commit(x);
+  assert.equal(on.curiosityGain, 1);
+  assert.equal(on.revisedCuriosity, 0, "no sample yet, so no weight is recorded");
+  on.ema = 1;
+  off.ema = 1;
+  on.assimilate(target, TRANSITION_LR);
+  off.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress > 0);
+  assert.equal(on.curiosityWeight(1), 1, "the action after the first training step still uses the constant");
+  on.reviseCuriosity();
+  off.reviseCuriosity();
+  assert.ok(on.curiosityGain > 1 && on.curiosityGain <= TRANSITION_LR);
+  assert.equal(on.revisedCuriosity, 1);
+  assert.deepEqual(Array.from(on.net.w1), Array.from(off.net.w1));
+  assert.equal(off.curiosityGain, 1);
+  assert.equal(off.revisedCuriosity, 0);
+
+  const gain = on.curiosityGain;
+  assert.equal(on.curiosityWeight(1), gain, "the next sample uses the revised gain");
+  assert.ok(Math.abs(on.curiosityGain - gain) < 1e-12, "recording the weight does not revise the gain");
+  assert.ok(on.revisedCuriosity > 1);
+  on.ema = 1;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress > 0);
+  on.reviseCuriosity();
+  assert.ok(Math.abs(on.curiosityGain - Math.min(gain * up, TRANSITION_LR)) < 1e-12);
+  assert.ok(on.curiosityGain > gain);
+
+  const shrunkFrom = on.curiosityGain;
+  on.ema = 0;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress < 0);
+  on.reviseCuriosity();
+  assert.ok(Math.abs(on.curiosityGain - Math.max(shrunkFrom / up, 1 / TRANSITION_LR)) < 1e-12);
+  assert.ok(on.curiosityGain < shrunkFrom);
+
+  on.curiosityGain = TRANSITION_LR;
+  on.ema = 1;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  on.reviseCuriosity();
+  assert.equal(on.curiosityGain, TRANSITION_LR, "positive progress cannot leave the top of the band");
+  on.curiosityGain = 1 / TRANSITION_LR;
+  on.ema = 0;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  on.reviseCuriosity();
+  assert.equal(on.curiosityGain, 1 / TRANSITION_LR, "negative progress cannot leave the bottom of the band");
+
+  const pred = new Float32Array(on.out);
+  on.commit(x);
+  on.net.forward(x, pred);
+  let s = 0;
+  for (let i = 0; i < on.out; i++) {
+    const d = pred[i]! - target[i]!;
+    s += d * d;
+  }
+  on.ema = s / on.out;
+  const held = on.curiosityGain;
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.progress, 0);
+  on.reviseCuriosity();
+  assert.equal(on.curiosityGain, held, "zero progress leaves the gain");
+  assert.equal(on.curiosityWeight(0), 0, "a zero constant stays zero");
+
+  const dumped = on.exportBrain();
+  assert.equal(dumped.curiosityGain, held);
+  const restored = new Loop(4, 4, 4, 5, { wonder: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.curiosityGain, held);
+  const older = { ...dumped };
+  delete older.curiosityGain;
+  const legacy = new Loop(4, 4, 4, 5, { wonder: true });
+  assert.equal(legacy.importBrain(older), true);
+  assert.equal(legacy.curiosityGain, 1, "a brain from before this revision keeps the constant");
+  const wild = { ...dumped, curiosityGain: 100 };
+  const clipped = new Loop(4, 4, 4, 5, { wonder: true });
+  assert.equal(clipped.importBrain(wild), true);
+  assert.equal(clipped.curiosityGain, TRANSITION_LR);
+
+  Math.random = mulberry32(11);
+  const kernelOff = new Kernel("field", 4, { wonder: false });
+  Math.random = mulberry32(11);
+  const kernelDefault = new Kernel("field", 4);
+  for (let t = 0; t < 16; t++) {
+    kernelOff.step();
+    kernelDefault.step();
+  }
+  assert.equal(kernelOff.loop.revisedCuriosity, 0);
+  assert.equal(kernelDefault.loop.revisedCuriosity, 0);
+  assert.equal(kernelOff.loop.curiosityGain, 1);
+  assert.equal(kernelDefault.loop.curiosityGain, 1);
+  assert.deepEqual(Array.from(kernelOff.loop.net.w1), Array.from(kernelDefault.loop.net.w1));
+  assert.equal(kernelOff.x, kernelDefault.x);
+  assert.equal(kernelOff.y, kernelDefault.y);
+  assert.equal(kernelOff.lives, kernelDefault.lives);
+
+  Math.random = mulberry32(9);
+  const kernelOn = new Kernel("field", 5, { wonder: true });
+  Math.random = mulberry32(9);
+  const kernelPair = new Kernel("field", 5, { wonder: false });
+  kernelOn.step();
+  kernelPair.step();
+  assert.equal(kernelOn.lastAction, kernelPair.lastAction, "the first sample uses the constant");
+  assert.deepEqual(Array.from(kernelOn.scores), Array.from(kernelPair.scores));
+  assert.equal(kernelOn.loop.revisedCuriosity, 1);
+  kernelOn.loop.ema = 1;
+  kernelPair.loop.ema = 1;
+  kernelOn.step();
+  kernelPair.step();
+  assert.equal(kernelOn.lastAction, kernelPair.lastAction, "the held tick repeats the primitive");
+  assert.equal(kernelOn.loop.revisedCuriosity, 1, "a held tick does not record a weight");
+  assert.ok(kernelOn.loop.curiosityGain > 1);
+  assert.equal(kernelPair.loop.curiosityGain, 1);
+  kernelOn.step();
+  kernelPair.step();
+  let scoresDiffer = false;
+  for (let i = 0; i < kernelOn.scores.length; i++) if (kernelOn.scores[i] !== kernelPair.scores[i]) scoresDiffer = true;
+  assert.equal(scoresDiffer, true, "the next sample uses the revised weight");
+  assert.ok(kernelOn.loop.revisedCuriosity > 1);
+
+  Math.random = mulberry32(12);
+  const moved = new Kernel("field", 4, { wonder: true });
+  for (let t = 0; t < 8; t++) moved.step();
+  assert.ok(moved.loop.revisedCuriosity > 0);
+  assert.ok(moved.loop.curiosityGain !== 1, "a field episode moves the gain");
+  moved.resetBrain();
+  assert.equal(moved.loop.curiosityGain, 1);
+  assert.equal(moved.loop.revisedCuriosity, 0, "a new mind does not keep the old weight");
+
+  Math.random = mulberry32(13);
+  const silentOn = new Kernel("field", 6, { wonder: true });
+  silentOn.params = { ...silentOn.params, curiosity: 0 };
+  Math.random = mulberry32(13);
+  const silentOff = new Kernel("field", 6, { wonder: false });
+  silentOff.params = { ...silentOff.params, curiosity: 0 };
+  for (let t = 0; t < 12; t++) {
+    silentOn.step();
+    silentOff.step();
+  }
+  assert.deepEqual(Array.from(silentOn.loop.net.w1), Array.from(silentOff.loop.net.w1));
+  assert.equal(silentOn.x, silentOff.x);
+  assert.equal(silentOn.y, silentOff.y);
+  assert.equal(silentOn.loop.revisedCuriosity, 0, "a zero weight is still the constant");
+
+  Math.random = mulberry32(20261015);
+});
+
 test("food, stream, and band claims hold under a pinned init", () => {
   Math.random = mulberry32(20261015);
   const claims = evaluateClaims();

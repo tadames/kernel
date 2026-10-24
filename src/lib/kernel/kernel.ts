@@ -738,7 +738,7 @@ export class Kernel {
     const view = this.signalView();
     imagineScores({
       acts: ACTS,
-      curiosity: this.params.curiosity,
+      curiosity: this.loop.curiosityWeight(this.params.curiosity),
       goal: this.params.goal,
       progressEma: signalProgressEma(this.signal, view),
       horizonRho: this.signal === "rho" && this.scoreHorizonDrop,
@@ -849,6 +849,8 @@ export class Kernel {
     if (this.history.length > HISTORY) this.history.shift();
     const action = this.features.option ? this.heldOrChoose(obs) : this.choose(obs);
     this.lastAction = action;
+    // The action already used the gain from before. Revise it for the next sample.
+    this.loop.reviseCuriosity();
     // Held-out probe and imagination both ask M(window, action) for the next window.
     // Commit that pair before the body moves. The historical commit stored the
     // window after the move, so the loss was reconstruction and the probe could not fall.

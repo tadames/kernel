@@ -59,6 +59,12 @@
  * with the sign of progress and is clipped to
  * [1/TRANSITION_LR, TRANSITION_LR]. It does not enter the progress
  * bonus. The off path steps at the passed rate and does not read the gain.
+ * `wonder` is action-side and off by default. The curiosity weight
+ * passed to the policy is a gain on the constant, starting at 1.
+ * The gain moves with the sign of progress and is clipped to the
+ * same band. It does not enter the progress bonus and it does not
+ * change the cell step. The off path passes the constant and does
+ * not read the gain.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -82,6 +88,8 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * interval of off minus on entirely below zero, and lives rose. It stays off.
  * `revise` is learning-side. It does not enter the bonus. Seeds 1–20
  * put zero inside the paired probe interval of off minus on. It stays off.
+ * `wonder` is action-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on. It stays off.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -102,6 +110,7 @@ export const LOOP_FEATURE_KEYS = [
   "option",
   "rollout",
   "revise",
+  "wonder",
   "transition",
 ] as const;
 
@@ -157,6 +166,12 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Seeds 1–20: the probe interval included zero. Stays off.
    */
   revise: false,
+  /**
+   * Revise the curiosity weight from the sign of progress. Off is the
+   * constant passed to the policy (`params.curiosity`, 1 on the grid).
+   * Seeds 1–20: the probe interval included zero. Stays off.
+   */
+  wonder: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -243,6 +258,11 @@ export type BrainDump = {
    * before self-revision. A missing value is gain 1, the constant step.
    */
   stepGain?: number;
+  /**
+   * Gain on the curiosity weight while `wonder` is on. Absent on brains
+   * saved before this revision. A missing value is gain 1, the constant weight.
+   */
+  curiosityGain?: number;
 };
 
 export class Loop {
@@ -379,6 +399,20 @@ export class Loop {
   revisedLr = 0;
   private reviseMass = 0;
   private reviseCount = 0;
+  /**
+   * Multiplier on the curiosity weight while `wonder` is on. Starts at 1,
+   * so the first sampled action uses the constant. Stays 1 when the flag is off.
+   */
+  curiosityGain = 1;
+  /**
+   * Mean curiosity weight passed into the policy. Zero whenever `wonder`
+   * is off, because the off path does not record a weight.
+   */
+  revisedCuriosity = 0;
+  private wonderMass = 0;
+  private wonderCount = 0;
+  /** True after this assimilate computed progress. The first tick does not. */
+  private progressReady = false;
   /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
   decW: Float32Array;
   /** Target-encoder bias. Starts at 0. */
@@ -1099,6 +1133,7 @@ export class Loop {
    * then compress. Family 2 is excluded from δ and from the training target.
    */
   assimilate(target: Float32Array, lr: number) {
+    this.progressReady = false;
     if (!this.prevInput) {
       this.lastPred.fill(0.5);
       this.surprise = 0.25;
@@ -1155,6 +1190,7 @@ export class Loop {
     else this.net.train(this.prevInput, trainTarget, step);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
+    this.progressReady = true;
   }
 
   /**
@@ -1220,6 +1256,36 @@ export class Loop {
     this.reviseCount += 1;
     this.revisedLr = this.reviseMass / this.reviseCount;
     return used;
+  }
+
+  /**
+   * Curiosity weight under self-revision. The off path returns the constant
+   * and does not record it. The on path multiplies by the gain from before
+   * this tick's revision and records that used weight.
+   */
+  curiosityWeight(constant: number): number {
+    if (!this.features.wonder) return constant;
+    const used = constant * this.curiosityGain;
+    this.wonderMass += used;
+    this.wonderCount += 1;
+    this.revisedCuriosity = this.wonderMass / this.wonderCount;
+    return used;
+  }
+
+  /**
+   * Move the curiosity gain after the action has been chosen. This tick
+   * already used the gain from before. Positive progress multiplies by
+   * 1.05, negative progress divides by 1.05, and zero leaves it. 0.05 is
+   * the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR], the band already locked for the
+   * learning-rate gain. No training step, no revision: the first tick
+   * does not train. The off path does not read or write the gain.
+   */
+  reviseCuriosity() {
+    if (!this.features.wonder || !this.progressReady) return;
+    const up = 1 + 0.05;
+    if (this.progress > 0) this.curiosityGain = Math.min(this.curiosityGain * up, TRANSITION_LR);
+    else if (this.progress < 0) this.curiosityGain = Math.max(this.curiosityGain / up, 1 / TRANSITION_LR);
   }
 
   /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
@@ -1421,6 +1487,7 @@ export class Loop {
       decW: Array.from(this.decW),
       decB: Array.from(this.decB),
       stepGain: this.stepGain,
+      curiosityGain: this.curiosityGain,
     };
   }
 
@@ -1473,6 +1540,9 @@ export class Loop {
     if (w.decB && w.decB.length === this.decB.length) this.decB.set(w.decB);
     if (typeof w.stepGain === "number" && Number.isFinite(w.stepGain) && w.stepGain > 0) {
       this.stepGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.stepGain));
+    }
+    if (typeof w.curiosityGain === "number" && Number.isFinite(w.curiosityGain) && w.curiosityGain > 0) {
+      this.curiosityGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.curiosityGain));
     }
     return true;
   }

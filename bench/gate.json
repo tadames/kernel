@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-24T01:02:41.475Z",
+  "date": "2026-10-24T11:03:15.064Z",
   "seeds": [
     1,
     2,
@@ -24,16 +24,16 @@
   ],
   "steps": 280,
   "flags": [
-    "revise"
+    "wonder"
   ],
   "results": [
     {
-      "flag": "revise",
-      "hypothesis": "On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), revise on lowers late held-out probe error versus the constant TRANSITION_LR.",
+      "flag": "wonder",
+      "hypothesis": "On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), wonder on lowers late held-out probe error versus the constant curiosity weight.",
       "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
       "pass": false,
       "probeOff": 0.10076232193829512,
-      "probeOn": 0.10976022805638012,
+      "probeOn": 0.09719301056958526,
       "probeOffSeeds": [
         0.1623112530549418,
         0.10782481036206275,
@@ -57,26 +57,26 @@
         0.09513468028921471
       ],
       "probeOnSeeds": [
-        0.09595218014357393,
-        0.10150707468870697,
-        0.09940163460319598,
-        0.10252535494890556,
-        0.1172565735453721,
-        0.1276420884350176,
-        0.10351456321340521,
-        0.1111360151804268,
-        0.09872761531368537,
-        0.10450384745188057,
-        0.09718789133225257,
-        0.1546640622138826,
-        0.10640151581856133,
-        0.13936384708832855,
-        0.11307486722778928,
-        0.10163427524927224,
-        0.10140535564941734,
-        0.1082682944692702,
-        0.09549358714770359,
-        0.11554391740695477
+        0.10601547626007951,
+        0.10570770880910868,
+        0.08950132833208095,
+        0.09730509950372407,
+        0.10609468215331658,
+        0.08675996709014601,
+        0.09426378026241153,
+        0.10296286361688982,
+        0.0927739006467483,
+        0.0964329137313136,
+        0.09389484102453882,
+        0.09793189476600847,
+        0.09367764923155601,
+        0.09933018680707545,
+        0.10763344542622633,
+        0.11310864694987305,
+        0.08672265957091792,
+        0.0943804278897499,
+        0.0881008680089058,
+        0.09126187131103469
       ],
       "discardOff": 0,
       "discardOn": 0,
@@ -87,18 +87,20 @@
       "rolloutOff": 0,
       "rolloutOn": 0,
       "reviseOff": 0,
-      "reviseOn": 14.25328165167392,
+      "reviseOn": 0,
+      "wonderOff": 0,
+      "wonderOn": 3.4687526341458317,
       "diff": {
-        "mean": -0.00899790611808499,
-        "lo": -0.01948244410261575,
-        "hi": 0.0034176954530763413,
+        "mean": 0.003569311368709864,
+        "lo": -0.0017311690828068257,
+        "hi": 0.010625619510463365,
         "n": 20,
         "excludesZero": false
       },
       "lives": {
-        "mean": 0,
-        "lo": -0.25,
-        "hi": 0.3,
+        "mean": 0.15,
+        "lo": -0.2,
+        "hi": 0.5,
         "n": 20,
         "excludesZero": false
       },
@@ -107,7 +109,7 @@
       "c2On": 20,
       "c2Off": 20,
       "reasons": [
-        "probe CI of (off − on) is [-0.0195, 0.0034]; on must be lower and the interval must exclude zero"
+        "probe CI of (off − on) is [-0.0017, 0.0106]; on must be lower and the interval must exclude zero"
       ]
     }
   ]

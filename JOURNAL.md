@@ -1,5 +1,61 @@
 # Journal
 
+## 2026-10-24 curiosity weight (America/New_York)
+
+Written before `npm run gate -- --flag wonder --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `2cff49e`, and are not this claim.
+
+`discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. None of them is rerun. `option` stays on. `transition` stays on. Horizon 2 and horizon 3 stay the shipped imagination. The option span stays 2. The cell step stays the constant `TRANSITION_LR`. This is not a second learning rate and not a new score. Open problem 4's unread part is self-revision of curiosity: the weight on the curiosity term, instead of the constant `params.curiosity`. The cell loss does not change. The progress bonus does not gain a term.
+
+### Preregister wonder
+
+Hypothesis. On Field, the curiosity weight is a state the loop revises from the sign of progress, instead of the constant `params.curiosity`. Late held-out probe error falls relative to that constant. The comparison is the flag absent. The absent arm passes `params.curiosity`, which is 1 on the grid.
+
+Instrument. Flag `wonder`, default off. Rho, transition still on, option still on, every other flag at its default, including `discard` off, `decode` off, `rollout` off, and `revise` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is action-side. It does not add a term to the progress bonus. It does not change the cell step. Surprise and progress are scored before the action, as they are today. The formula inside the score is unchanged. Only the curiosity scalar passed into it changes.
+
+Rule, locked here. One scalar gain starts at 1. It is not searched. The off path does not read it and does not write it. The weight on the off path is `params.curiosity`. The constructor draws no extra `Math.random`. An explicit `wonder: false` is the same learner as the default.
+
+The on path multiplies that same constant by the gain. The action on this tick uses the gain from before. The first tick does not train, so it does not revise, and the first sample uses gain 1. After the action is chosen, the gain is revised from the progress already computed on this residual, which is the shipped line `ema − surprise`. Positive progress multiplies the gain by `1.05`. Negative progress divides it by `1.05`. Zero progress leaves it. `1.05` is `1 + 0.05`, and `0.05` is the coefficient already used to fold progress into `progressEma`. It is not a second rate and not a grid. The sign is the same sign already locked for the learning-rate gain: compression raises the weight, and a worsening residual lowers it.
+
+The gain is clipped to `[1 / TRANSITION_LR, TRANSITION_LR]`, which is `[0.25, 4]`. Those are the ends already locked for the learning-rate gain. On the grid the constant weight is 1, so the used weight stays inside `[0.25, 4]`. No other band is run. A weight cannot fall to 0 through this gain, and it cannot run away. The clip is applied after the multiply or the divide. A constant of 0 stays 0, which is the hungry-body food test.
+
+The revision is for the next sample. This sample uses the gain from before. A held tick does not sample, so it does not record a weight, but a training step on that tick still revises the gain. The random signal does not read the weight. The cell step does not read the gain. `revise` stays off, so the cell step stays `TRANSITION_LR`.
+
+`revisedCuriosity` is the mean of the weights passed into the policy on sampled actions. It is 0 when the flag is off. It is not a cutoff. The off arm is 0. A mean that sits on 1 means every sampled action used the constant.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), wonder on lowers late held-out probe error versus the constant curiosity weight.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second band, no flipped sign, and no new curiosity term is run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `2cff49e`.
+
+### Results
+
+The prediction is inconclusive. The paired interval includes zero. The point estimate is lower with the flag on. The interval does not lie entirely above zero, so the drop is not distinguished from zero, and it does not lie entirely below zero, so this is not a measured regression. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there. The fail is that off minus on does not lie entirely above zero.
+
+40 episodes, 4 workers, 1.3 seconds. Source: `bench/gate.json`, copied at `bench/wonder/gate-20.json`.
+
+| arm | probe late | mean weight |
+|---|---:|---:|
+| wonder off | 0.1008 | 0.000 |
+| wonder on | 0.0972 | 3.4688 |
+
+Off minus on is 0.0036 [−0.0017, 0.0106]. The interval includes zero. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is 0.15 [−0.20, 0.50]. That interval includes zero, so deaths did not rise. The threshold was not loosened. The revision was not idle: the mean weight on the on arm is 3.4688, and the constant is 1, so the gain sat near the top of the band. The off arm records 0 because that path does not store a weight.
+
+Figure: `bench/wonder/wonder-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar crosses it.
+
+`wonder` remains default off. It does not enter the progress bonus. `option` stays on. `transition` stays on. `discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. No second band was run. The sign was not flipped.
+
+Kept defaults after the flag was added, seeds 1–5, sha `2cff49e`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `wonder` is not the decision: on 0.1009, off 0.1102, so off minus on is 0.0093 on those five seeds, the same sign as the 20-seed point estimate. Lives on that row are 0.60 versus 0.40. The 20-seed interval includes zero. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `wonder` on, and do not rerun it with more seeds, a flipped sign, or a different band. Twenty seeds already put zero inside the interval, and a second band would be a new mechanism aimed at a question this sample did not settle. The constant curiosity weight remains. Open problem 4's curiosity sentence is closed on this probe. The next experiment is the unread part of open problem 4: self-revision of architecture, one flag, off unless it beats the fixed hidden width on the probe, and it must not raise lives. The curiosity weight, the cell step, horizon 2, horizon 3, and the option stay as they are.
+
 ## 2026-10-23 self-revision (America/New_York)
 
 Written before `npm run gate -- --flag revise --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `8be831a`, and are not this claim.
