@@ -45,6 +45,16 @@ export type EpisodeResult = {
   foods: number;
   lives: number;
   meanB: number;
+  /** Share of non-scent outputs dropped on the last training step. Zero when `discard` is off. */
+  discardFraction: number;
+  /** Hidden-versus-code gap on the last step. Zero when `decode` is off. */
+  decodeResidual: number;
+  /** Fraction of steps that repeated a committed direction. Zero when `option` is off. */
+  optionHeld: number;
+  /** Fraction of steps whose second tick took a different imagined follow-up. Zero when `rollout` is off. */
+  rolloutSwitched: number;
+  /** Mean cell step on training steps. Zero when `revise` is off. */
+  revisedLr: number;
   g1: boolean;
   /** (mean floor − late) / (mean floor − shift ceiling). Field and Rooms only. */
   skill: number;
@@ -111,6 +121,11 @@ export function runMeasuredEpisode(req: EpisodeRequest, probe?: ProbeSet): Episo
       lives: k.lives,
       meanB,
       checkpoints,
+      discardFraction: k.loop.discardFraction,
+      decodeResidual: k.loop.decodeResidual,
+      optionHeld: k.age > 0 ? k.optionHeld / k.age : 0,
+      rolloutSwitched: k.age > 0 ? k.rolloutSwitched / k.age : 0,
+      revisedLr: k.loop.revisedLr,
     };
   });
   const food = withSeed(req.seed * 10007 + 11, () => adjacentFood(req.seed, req.features));

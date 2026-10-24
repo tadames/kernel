@@ -34,6 +34,31 @@
  * code, so ρ̂ can score a window the latent predictor has not already compressed.
  * A second self-step scores past a wall that first self-prediction treats as a
  * wall, and only after slowEma < 0.12.
+ * `discard` is learning-side and off by default. After 40 training steps it
+ * drops a non-scent channel from the cell loss when that channel's model
+ * residual is not below the error of its own running mean. Surprise and the
+ * progress bonus still see the real residual.
+ * `decode` is learning-side and off by default. The cell net's first layer
+ * matches a stop-grad code of the next window instead of the cell error.
+ * The second layer decodes that hidden code to cells, which is what the
+ * probe reads. The code is trained so the current readout can decode it,
+ * and the predictor cannot move the encoder. Surprise still sees the real
+ * residual. The code width is the hidden width. There is no second mask.
+ * `option` is action-side and on by default. The sampled direction is
+ * executed for two ticks. The second tick does not sample. It does not
+ * enter the progress bonus and it does not change the cell loss. The
+ * off path still samples every tick and draws no extra random number.
+ * `rollout` is action-side and off by default. On the option's second
+ * tick it executes the horizon-2 follow-up imagined at the commitment,
+ * instead of repeating the primitive. It does not enter the progress
+ * bonus and it does not change the cell loss. The off path is the
+ * shipped option: the second tick repeats the primitive, and the score
+ * path writes no follow-up index.
+ * `revise` is learning-side and off by default. The cell step size is
+ * a gain on the passed learning rate, starting at 1. The gain moves
+ * with the sign of progress and is clipped to
+ * [1/TRANSITION_LR, TRANSITION_LR]. It does not enter the progress
+ * bonus. The off path steps at the passed rate and does not read the gain.
  */
 import { MLP, mse } from "./mlp.ts";
 import { participation } from "./complexity.ts";
@@ -45,7 +70,18 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * probe ablation says it beats its own absence. See AGENTS.project.md.
  * The 2026-10-15 probe gate turned the noisy set off. None of them lowered
  * held-out probe error. `transition` is the cell learner, not a bonus term:
- * the same gate kept it because probe error fell.
+ * the same gate kept it because probe error fell. `discard` is also
+ * learning-side. It does not enter the bonus. It stays off unless a
+ * preregistered probe gate says it beats its absence. `decode` is
+ * learning-side too. It does not enter the bonus. It stays off unless
+ * that same gate says the latent target beats the cell loss. `option`
+ * is action-side. It does not enter the bonus. The same gate kept it:
+ * holding the sampled direction lowered Field probe error on seeds 1–20
+ * and on seeds 1–200, and lives did not rise. `rollout` is action-side
+ * too. It does not enter the bonus. Seeds 1–20 put the paired probe
+ * interval of off minus on entirely below zero, and lives rose. It stays off.
+ * `revise` is learning-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on. It stays off.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -61,6 +97,11 @@ export const LOOP_FEATURE_KEYS = [
   "slowWindow3",
   "slowSelfWindow",
   "slowSelfWindow2",
+  "discard",
+  "decode",
+  "option",
+  "rollout",
+  "revise",
   "transition",
 ] as const;
 
@@ -73,7 +114,7 @@ export type LoopFeatures = Record<LoopFeatureKey, boolean>;
  * probe). Every previously noisy term failed: the paired CI of (off − on)
  * did not lie above zero. encoderMix and wake were exact ties. latentRho
  * and slowRhoHat made probe error worse. The code remains; the defaults
- * are off. See JOURNAL.md.
+ * are off. `option` was added later and kept on 2026-10-23. See JOURNAL.md.
  */
 export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   encoder: false,
@@ -89,6 +130,33 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   slowWindow3: false,
   slowSelfWindow: false,
   slowSelfWindow2: false,
+  /**
+   * Drop non-scent channels the model is not beating their running mean on.
+   * Off is the shipped loss. The probe gate decides whether it stays off.
+   */
+  discard: false,
+  /**
+   * Latent training target, decoded back to cells. Off is the cell loss.
+   * The probe gate decides whether it stays off.
+   */
+  decode: false,
+  /**
+   * Hold the sampled direction for a second tick. Off samples every tick.
+   * Kept on: the probe gate, seeds 1–20 and seeds 1–200.
+   */
+  option: true,
+  /**
+   * On the option's second tick, execute the horizon-2 follow-up imagined
+   * at the commitment instead of repeating the primitive. Off repeats it.
+   * Seeds 1–20: probe error rose and lives rose. Stays off.
+   */
+  rollout: false,
+  /**
+   * Revise the cell step from the sign of progress. Off is the constant
+   * passed to assimilate (`TRANSITION_LR` on the grid).
+   * Seeds 1–20: the probe interval included zero. Stays off.
+   */
+  revise: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -160,6 +228,21 @@ export type BrainDump = {
   slowSelfWindow?: number;
   /** Second self-step past a first self-window wall. Absent on older brains. */
   slowSelfWindow2?: number;
+  /** Running per-channel target mean used by `discard`. Absent on older brains. */
+  targetMean?: number[];
+  /** Running marginal error used by `discard`. Absent on older brains. */
+  marginalEma?: number[];
+  /** Training steps completed while `discard` was on. Absent on older brains. */
+  assimilateSteps?: number;
+  /** Target encoder for `decode`. Absent on brains saved before the latent target. */
+  decW?: number[];
+  /** Target-encoder bias for `decode`. Absent on older brains. */
+  decB?: number[];
+  /**
+   * Gain on the cell step while `revise` is on. Absent on brains saved
+   * before self-revision. A missing value is gain 1, the constant step.
+   */
+  stepGain?: number;
 };
 
 export class Loop {
@@ -174,6 +257,12 @@ export class Loop {
   static readonly SLOW_WAKE = 0.06;
   /** Second slow window stays shut until the slow code has earned the same line as horizon 3. */
   static readonly SLOW_WINDOW2_EMA = 0.12;
+  /**
+   * Training updates that stay on the full cell loss before `discard` may
+   * drop a channel. The first kernel step does not train, so this is 40
+   * gradient steps, and the early probe at step 40 is still unmasked.
+   */
+  static readonly DISCARD_WARMUP = 40;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
@@ -262,6 +351,43 @@ export class Loop {
   slowSelfWindow = 0;
   /** Last second self-step drop that cleared the floor past a first self-window wall. */
   slowSelfWindow2 = 0;
+  /** Per-output running mean of the training target. Used only by `discard`. */
+  targetMean: Float32Array;
+  /** Per-output error of predicting that running mean. Used only by `discard`. */
+  marginalEma: Float32Array;
+  /** Training steps taken while `discard` is on. The off path leaves this at 0. */
+  assimilateSteps = 0;
+  /**
+   * Share of non-scent outputs dropped on the last training step.
+   * Zero during warmup and whenever `discard` is off.
+   */
+  discardFraction = 0;
+  /**
+   * Mean squared gap between the hidden code and the stop-grad target on the
+   * last training step. Zero whenever `decode` is off.
+   */
+  decodeResidual = 0;
+  /**
+   * Multiplier on the cell step while `revise` is on. Starts at 1, so the
+   * first training step is the passed rate. Stays 1 when the flag is off.
+   */
+  stepGain = 1;
+  /**
+   * Mean cell step used on training steps. Zero whenever `revise` is off,
+   * because the off path does not record a rate.
+   */
+  revisedLr = 0;
+  private reviseMass = 0;
+  private reviseCount = 0;
+  /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
+  decW: Float32Array;
+  /** Target-encoder bias. Starts at 0. */
+  decB: Float32Array;
+  private decCode: Float32Array;
+  private decIn: Float32Array;
+  private decHat: Float32Array;
+  private decDz: Float32Array;
+  private decGz: Float32Array;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -291,6 +417,10 @@ export class Loop {
     this.lastPred.fill(0.5);
     this.residualEma = new Float32Array(out);
     this.residualEma.fill(0.25);
+    this.targetMean = new Float32Array(out);
+    this.targetMean.fill(0.5);
+    this.marginalEma = new Float32Array(out);
+    this.marginalEma.fill(0.25);
     this.scentCells = out % 3 === 0 ? out / 3 : 0;
     this.scentPred = new Float32Array(Math.max(1, this.scentCells));
     this.scentPred.fill(0.5);
@@ -334,6 +464,15 @@ export class Loop {
     this.slowBias = new Float32Array(acts * hidden);
     this.slowActionEma = new Float32Array(acts);
     this.slowActionEma.fill(0.25);
+    // After every Math.random draw in this constructor. Copying `proj` does
+    // not move the stream, so a flag that stays off is the same learner.
+    this.decW = new Float32Array(this.proj);
+    this.decB = new Float32Array(hidden);
+    this.decCode = new Float32Array(hidden);
+    this.decIn = new Float32Array(out);
+    this.decHat = new Float32Array(out);
+    this.decDz = new Float32Array(out);
+    this.decGz = new Float32Array(hidden);
   }
 
   private families() {
@@ -1008,13 +1147,170 @@ export class Loop {
     this.project(target, this.latentNow);
     this.noteEncObs(target);
 
-    const trainTarget = target.slice();
-    if (fam === 3) {
-      for (let i = 2; i < this.out; i += 3) trainTarget[i] = this.lastPred[i];
-    }
-    this.net.train(this.prevInput, trainTarget, lr);
+    if (this.features.discard) this.noteMarginal(target);
+    const trainTarget = this.cellTrainTarget(target);
+    if (this.features.discard) this.assimilateSteps += 1;
+    const step = this.features.revise ? this.reviseRate(lr) : lr;
+    if (this.features.decode) this.trainDecode(this.prevInput, trainTarget, step);
+    else this.net.train(this.prevInput, trainTarget, step);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
+  }
+
+  /**
+   * Marginal of each non-scent channel. The mean is the value before this
+   * target is folded in, so the error is what a constant predictor would
+   * have paid. Rate 0.1 matches `residualEma`. Family 2 is not tracked.
+   */
+  private noteMarginal(target: Float32Array) {
+    const fam = this.families();
+    const n = Math.min(target.length, this.out);
+    for (let i = 0; i < n; i++) {
+      if (fam === 3 && i % 3 === 2) continue;
+      const mean = this.targetMean[i]!;
+      const d = target[i]! - mean;
+      this.marginalEma[i] = 0.9 * this.marginalEma[i]! + 0.1 * d * d;
+      this.targetMean[i] = 0.9 * mean + 0.1 * target[i]!;
+    }
+  }
+
+  /**
+   * Cell-net target. Family 2 is always the prediction, so scent never
+   * trains the plan. When `discard` is on and 40 training steps are done,
+   * a non-scent channel whose model residual is not strictly below its
+   * marginal error is copied from the prediction too. That is a zero
+   * gradient. The comparison reads the EMAs after this step's update.
+   */
+  cellTrainTarget(target: Float32Array): Float32Array {
+    const trainTarget = target.slice();
+    const fam = this.families();
+    const n = Math.min(target.length, this.out);
+    if (fam === 3) {
+      for (let i = 2; i < n; i += 3) trainTarget[i] = this.lastPred[i]!;
+    }
+    if (!this.features.discard) return trainTarget;
+    let masked = 0;
+    let scored = 0;
+    const drop = this.assimilateSteps >= Loop.DISCARD_WARMUP;
+    for (let i = 0; i < n; i++) {
+      if (fam === 3 && i % 3 === 2) continue;
+      scored += 1;
+      if (drop && this.residualEma[i]! >= this.marginalEma[i]!) {
+        trainTarget[i] = this.lastPred[i]!;
+        masked += 1;
+      }
+    }
+    this.discardFraction = scored ? masked / scored : 0;
+    return trainTarget;
+  }
+
+  /**
+   * Cell step under self-revision. This call uses the gain from before,
+   * then moves the gain for the next step. Positive progress multiplies
+   * by 1.05, negative progress divides by 1.05, and zero leaves it.
+   * 0.05 is the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR].
+   */
+  private reviseRate(lr: number): number {
+    const used = lr * this.stepGain;
+    const up = 1 + 0.05;
+    if (this.progress > 0) this.stepGain = Math.min(this.stepGain * up, TRANSITION_LR);
+    else if (this.progress < 0) this.stepGain = Math.max(this.stepGain / up, 1 / TRANSITION_LR);
+    this.reviseMass += used;
+    this.reviseCount += 1;
+    this.revisedLr = this.reviseMass / this.reviseCount;
+    return used;
+  }
+
+  /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
+  private clipDecode(v: number) {
+    if (v > 1.5) return 1.5;
+    if (v < -1.5) return -1.5;
+    return v;
+  }
+
+  /** z = tanh(E x + b). `src` is the cell target with family 2 already zeroed. */
+  private writeDecodeCode(src: Float32Array, into: Float32Array) {
+    const n = Math.min(src.length, this.out);
+    for (let i = 0; i < this.hidden; i++) {
+      let s = this.decB[i]!;
+      const row = i * this.out;
+      for (let j = 0; j < n; j++) s += this.decW[row + j]! * src[j]!;
+      into[i] = Math.tanh(s);
+    }
+    return into;
+  }
+
+  /**
+   * Latent target for the transition. Three updates, each reading the
+   * weights from before the step. The predictor matches the hidden to a
+   * detached code. The readout decodes that hidden to cells. The encoder
+   * is trained so the current readout can decode the code, and it does not
+   * see the predictor's hidden. Family 2 is not a feature of the code and
+   * takes no encoder gradient. Surprise was already scored on the real cells.
+   */
+  private trainDecode(x: Float32Array, trainTarget: Float32Array, lr: number) {
+    const src = this.decIn;
+    const n = Math.min(trainTarget.length, this.out);
+    src.fill(0);
+    for (let j = 0; j < n; j++) src[j] = trainTarget[j]!;
+    if (this.families() === 3) {
+      for (let i = 2; i < n; i += 3) src[i] = 0;
+    }
+    this.writeDecodeCode(src, this.decCode);
+    this.decodeResidual = this.net.matchHidden(x, this.decCode, lr);
+    this.learnDecodeEncoder(src, trainTarget, lr);
+    this.net.decodeReadout(trainTarget, lr);
+  }
+
+  /**
+   * Reconstruction of the cell target through the current readout.
+   * W2 and b2 are stop-grad. Family 2's error is zero, matching the plan.
+   * Only the encoder moves, and each weight is clipped to ±1.5.
+   */
+  private learnDecodeEncoder(src: Float32Array, target: Float32Array, lr: number) {
+    const h = this.hidden;
+    const nOut = this.out;
+    const z = this.decCode;
+    const y = this.decHat;
+    const gz = this.decGz;
+    const dz2 = this.decDz;
+    const w2 = this.net.w2;
+    const b2 = this.net.b2;
+    const n = Math.min(src.length, nOut);
+    for (let i = 0; i < h; i++) {
+      let s = this.decB[i]!;
+      const row = i * nOut;
+      for (let j = 0; j < n; j++) s += this.decW[row + j]! * src[j]!;
+      z[i] = Math.tanh(s);
+    }
+    const scale = 2 / nOut;
+    const fam = this.families();
+    for (let k = 0; k < nOut; k++) {
+      let s = b2[k]!;
+      const row = k * h;
+      for (let i = 0; i < h; i++) s += w2[row + i]! * z[i]!;
+      const clipped = s < -12 ? -12 : s > 12 ? 12 : s;
+      const yk = 1 / (1 + Math.exp(-clipped));
+      y[k] = yk;
+      const skip = fam === 3 && k % 3 === 2;
+      const err = skip ? 0 : (yk - (target[k] ?? 0)) * scale;
+      dz2[k] = err * yk * (1 - yk);
+    }
+    for (let i = 0; i < h; i++) {
+      let g = 0;
+      for (let k = 0; k < nOut; k++) g += w2[k * h + i]! * dz2[k]!;
+      const zi = z[i]!;
+      gz[i] = g * (1 - zi * zi);
+    }
+    for (let i = 0; i < h; i++) {
+      const g = gz[i]!;
+      const row = i * nOut;
+      for (let j = 0; j < n; j++) {
+        this.decW[row + j] = this.clipDecode(this.decW[row + j]! - lr * g * src[j]!);
+      }
+      this.decB[i] = this.clipDecode(this.decB[i]! - lr * g);
+    }
   }
 
   /**
@@ -1119,6 +1415,12 @@ export class Loop {
       slowWindow3: this.slowWindow3,
       slowSelfWindow: this.slowSelfWindow,
       slowSelfWindow2: this.slowSelfWindow2,
+      targetMean: Array.from(this.targetMean),
+      marginalEma: Array.from(this.marginalEma),
+      assimilateSteps: this.assimilateSteps,
+      decW: Array.from(this.decW),
+      decB: Array.from(this.decB),
+      stepGain: this.stepGain,
     };
   }
 
@@ -1164,6 +1466,14 @@ export class Loop {
     this.slowWindow3 = w.slowWindow3 ?? 0;
     this.slowSelfWindow = w.slowSelfWindow ?? 0;
     this.slowSelfWindow2 = w.slowSelfWindow2 ?? 0;
+    if (w.targetMean && w.targetMean.length === this.targetMean.length) this.targetMean.set(w.targetMean);
+    if (w.marginalEma && w.marginalEma.length === this.marginalEma.length) this.marginalEma.set(w.marginalEma);
+    this.assimilateSteps = w.assimilateSteps ?? 0;
+    if (w.decW && w.decW.length === this.decW.length) this.decW.set(w.decW);
+    if (w.decB && w.decB.length === this.decB.length) this.decB.set(w.decB);
+    if (typeof w.stepGain === "number" && Number.isFinite(w.stepGain) && w.stepGain > 0) {
+      this.stepGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.stepGain));
+    }
     return true;
   }
 }

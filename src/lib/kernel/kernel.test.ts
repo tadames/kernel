@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MLP, mse } from "./mlp.ts";
-import { Loop, DEFAULT_LOOP_FEATURES } from "./loop.ts";
+import { Loop, DEFAULT_LOOP_FEATURES, TRANSITION_LR } from "./loop.ts";
 import { mulberry32 } from "./presets.ts";
 
 // Weight init uses Math.random. Pin it so the suite does not flicker in CI.
 Math.random = mulberry32(20261015);
-import { Kernel } from "./kernel.ts";
+import { Kernel, OPTION_SPAN } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
 import { evaluateClaims } from "./experiments.ts";
 import { expectedResidual, imagineScores } from "./policy.ts";
@@ -777,6 +777,588 @@ test("feature flags default to the kept set and a shut encoder does not step", (
   }
   assert.equal(shut.encoderSteps, 0);
   assert.equal(shut.slowWakes, 0);
+});
+
+test("discard drops a channel that loses to its mean and stays shut until the warmup", () => {
+  const target = new Float32Array([0, 1, 0.2, 1, 0, 0.7]);
+  const on = new Loop(8, 4, 6, 5, { discard: true });
+  on.lastPred.fill(0.5);
+  on.assimilateSteps = Loop.DISCARD_WARMUP;
+  on.residualEma[0] = 0.3;
+  on.marginalEma[0] = 0.05;
+  on.residualEma[1] = 0.02;
+  on.marginalEma[1] = 0.2;
+  on.residualEma[3] = 0.19;
+  on.marginalEma[3] = 0.19;
+  on.residualEma[4] = 0.1;
+  on.marginalEma[4] = 0.3;
+  const train = on.cellTrainTarget(target);
+  assert.equal(train[0], 0.5, "a channel worse than its mean is copied from the prediction");
+  assert.equal(train[1], 1, "a channel better than its mean keeps its target");
+  assert.equal(train[2], 0.5, "family 2 stays out of the cell loss");
+  assert.equal(train[3], 0.5, "a tie with the mean is not a compression");
+  assert.equal(train[4], 0);
+  assert.equal(train[5], 0.5);
+  assert.equal(on.discardFraction, 0.5);
+
+  on.assimilateSteps = Loop.DISCARD_WARMUP - 1;
+  const warm = on.cellTrainTarget(target);
+  assert.equal(warm[0], 0, "the first 40 training steps still fit every non-scent channel");
+  assert.equal(on.discardFraction, 0);
+
+  const off = new Loop(8, 4, 6, 5);
+  off.lastPred.fill(0.5);
+  off.assimilateSteps = Loop.DISCARD_WARMUP;
+  off.residualEma[0] = 0.3;
+  off.marginalEma[0] = 0.05;
+  const kept = off.cellTrainTarget(target);
+  assert.equal(kept[0], 0);
+  assert.equal(kept[2], 0.5);
+  assert.equal(off.discardFraction, 0);
+  assert.equal(DEFAULT_LOOP_FEATURES.discard, false);
+});
+
+test("discard does not step a dropped output, and the warmup matches the flag off", () => {
+  Math.random = mulberry32(11);
+  const on = new Loop(8, 4, 6, 5, { discard: true });
+  Math.random = mulberry32(11);
+  const off = new Loop(8, 4, 6, 5);
+  const input = new Float32Array(8);
+  input[0] = 1;
+  on.commit(input);
+  off.commit(input.slice());
+  on.assimilateSteps = Loop.DISCARD_WARMUP;
+  on.residualEma.fill(0);
+  on.marginalEma.fill(1);
+  on.targetMean.fill(0);
+  on.residualEma[0] = 0.4;
+  on.marginalEma[0] = 0.01;
+  const row0 = Array.from(on.net.w2.subarray(0, on.net.h));
+  const b0 = on.net.b2[0];
+  const row1 = Array.from(on.net.w2.subarray(on.net.h, on.net.h * 2));
+  const target = new Float32Array(6);
+  target[1] = 1;
+  on.assimilate(target, 0.5);
+  off.assimilate(target, 0.5);
+  for (let j = 0; j < on.net.h; j++) assert.equal(on.net.w2[j], row0[j]);
+  assert.equal(on.net.b2[0], b0);
+  let moved = false;
+  for (let j = 0; j < on.net.h; j++) if (on.net.w2[on.net.h + j] !== row1[j]) moved = true;
+  assert.ok(moved, "a channel the model is beating still takes a gradient");
+  assert.equal(on.surprise, off.surprise);
+  assert.equal(on.assimilateSteps, Loop.DISCARD_WARMUP + 1);
+  assert.equal(off.assimilateSteps, 0);
+
+  const dumped = on.exportBrain();
+  const restored = new Loop(8, 4, 6, 5, { discard: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.assimilateSteps, on.assimilateSteps);
+  assert.ok(Math.abs(restored.marginalEma[0]! - on.marginalEma[0]!) < 1e-9);
+
+  const walk = (features?: { discard: boolean }) => {
+    Math.random = mulberry32(4);
+    const loop = new Loop(6, 8, 6, 5, features);
+    for (let t = 0; t < 30; t++) {
+      const x = new Float32Array(6);
+      x[0] = t % 2;
+      x[1] = 1 - (t % 2);
+      loop.assimilate(x, 0.2);
+      const committed = new Float32Array(6 + 5);
+      committed.set(x);
+      committed[6] = 1;
+      loop.commit(committed);
+    }
+    return { w2: Array.from(loop.net.w2), steps: loop.assimilateSteps };
+  };
+  const plain = walk();
+  const explicitOff = walk({ discard: false });
+  const duringWarmup = walk({ discard: true });
+  assert.deepEqual(explicitOff.w2, plain.w2);
+  assert.deepEqual(duringWarmup.w2, plain.w2);
+  assert.equal(plain.steps, 0);
+  assert.equal(duringWarmup.steps, 29);
+});
+
+test("decode matches the hidden to a stop-grad code and does not backprop cell error into it", () => {
+  Math.random = mulberry32(21);
+  const loop = new Loop(4, 2, 4, 2, { decode: true });
+  const input = new Float32Array(4);
+  input[0] = 1;
+  input[1] = 0.25;
+  loop.commit(input);
+  loop.net.w1.fill(0);
+  loop.net.b1[0] = 0.3;
+  loop.net.b1[1] = -0.4;
+  loop.decW.fill(0);
+  loop.decB[0] = 0.3;
+  loop.decB[1] = -0.4;
+  const w1 = Array.from(loop.net.w1);
+  const b1 = Array.from(loop.net.b1);
+  const w2 = Array.from(loop.net.w2);
+  const target = new Float32Array([1, 0, 1, 0]);
+  loop.assimilate(target, 0.5);
+  assert.deepEqual(Array.from(loop.net.w1), w1);
+  assert.deepEqual(Array.from(loop.net.b1), b1);
+  assert.equal(loop.decodeResidual, 0);
+  let moved = false;
+  for (let i = 0; i < w2.length; i++) if (loop.net.w2[i] !== w2[i]) moved = true;
+  assert.ok(moved, "the readout still fits cells");
+  assert.equal(DEFAULT_LOOP_FEATURES.decode, false);
+});
+
+test("decode leaves the readout alone when the cell target is already the prediction", () => {
+  Math.random = mulberry32(22);
+  const loop = new Loop(4, 2, 4, 2, { decode: true });
+  const input = new Float32Array(4);
+  input[0] = 0.8;
+  loop.commit(input);
+  loop.net.b1[0] = 0.5;
+  const pred = new Float32Array(4);
+  loop.net.forward(input, pred);
+  loop.decW.fill(0);
+  loop.decB.fill(0);
+  const w1 = Array.from(loop.net.w1);
+  const b1 = Array.from(loop.net.b1);
+  const w2 = Array.from(loop.net.w2);
+  const b2 = Array.from(loop.net.b2);
+  loop.assimilate(pred, 0.5);
+  assert.deepEqual(Array.from(loop.net.w2), w2);
+  assert.deepEqual(Array.from(loop.net.b2), b2);
+  let moved = false;
+  for (let i = 0; i < w1.length; i++) if (loop.net.w1[i] !== w1[i]) moved = true;
+  for (let i = 0; i < b1.length; i++) if (loop.net.b1[i] !== b1[i]) moved = true;
+  assert.ok(moved, "a zero code still pulls the hidden");
+});
+
+test("decode encoder ignores the predictor hidden and family 2", () => {
+  const make = () => {
+    Math.random = mulberry32(23);
+    return new Loop(6, 4, 6, 2, { decode: true });
+  };
+  const a = make();
+  const b = make();
+  b.net.w1[0] += 0.4;
+  b.net.b1[0] += 0.2;
+  for (let j = 0; j < b.net.h; j++) b.net.w2[2 * b.net.h + j]! += 0.5;
+  b.net.b2[2] += 0.3;
+  const input = new Float32Array(6);
+  input[0] = 1;
+  input[2] = 0.5;
+  a.commit(input.slice());
+  b.commit(input.slice());
+  const target = new Float32Array([0.2, 0.8, 0.4, 0.7, 0.3, 0.6]);
+  a.assimilate(target, 0.25);
+  b.assimilate(target, 0.25);
+  assert.deepEqual(Array.from(a.decW), Array.from(b.decW));
+  assert.deepEqual(Array.from(a.decB), Array.from(b.decB));
+  const fresh = make();
+  let moved = false;
+  for (let i = 0; i < a.decW.length; i++) if (a.decW[i] !== fresh.decW[i]) moved = true;
+  assert.ok(moved, "encoder did not step");
+});
+
+test("decode off matches the cell loss, and surprise stays the real residual", () => {
+  const walk = (features?: { decode: boolean }) => {
+    Math.random = mulberry32(24);
+    const loop = new Loop(6, 8, 6, 5, features);
+    let surprise = 0;
+    for (let t = 0; t < 30; t++) {
+      const x = new Float32Array(6);
+      x[0] = t % 2;
+      x[1] = 1 - (t % 2);
+      x[3] = t % 2;
+      loop.assimilate(x, 0.4);
+      surprise = loop.surprise;
+      const committed = new Float32Array(6 + 5);
+      committed.set(x);
+      committed[6] = 1;
+      loop.commit(committed);
+    }
+    return { w1: Array.from(loop.net.w1), w2: Array.from(loop.net.w2), surprise, residual: loop.decodeResidual };
+  };
+  const plain = walk();
+  const explicitOff = walk({ decode: false });
+  const on = walk({ decode: true });
+  assert.deepEqual(explicitOff.w1, plain.w1);
+  assert.deepEqual(explicitOff.w2, plain.w2);
+  assert.equal(explicitOff.surprise, plain.surprise);
+  assert.equal(plain.residual, 0);
+  assert.equal(explicitOff.residual, 0);
+  assert.notDeepEqual(on.w1, plain.w1);
+
+  Math.random = mulberry32(25);
+  const left = new Loop(4, 3, 4, 2, { decode: true });
+  Math.random = mulberry32(25);
+  const right = new Loop(4, 3, 4, 2, { decode: false });
+  const input = new Float32Array(4);
+  input[0] = 1;
+  left.commit(input.slice());
+  right.commit(input.slice());
+  const target = new Float32Array([1, 0, 1, 0]);
+  left.assimilate(target, 4);
+  right.assimilate(target, 4);
+  assert.equal(left.surprise, right.surprise);
+  assert.ok(Number.isFinite(left.decodeResidual));
+  for (let i = 0; i < left.net.w1.length; i++) assert.ok(Number.isFinite(left.net.w1[i]));
+  for (let i = 0; i < left.decW.length; i++) assert.ok(Number.isFinite(left.decW[i]));
+
+  const dumped = left.exportBrain();
+  const restored = new Loop(4, 3, 4, 2, { decode: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.deepEqual(Array.from(restored.decW), Array.from(left.decW));
+  assert.deepEqual(Array.from(restored.decB), Array.from(left.decB));
+});
+
+test("option holds the sampled direction for a second tick and the off path samples every tick", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.option, true);
+  assert.equal(OPTION_SPAN, 2);
+
+  const walk = (features?: { option: boolean }) => {
+    Math.random = mulberry32(31);
+    const k = new Kernel("field", 9, features);
+    const actions: number[] = [];
+    for (let t = 0; t < 24; t++) {
+      k.step();
+      actions.push(k.lastAction);
+    }
+    return {
+      actions,
+      x: k.x,
+      y: k.y,
+      foods: k.foods,
+      lives: k.lives,
+      energy: k.energy,
+      surprise: k.surprise,
+      w1: Array.from(k.loop.net.w1),
+      w2: Array.from(k.loop.net.w2),
+      held: k.optionHeld,
+    };
+  };
+  const offA = walk({ option: false });
+  const offB = walk({ option: false });
+  const on = walk({ option: true });
+  const shipped = walk();
+  assert.deepEqual(offA, offB);
+  assert.deepEqual(on, shipped);
+  assert.equal(offA.held, 0);
+  assert.equal(on.held, 12);
+  assert.equal(on.actions[0], offA.actions[0], "the commitment tick is the same sample as the flag off");
+  for (let i = 0; i < on.actions.length; i += OPTION_SPAN) {
+    assert.equal(on.actions[i + 1], on.actions[i]);
+  }
+  assert.notDeepEqual(on.actions, offA.actions);
+
+  Math.random = mulberry32(33);
+  const held = new Kernel("field", 4, { option: true });
+  held.step();
+  const committed = held.lastAction;
+  const branching = held.branching;
+  assert.equal(held.optionHeld, 0);
+  held.step();
+  assert.equal(held.lastAction, committed);
+  assert.equal(held.branching, branching, "a held tick does not consult the policy");
+  assert.equal(held.optionHeld, 1);
+
+  Math.random = mulberry32(32);
+  const reset = new Kernel("blank", 3, { option: true });
+  reset.step();
+  assert.equal(reset.optionHeld, 0);
+  reset.resetBrain();
+  assert.equal(reset.optionHeld, 0);
+  reset.step();
+  assert.equal(reset.optionHeld, 0, "a new mind samples; it does not finish the old hold");
+});
+
+test("horizon-2 follow index is the first strict winner and does not change the score", () => {
+  const acts = 3;
+  const base = {
+    acts,
+    curiosity: 0,
+    goal: 1,
+    progressEma: 0,
+    ema: 0.2,
+    horizonRho: false,
+    uncertainty: false,
+    imagined: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+    imagined2: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+    predict: (a: number, into: Float32Array) => {
+      into[0] = a;
+      into[1] = 0;
+      return into;
+    },
+    predictFrom: (pred: Float32Array, a1: number, into: Float32Array) => {
+      into[0] = a1;
+      into[1] = pred[0]!;
+      return into;
+    },
+    read: () => ({ reward: 0, cost: 0, novelty: 0 }),
+  };
+  const score = (readPred: (pred: Float32Array, a: number) => { reward: number; cost: number; novelty: number }, follow?: Int32Array) => {
+    const scores = new Float32Array(acts);
+    imagineScores({
+      ...base,
+      imagined: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+      imagined2: [new Float32Array(2), new Float32Array(2), new Float32Array(2)],
+      scores,
+      readPred,
+      follow,
+    });
+    return scores;
+  };
+  const winner = (pred: Float32Array) => (pred[1]! + 1) % acts;
+  const readPred = (pred: Float32Array, a: number) => ({
+    reward: a === winner(pred) ? 5 : 0,
+    cost: 0,
+    novelty: 0,
+  });
+  const follow = new Int32Array(acts);
+  const withFollow = score(readPred, follow);
+  const plain = score(readPred);
+  assert.deepEqual(Array.from(withFollow), Array.from(plain));
+  for (let a = 0; a < acts; a++) assert.equal(follow[a], (a + 1) % acts);
+
+  const tied = new Int32Array(acts);
+  score((_pred, a) => ({ reward: a === 0 || a === 1 ? 3 : 0, cost: 0, novelty: 0 }), tied);
+  for (let a = 0; a < acts; a++) assert.equal(tied[a], 0, "a tie keeps the earlier follow-up");
+
+  const omitted = new Int32Array(acts);
+  omitted.fill(7);
+  score(readPred);
+  for (let a = 0; a < acts; a++) assert.equal(omitted[a], 7, "omitted buffer is not written");
+});
+
+test("rollout executes the imagined follow-up on the second tick and the off path matches the option", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.rollout, false);
+
+  const walk = (features?: { option?: boolean; rollout?: boolean }) => {
+    Math.random = mulberry32(31);
+    const k = new Kernel("field", 9, features);
+    const actions: number[] = [];
+    for (let t = 0; t < 24; t++) {
+      k.step();
+      actions.push(k.lastAction);
+    }
+    return {
+      actions,
+      x: k.x,
+      y: k.y,
+      foods: k.foods,
+      lives: k.lives,
+      energy: k.energy,
+      surprise: k.surprise,
+      w1: Array.from(k.loop.net.w1),
+      w2: Array.from(k.loop.net.w2),
+      held: k.optionHeld,
+      switched: k.rolloutSwitched,
+      follow: k.rolloutFollow,
+    };
+  };
+  const shipped = walk();
+  const explicitOff = walk({ rollout: false });
+  const optionOff = walk({ option: false });
+  const rolloutWithoutOption = walk({ option: false, rollout: true });
+  assert.deepEqual(explicitOff, shipped);
+  assert.equal(shipped.switched, 0);
+  assert.equal(shipped.held, 12);
+  assert.deepEqual(rolloutWithoutOption, optionOff, "rollout does nothing when the option is off");
+
+  Math.random = mulberry32(31);
+  const off = new Kernel("field", 9, { rollout: false });
+  Math.random = mulberry32(31);
+  const on = new Kernel("field", 9, { rollout: true });
+  off.step();
+  on.step();
+  assert.equal(on.lastAction, off.lastAction, "the commitment tick is the same sample");
+  assert.deepEqual(Array.from(on.loop.net.w1), Array.from(off.loop.net.w1));
+  const committed = on.lastAction;
+  const follow = on.rolloutFollow;
+  const branching = on.branching;
+  assert.equal(on.rolloutSwitched, 0);
+  assert.equal(on.optionHeld, 0);
+  on.step();
+  assert.equal(on.lastAction, follow, "the second tick is the stored follow-up");
+  assert.equal(on.branching, branching, "a roll-out tick does not consult the policy");
+  if (follow === committed) assert.equal(on.optionHeld, 1);
+  else assert.equal(on.rolloutSwitched, 1);
+  off.step();
+  assert.equal(off.lastAction, committed, "the option still repeats the primitive");
+
+  let switched = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    Math.random = mulberry32(40 + seed);
+    const k = new Kernel("field", seed, { rollout: true });
+    let seen = 0;
+    for (let t = 0; t < 40; t++) {
+      const before = k.rolloutFollow;
+      k.step();
+      if (t % OPTION_SPAN === 0) {
+        assert.equal(k.rolloutSwitched, seen);
+      } else {
+        assert.equal(k.lastAction, before);
+        seen = k.rolloutSwitched;
+      }
+    }
+    assert.equal(k.optionHeld + k.rolloutSwitched, 20);
+    switched += k.rolloutSwitched;
+  }
+  assert.ok(switched > 0, "the follow-up was never a different action");
+
+  Math.random = mulberry32(11);
+  const random = new Kernel("field", 3, { rollout: true }, { signal: "random" });
+  const actions: number[] = [];
+  for (let t = 0; t < 8; t++) {
+    random.step();
+    actions.push(random.lastAction);
+  }
+  assert.equal(random.rolloutSwitched, 0, "no imagination, so the second tick repeats");
+  for (let i = 0; i < actions.length; i += OPTION_SPAN) assert.equal(actions[i + 1], actions[i]);
+
+  Math.random = mulberry32(32);
+  const reset = new Kernel("blank", 3, { rollout: true });
+  reset.step();
+  reset.step();
+  reset.resetBrain();
+  assert.equal(reset.rolloutSwitched, 0);
+  assert.equal(reset.optionHeld, 0);
+  reset.step();
+  assert.equal(reset.rolloutSwitched, 0, "a new mind samples; it does not finish the old roll-out");
+});
+
+test("revise scales the cell step from the sign of progress and the off path stays the constant", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.revise, false);
+
+  const x = new Float32Array([1, 0, 1, 0]);
+  const target = new Float32Array([0, 1, 0, 1]);
+  const up = 1 + 0.05;
+
+  Math.random = mulberry32(7);
+  const shipped = new Loop(4, 4, 4, 5);
+  Math.random = mulberry32(7);
+  const explicitOff = new Loop(4, 4, 4, 5, { revise: false });
+  Math.random = mulberry32(7);
+  const constructed = new Loop(4, 4, 4, 5, { revise: true });
+  assert.deepEqual(Array.from(constructed.net.w1), Array.from(shipped.net.w1), "the constructor draws no extra random number");
+  shipped.commit(x);
+  explicitOff.commit(x);
+  shipped.assimilate(target, TRANSITION_LR);
+  explicitOff.assimilate(target, TRANSITION_LR);
+  shipped.commit(x);
+  explicitOff.commit(x);
+  shipped.assimilate(target, TRANSITION_LR);
+  explicitOff.assimilate(target, TRANSITION_LR);
+  assert.equal(shipped.revisedLr, 0);
+  assert.equal(shipped.stepGain, 1);
+  assert.equal(explicitOff.revisedLr, 0);
+  assert.deepEqual(Array.from(explicitOff.net.w1), Array.from(shipped.net.w1));
+  assert.deepEqual(Array.from(explicitOff.net.w2), Array.from(shipped.net.w2));
+
+  Math.random = mulberry32(7);
+  const on = new Loop(4, 4, 4, 5, { revise: true });
+  Math.random = mulberry32(7);
+  const off = new Loop(4, 4, 4, 5, { revise: false });
+  on.commit(x);
+  off.commit(x);
+  assert.equal(on.stepGain, 1);
+  assert.equal(on.revisedLr, 0, "no training step yet, so no rate is recorded");
+  on.ema = 1;
+  off.ema = 1;
+  on.assimilate(target, TRANSITION_LR);
+  off.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress > 0);
+  assert.ok(on.stepGain > 1 && on.stepGain <= TRANSITION_LR);
+  assert.equal(on.revisedLr, TRANSITION_LR, "the first training step is still the constant");
+  assert.deepEqual(Array.from(on.net.w1), Array.from(off.net.w1));
+  assert.equal(off.stepGain, 1);
+  assert.equal(off.revisedLr, 0);
+
+  const gain = on.stepGain;
+  on.ema = 1;
+  off.ema = 1;
+  on.commit(x);
+  off.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  off.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress > 0);
+  assert.ok(Math.abs(on.stepGain - Math.min(gain * up, TRANSITION_LR)) < 1e-12);
+  assert.ok(on.stepGain > gain);
+  let differ = false;
+  for (let i = 0; i < on.net.w1.length; i++) if (on.net.w1[i] !== off.net.w1[i]) differ = true;
+  assert.equal(differ, true, "the next step uses the revised gain");
+  assert.ok(on.revisedLr > TRANSITION_LR);
+
+  const shrunkFrom = on.stepGain;
+  on.ema = 0;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.ok(on.progress < 0);
+  assert.ok(Math.abs(on.stepGain - Math.max(shrunkFrom / up, 1 / TRANSITION_LR)) < 1e-12);
+  assert.ok(on.stepGain < shrunkFrom);
+
+  on.stepGain = TRANSITION_LR;
+  on.ema = 1;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.stepGain, TRANSITION_LR, "positive progress cannot leave the top of the band");
+  on.stepGain = 1 / TRANSITION_LR;
+  on.ema = 0;
+  on.commit(x);
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.stepGain, 1 / TRANSITION_LR, "negative progress cannot leave the bottom of the band");
+
+  const pred = new Float32Array(on.out);
+  on.commit(x);
+  on.net.forward(x, pred);
+  let s = 0;
+  for (let i = 0; i < on.out; i++) {
+    const d = pred[i]! - target[i]!;
+    s += d * d;
+  }
+  on.ema = s / on.out;
+  const held = on.stepGain;
+  on.assimilate(target, TRANSITION_LR);
+  assert.equal(on.progress, 0);
+  assert.equal(on.stepGain, held, "zero progress leaves the gain");
+
+  const dumped = on.exportBrain();
+  assert.equal(dumped.stepGain, held);
+  const restored = new Loop(4, 4, 4, 5, { revise: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.stepGain, held);
+  const older = { ...dumped };
+  delete older.stepGain;
+  const legacy = new Loop(4, 4, 4, 5, { revise: true });
+  assert.equal(legacy.importBrain(older), true);
+  assert.equal(legacy.stepGain, 1, "a brain from before self-revision keeps the constant");
+  const wild = { ...dumped, stepGain: 100 };
+  const clipped = new Loop(4, 4, 4, 5, { revise: true });
+  assert.equal(clipped.importBrain(wild), true);
+  assert.equal(clipped.stepGain, TRANSITION_LR);
+
+  Math.random = mulberry32(11);
+  const kernelOff = new Kernel("field", 4, { revise: false });
+  Math.random = mulberry32(11);
+  const kernelDefault = new Kernel("field", 4);
+  for (let t = 0; t < 16; t++) {
+    kernelOff.step();
+    kernelDefault.step();
+  }
+  assert.equal(kernelOff.loop.revisedLr, 0);
+  assert.equal(kernelDefault.loop.revisedLr, 0);
+  assert.deepEqual(Array.from(kernelOff.loop.net.w1), Array.from(kernelDefault.loop.net.w1));
+  assert.equal(kernelOff.x, kernelDefault.x);
+  assert.equal(kernelOff.y, kernelDefault.y);
+  assert.equal(kernelOff.lives, kernelDefault.lives);
+
+  Math.random = mulberry32(12);
+  const kernelOn = new Kernel("field", 4, { revise: true });
+  for (let t = 0; t < 8; t++) kernelOn.step();
+  assert.ok(kernelOn.loop.revisedLr > 0);
+  assert.ok(kernelOn.loop.stepGain !== 1, "a field episode moves the gain");
+  kernelOn.resetBrain();
+  assert.equal(kernelOn.loop.stepGain, 1);
+  assert.equal(kernelOn.loop.revisedLr, 0, "a new mind does not keep the old rate");
+
+  Math.random = mulberry32(20261015);
 });
 
 test("food, stream, and band claims hold under a pinned init", () => {
