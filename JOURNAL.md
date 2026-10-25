@@ -1,5 +1,77 @@
 # Journal
 
+## 2026-10-25 doorway (America/New_York)
+
+Written before `npm run doorway`. No doorway gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 are already journaled. The rectified-progress gap under matched drift is −0.0109 [−0.0125, −0.0093], entirely below 0.0169. Temperature 0.15 moved rho's detection threshold to 0.0085. At that temperature the matched noise room still does not attract rho, and the adaptation-rate drift room still includes 0. The fast rate 0.3003 repels on occupancy, −0.0350 [−0.0590, −0.0111], on the learner from before `option` defaulted on. Forgetting cycles were then run in a design whose planted wave the phase contrast could see, and a cycle whose high half is the first half of the forgetting period was refuted. The late-return thread was closed on a 27-cycle episode. The phase diagram stopped the occupancy grid. The measurement those entries left open, and did not run, is the doorway score. This run is that measurement. It adds no curiosity term and no Loop flag. Open problems 1 through 6 stay closed. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. `option` stays on. `transition` stays on.
+
+### Preregister doorway
+
+Hypothesis. On the matched drift pair, at temperature 0.15, rho's doorway score is lower on the drifting arm than on the held arm when turnover is much faster than τ, and that gap includes 0 at the adaptation rate. The repulsion is offered at the choice only when the picture turns over much faster than the learner adapts. The comparison is drift minus held. The fast rate is 0.3003. The adaptation rate is 0.01877.
+
+The occupancy this sentence interprets was measured on 2026-10-17, before `option` was the default. This run does not turn `option` off. The learner is the shipped one. A held tick is not a choice. The occupancy excess on this learner is reported and is not a call. It cannot rescue a doorway interval and it cannot overturn one.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, `matchedPattern` drift versus held. The held arm burns the redraw coin. Temperature 0.15, the sensitivity setting, passed only inside this sweep. Episodes are 400 steps. Seeds 1–200. The seed stream is `seed * 10007 + 7301`, the drift episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are reported. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Metric. A tick counts only when `optionHeld` does not rise during the step. That is a sample: `choose` wrote `scores` for the cell the body is standing in. A held tick repeats the committed direction and leaves the previous scores in place. It is dropped. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts the sweep before any call.
+
+The doorway score on a sampled tick is the mean score of actions whose real destination is region 1, minus the mean score of the others. The destination rule is the policy's: a blocked step, a step off the map, or wait stays in the current region. A tick with no action on one side is dropped. A seed's number is the mean of the ticks that remain. The gap is the drifting arm minus the held arm, one number per seed. A seed with no counted tick on either arm is dropped. Paired 95% percentile bootstrap, 2000 resamples.
+
+Rates. Only the locked adaptation cell and the fast cell of `driftRatesFromTau` on τ = 53.28471423768756. Those numbers are 0.01877 and 0.3003. A runner that does not get those two numbers throws before any episode. No other rate is run. No other temperature is run.
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. Rate index is 0 for 0.01877 and 1 for 0.3003. The doorway gap uses salt `22000 + 10 × rate + explorer`. `repulsionCall`: entirely below 0 is confirmed, entirely above 0 is refuted, otherwise inconclusive. Too few eligible seeds, meaning the kept seeds are not a majority of 200, is inconclusive and does not call a sign.
+
+Summary, `doorwaySummary`, from rho's two calls only. Confirmed when the fast rate is confirmed and the adaptation rate is inconclusive: the deficit is at the choice only when turnover is much faster than τ. Refuted when either rate lies entirely above 0, when both lie entirely below 0, or when only the adaptation rate lies entirely below 0. Otherwise inconclusive. Random excluding 0 is not a summary label. It aborts. Surprise, count, and RND do not flip the summary.
+
+Occupancy excess, drift minus held, uses salt `23000 + 10 × rate + explorer`. It is the fraction of steps that began in region 1. It is not a call.
+
+Harness. The sweep aborts before any call if any episode's sample count is not half the steps, or if any random-walk path checksum, target-room fraction, meal count, or life count differs across the two arms of a rate. The checksum folds the cell index before the move with multiplier 33. Random's doorway gap is a point mass at 0. An interval that excludes 0 aborts.
+
+Decision, locked before the run. Confirmed: the fast room is offered as a worse choice and the adaptation-rate room is not. Refuted: the choice prefers the drifting room at either rate, or the deficit is present at the adaptation rate. Inconclusive: neither doorway interval resolves a repulsion. No policy retune and no new term in any of the three. `policyTemperature` omitted stays 0.45. `option` stays on.
+
+Figure: `bench/doorway/doorway-gap.png`. The bars are the paired doorway gaps. Zero is the vertical line. Source: `bench/doorway/doorway.json`. The sweep is `npm run doorway`. It is not part of CI.
+
+### Results
+
+The prediction is inconclusive. Rho's doorway gap includes 0 at both rates. The point estimates are positive, which is the wrong sign for a repulsion, and neither interval lies entirely above 0, so this is not a measured preference for the drifting room. The summary is inconclusive. No term was added. The temperature stays 0.45. `option` stays on.
+
+4000 episodes, 400 steps, 4 workers, 107.2 seconds. Source: `bench/doorway/doorway.json`. The random walk is the same path on both arms of each rate, meals and lives included. Every episode sampled half its steps. The harness does not fail. Random's doorway gap on the seeds that stood at a boundary is a point mass at 0. Twenty seeds at the adaptation rate and twenty-two at the fast rate never stood on a cell with an action on both sides, so those seeds are out of random's mean. The kept seeds are a majority. The gap does not exclude 0, so the sweep does not abort.
+
+#### Summary. Inconclusive.
+
+Temperature 0.15. Doorway score is the mean, over sampled ticks that have an action on both sides, of the mean score into region 1 minus the mean score of the others. The gap is drift minus held. `doorwaySummary` is inconclusive: neither of rho's intervals lies entirely below 0, and neither lies entirely above 0.
+
+| rate | rho doorway | n | call |
+|---|---|---:|---|
+| 0.01877 | 0.0079 [−0.0269, 0.0435] | 199 | inconclusive |
+| 0.3003 | 0.0066 [−0.0299, 0.0434] | 196 | inconclusive |
+
+One seed at the adaptation rate and four at the fast rate had no doorway tick on one arm. The kept seeds are a majority, so the calls are not the too-few label. A seed's mean is about 16 ticks: 16.01 at the adaptation rate and 16.37 at the fast rate, averaged over the two arms. The intervals are wide because the choice is a few ticks. They still reach about ±0.03. A shift of that size is inside both intervals. The locked rule does not turn that into a sensitive null. The label stays inconclusive.
+
+The other explorers are not the call. Every interval includes 0. Count at the fast rate is the closest to a repulsion, and its upper end is still above 0.
+
+| rate | random | count | surprise | rnd |
+|---|---|---|---|---|
+| 0.01877 | 0.0000 [0.0000, 0.0000] | −0.0186 [−0.0538, 0.0167] | 0.0083 [−0.0279, 0.0463] | −0.0158 [−0.0487, 0.0150] |
+| 0.3003 | 0.0000 [0.0000, 0.0000] | −0.0340 [−0.0709, 0.0029] | 0.0097 [−0.0290, 0.0491] | 0.0158 [−0.0287, 0.0607] |
+
+Random's n is 180 at the adaptation rate and 178 at the fast rate. Count keeps all 200. Surprise keeps 199 and 198. RND keeps 197 and 199.
+
+Occupancy, not a call. Target-room fraction, drift minus held, on all 200 seeds. Rho at the fast rate is −0.0053 [−0.0322, 0.0199]. The 2026-10-17 repulsion at this rate, −0.0350 [−0.0590, −0.0111], was the learner from before `option` defaulted on. This learner's interval includes 0. Rho at the adaptation rate is 0.0119 [−0.0105, 0.0351], which also includes 0. The doorway was not asked to explain an occupancy repulsion that this learner does not show. The occupancy numbers do not change the doorway call.
+
+Figure: `bench/doorway/doorway-gap.png`. Both of rho's bars cross zero.
+
+No mechanism was added. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `d505fde`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. No kernel mechanism file changed, so the probe gate is not required.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, and do not add a curiosity term. Rho's doorway gap includes 0 at 0.01877 and at 0.3003, and the point estimates are positive. More seeds aimed at a negative gap would be a second look at a sign this sample did not show. The fast-rate occupancy repulsion from before `option` was the default is not this learner's occupancy: that interval includes 0 too. The doorway question on the shipped learner is closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-24 criticality (America/New_York)
 
 Written before `npm run gate -- --flag edge --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `bbac395`, and are not this claim.

@@ -451,3 +451,20 @@ function slopeCall(lo: number, hi: number, nWindows: number, nBoot: number, iter
   if (containsHalf) return "inconclusive";
   return "refuted";
 }
+
+export type DoorwaySummary = "confirmed" | "refuted" | "inconclusive";
+
+/**
+ * Doorway deficit, drift minus held, at the adaptation rate and at the fast rate.
+ * Both arguments are `repulsionCall`: confirmed means the interval lies entirely below 0.
+ * Confirmed: the fast rate repels and the adaptation rate does not resolve.
+ * Refuted: either rate prefers the drifting room, both rates repel, or only the
+ * adaptation rate repels. Otherwise the choice did not resolve a repulsion.
+ */
+export function doorwaySummary(atTau: Call, atFast: Call): DoorwaySummary {
+  if (atTau === "refuted" || atFast === "refuted") return "refuted";
+  if (atFast === "confirmed" && atTau === "inconclusive") return "confirmed";
+  if (atFast === "confirmed" && atTau === "confirmed") return "refuted";
+  if (atTau === "confirmed") return "refuted";
+  return "inconclusive";
+}
