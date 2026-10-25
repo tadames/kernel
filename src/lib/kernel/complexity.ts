@@ -40,6 +40,13 @@ export function entropyNorm(
   return h / Math.log(n);
 }
 
+/**
+ * C2 band on mean branching after burn-in. The criticality controller
+ * uses these same ends. A count inside the band is interior.
+ */
+export const C2_BRANCH_LO = 1.6;
+export const C2_BRANCH_HI = 4.6;
+
 /** Count of actions within `frac` of the best score. 1 = ordered, n = chaotic. */
 export function branching(scores: Float32Array, frac = 0.25): number {
   let max = -Infinity;

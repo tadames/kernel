@@ -129,6 +129,13 @@ export function imagineScores(opts: {
    * receive it: imagined steps have no grid region.
    */
   progExtra?: (action: number) => number;
+  /**
+   * Horizon-2 follow-up for each first action. Written only when passed.
+   * The index is the first `a1` whose value strictly won, the same `s2 > best2`
+   * comparison that enters the score. A tie keeps the earlier index. Omitted
+   * writes nothing and leaves the score path unchanged.
+   */
+  follow?: Int32Array;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -145,6 +152,7 @@ export function imagineScores(opts: {
     const res1 = expectedResidual(pred, opts.residualWeight);
     let rhoHat = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
     const extra = opts.progExtra ? opts.progExtra(a) : 0;
+    if (opts.follow) opts.follow[a] = a;
 
     if (twoStep) {
       let best2 = -Infinity;
@@ -158,6 +166,7 @@ export function imagineScores(opts: {
         if (s2 > best2) {
           best2 = s2;
           bestRes2 = expectedResidual(pred2, opts.residualWeight);
+          if (opts.follow) opts.follow[a] = a1;
           if (threeStep) {
             if (!bestPred2 || bestPred2 === into2) bestPred2 = pred2.slice();
             else bestPred2.set(pred2);
