@@ -196,6 +196,8 @@ async function main() {
       wonderOn: avg(on.map((row) => row.revisedCuriosity)),
       shapeOff: avg(off.map((row) => row.shapedWidth)),
       shapeOn: avg(on.map((row) => row.shapedWidth)),
+      edgeOff: avg(off.map((row) => row.edgedTemperature)),
+      edgeOn: avg(on.map((row) => row.edgedTemperature)),
       diff: decision.probe,
       lives: decision.lives,
       g2On: on.filter((row) => row.g2).length,

@@ -1,5 +1,65 @@
 # Journal
 
+## 2026-10-24 criticality (America/New_York)
+
+Written before `npm run gate -- --flag edge --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `bbac395`, and are not this claim.
+
+The occupancy priorities are already closed. The rectified-progress gap under matched drift, the dose response at temperature 0.15, and the forgetting cycle are in the earlier entries. Open problems 1 through 4 are closed on this probe. The previous entry's next experiment is open problem 5, grounded language, unless this probe cannot score a token stream. It cannot. The held-out probe is mean squared error on the wall and food channels of frozen grid transitions. The forward it scores is the cell net. A token stream that does not move those weights cannot move late probe error. The bit-stream testbed is a different score, and it is not this gate. A code of the next window that still decodes to cells was the `decode` flag. Seeds 1–20 put zero inside its probe interval, and it stays off. Inventing a second architecture so that a token could reach this probe is the move the previous entry ruled out. This run takes open problem 6 instead.
+
+Open problem 6 names the learning rate and the temperature. The learning rate was already the `revise` flag. It stays the constant `TRANSITION_LR`. The curiosity weight stays `params.curiosity`. This run moves only the temperature, which is still a constant. One flag. It does not enter the progress bonus. `discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. `wonder` stays off. `shape` stays off. None of them is rerun. `option` stays on. `transition` stays on. Horizon 2 and horizon 3 stay the shipped imagination. The option span stays 2.
+
+### Preregister edge
+
+Hypothesis. On Field, policy temperature is a state the loop revises so branching stays inside the C2 band, instead of the constant 0.45. Late held-out probe error falls relative to that constant. The comparison is the flag absent. The absent arm passes `params.temperature`, which is 0.45 on the grid.
+
+Instrument. Flag `edge`, default off. Rho, transition still on, option still on, every other flag at its default, including `discard` off, `decode` off, `rollout` off, `revise` off, `wonder` off, and `shape` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is action-side. It does not enter the progress bonus. It does not change the cell step. It does not change the curiosity weight. Surprise and progress are scored as they are today. The formula inside the score is unchanged. Only the temperature passed into the sampler changes.
+
+Rule, locked here. One scalar gain starts at 1. It is not searched. The off path does not read it and does not write it. The temperature on the off path is `params.temperature`. The constructor draws no extra `Math.random`. An explicit `edge: false` is the same learner as the default.
+
+The on path multiplies that same constant by the gain. The sample on this tick uses the gain from before. The first sample uses gain 1. After the action is chosen, the gain is revised from the branching of the scores just imagined. Branching is the count of actions within a quarter of the score span. It does not read the temperature. The ends are 1.6 and 4.6, the same numbers `c2Pass` uses. A count below 1.6 multiplies the gain by `1.05`. A count above 4.6 divides it by `1.05`. A count inside the band, including the two ends, leaves it. With five actions the count is an integer, so the only outside values are 1 and 5. The cut is still those ends. It is not a retune to the integers. `1.05` is `1 + 0.05`, and `0.05` is the coefficient already used to fold progress into `progressEma`. It is not a second rate and not a grid.
+
+The sign is locked. A count of 1 is a frozen score. Heating the sampler puts mass on the other actions at the next sample. A count of 5 is an open score. Cooling the sampler makes the next sample follow the best score. The band is not a target in the middle. The controller does nothing while the count is already interior.
+
+The gain is clipped to `[1 / TRANSITION_LR, TRANSITION_LR]`, which is `[0.25, 4]`. Those are the ends already locked for the learning-rate gain. On the grid the constant temperature is 0.45, so the used temperature stays inside `[0.1125, 1.8]`. No other band is run. The clip is applied after the multiply or the divide.
+
+The revision is for the next sample. This sample uses the gain from before. A held tick does not sample, so it does not record a temperature and does not revise. The random signal does not read the temperature and does not revise. When burn-in is running it still scales the returned temperature, and the existing cap stays. Field episodes leave burn-in at 0, so the recorded value is the temperature the sampler receives. Burn-in is not a cell of this contrast.
+
+`edgedTemperature` is the mean of those used temperatures. It is 0 when the flag is off. It is not a cutoff. The off arm is 0. A mean that sits on 0.45 means every sampled action used the constant. The snapshot field `edge` stays the index `4H(1−H)`. This flag does not write that field.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), edge on lowers late held-out probe error versus the constant temperature.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second band, no flipped sign, and no revision of the cell step is run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. Source: `bench/latest.json` at sha `bbac395`.
+
+### Results
+
+The probe prediction is inconclusive. The paired interval includes zero. The point estimate is higher with the flag on, by 0.0001, and the interval does not lie entirely below zero, so this is not a measured regression of the probe. Lives rose. That interval lies entirely above zero, which is a preregistered failure. The flag stays off. The code stays. No 200-seed run: the 20-seed rule said a fail stops there.
+
+40 episodes, 4 workers, 3.2 seconds. Source: `bench/gate.json`, copied at `bench/edge/gate-20.json`.
+
+| arm | probe late | mean temperature |
+|---|---:|---:|
+| edge off | 0.1008 | 0.000 |
+| edge on | 0.1009 | 0.5718 |
+
+Off minus on is −0.0001 [−0.0078, 0.0093]. The interval includes zero. The controller was not idle: the mean temperature on the on arm is 0.5718, and the constant is 0.45, so the gain sat above 1. The off arm records 0 because that path does not store a temperature. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Lives on minus lives off is 0.30 [0.10, 0.50]. That interval lies entirely above zero, so deaths rose. The threshold was not loosened. The sign was not flipped. The band was not widened. The cell step was not revised.
+
+Figure: `bench/edge/edge-ci.png`. The bar is the paired interval of off minus on. Zero is the vertical line. The bar crosses it.
+
+`edge` remains default off. It does not enter the progress bonus. `option` stays on. `transition` stays on. `discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. `wonder` stays off. `shape` stays off. No second band was run.
+
+Kept defaults after the flag was added, seeds 1–5, sha `bbac395`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `edge` is not the decision: on 0.0972, off 0.1102, so off minus on is 0.0130 on those five seeds, the other sign from the 20-seed point estimate. Lives on that row are 0.60 versus 0.40, the same sign as the gate. The 20-seed probe interval includes zero, and the 20-seed lives interval lies above zero. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not turn `edge` on, and do not rerun it with more seeds, a flipped sign, or a different band. Twenty seeds already put the lives interval entirely above zero, and the probe interval includes zero. The constant temperature remains. Open problem 6 is closed on this probe. The learning-rate knob was already closed by `revise`, and this run did not open it again. Open problem 5 stays unscored: this probe is cell error on a frozen grid, and a token stream does not move that number. Do not add a decoder to make it move. The next run should not add a flag on this probe. The scored open problems are closed.
+
 ## 2026-10-24 hidden width (America/New_York)
 
 Written before `npm run gate -- --flag shape --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `3ff7c7b`, and are not this claim.

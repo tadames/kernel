@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-24T17:02:55.837Z",
+  "date": "2026-10-25T01:03:00.593Z",
   "seeds": [
     1,
     2,
@@ -24,16 +24,16 @@
   ],
   "steps": 280,
   "flags": [
-    "shape"
+    "edge"
   ],
   "results": [
     {
-      "flag": "shape",
-      "hypothesis": "On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), shape on lowers late held-out probe error versus the fixed hidden width.",
+      "flag": "edge",
+      "hypothesis": "On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), edge on lowers late held-out probe error versus the constant temperature.",
       "threshold": "paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero",
       "pass": false,
       "probeOff": 0.10076232193829512,
-      "probeOn": 0.10901791173490376,
+      "probeOn": 0.10088353590068735,
       "probeOffSeeds": [
         0.1623112530549418,
         0.10782481036206275,
@@ -57,26 +57,26 @@
         0.09513468028921471
       ],
       "probeOnSeeds": [
-        0.13585888461050571,
-        0.11204853654858389,
-        0.090874392044732,
-        0.0992898541667375,
-        0.1100059003390656,
-        0.09814334230057245,
-        0.09559536019527713,
-        0.12414998884115183,
-        0.09971892909656754,
-        0.15455344964195486,
-        0.10274986869160083,
-        0.09719705157275506,
-        0.09757654425178251,
-        0.111374726603361,
-        0.10598842810923981,
-        0.10058652152655484,
-        0.12392566527436548,
-        0.09557808902145204,
-        0.0899717069743604,
-        0.13517099488745515
+        0.09482173119452807,
+        0.09416647161850876,
+        0.10470078050672345,
+        0.09162438981849862,
+        0.10070834926964375,
+        0.09591174438603006,
+        0.09031985609145574,
+        0.15445455649649265,
+        0.09457723429353491,
+        0.1040538808827739,
+        0.10130244596091091,
+        0.1070283578948687,
+        0.09498374054644722,
+        0.0901779327405354,
+        0.09350578661380025,
+        0.1281992882904854,
+        0.09300552477523424,
+        0.09159284434726174,
+        0.10197985783121101,
+        0.09055594445480207
       ],
       "discardOff": 0,
       "discardOn": 0,
@@ -91,27 +91,30 @@
       "wonderOff": 0,
       "wonderOn": 0,
       "shapeOff": 0,
-      "shapeOn": 107.89462365591399,
+      "shapeOn": 0,
+      "edgeOff": 0,
+      "edgeOn": 0.5717757077080862,
       "diff": {
-        "mean": -0.008255589796608644,
-        "lo": -0.017169751374750446,
-        "hi": -0.0001973239974479582,
-        "n": 20,
-        "excludesZero": true
-      },
-      "lives": {
-        "mean": 0.05,
-        "lo": -0.2,
-        "hi": 0.3,
+        "mean": -0.000121213962392204,
+        "lo": -0.007832777749600835,
+        "hi": 0.009250396356077047,
         "n": 20,
         "excludesZero": false
+      },
+      "lives": {
+        "mean": 0.3,
+        "lo": 0.1,
+        "hi": 0.5,
+        "n": 20,
+        "excludesZero": true
       },
       "g2On": 20,
       "g2Off": 20,
       "c2On": 20,
       "c2Off": 20,
       "reasons": [
-        "probe CI of (off − on) is [-0.0172, -0.0002]; on must be lower and the interval must exclude zero"
+        "probe CI of (off − on) is [-0.0078, 0.0093]; on must be lower and the interval must exclude zero",
+        "Field lives rise: paired CI of (on − off) lies above zero"
       ]
     }
   ]

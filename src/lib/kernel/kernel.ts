@@ -803,11 +803,12 @@ export class Kernel {
       follow: this.features.rollout ? this.followBuf : undefined,
     });
     if (this.features.rollout) this.followReady = true;
-    let temp = this.params.temperature;
+    let temp = this.loop.policyTemperature(this.params.temperature);
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
     this.policyEntropy = entropyNorm(this.scores, temp);
     this.branching = branching(this.scores);
     this.edge = edgeIndex(this.policyEntropy);
+    this.loop.reviseEdge(this.branching);
     return softmaxSample(this.scores, temp, this.rand);
   }
 

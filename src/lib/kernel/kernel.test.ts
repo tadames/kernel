@@ -8,9 +8,9 @@ import { mulberry32 } from "./presets.ts";
 Math.random = mulberry32(20261015);
 import { Kernel, OPTION_SPAN } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
-import { evaluateClaims } from "./experiments.ts";
+import { c2Pass, evaluateClaims } from "./experiments.ts";
 import { expectedResidual, imagineScores } from "./policy.ts";
-import { branching, edgeIndex, entropyNorm, participation } from "./complexity.ts";
+import { C2_BRANCH_HI, C2_BRANCH_LO, branching, edgeIndex, entropyNorm, participation } from "./complexity.ts";
 
 // existing suite preserved in repo history through 19 prior tests; this file is the full suite.
 
@@ -1744,6 +1744,156 @@ test("shape revises hidden width from the sign of progress and the off path stay
   kernelOn.resetBrain();
   assert.equal(kernelOn.loop.net.active, kernelOn.loop.hidden);
   assert.equal(kernelOn.loop.shapedWidth, 0, "a new mind does not keep the old width");
+
+  Math.random = mulberry32(20261015);
+});
+
+test("edge revises temperature from branching and the off path stays the constant", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.edge, false);
+  assert.equal(C2_BRANCH_LO, 1.6);
+  assert.equal(C2_BRANCH_HI, 4.6);
+  assert.equal(c2Pass(C2_BRANCH_LO), true);
+  assert.equal(c2Pass(C2_BRANCH_HI), true);
+  assert.equal(c2Pass(1), false);
+  assert.equal(c2Pass(5), false);
+
+  const up = 1 + 0.05;
+  Math.random = mulberry32(7);
+  const shipped = new Loop(4, 4, 4, 5);
+  Math.random = mulberry32(7);
+  const explicitOff = new Loop(4, 4, 4, 5, { edge: false });
+  Math.random = mulberry32(7);
+  const constructed = new Loop(4, 4, 4, 5, { edge: true });
+  assert.deepEqual(Array.from(constructed.net.w1), Array.from(shipped.net.w1), "the constructor draws no extra random number");
+  assert.equal(shipped.policyTemperature(0.45), 0.45);
+  shipped.reviseEdge(1);
+  assert.equal(explicitOff.policyTemperature(0.45), 0.45);
+  explicitOff.reviseEdge(5);
+  assert.equal(shipped.edgedTemperature, 0);
+  assert.equal(shipped.temperatureGain, 1);
+  assert.equal(explicitOff.edgedTemperature, 0);
+  assert.equal(explicitOff.temperatureGain, 1);
+  assert.deepEqual(Array.from(explicitOff.net.w1), Array.from(shipped.net.w1));
+  assert.deepEqual(Array.from(explicitOff.net.w2), Array.from(shipped.net.w2));
+
+  Math.random = mulberry32(7);
+  const on = new Loop(4, 4, 4, 5, { edge: true });
+  Math.random = mulberry32(7);
+  const off = new Loop(4, 4, 4, 5, { edge: false });
+  assert.equal(on.temperatureGain, 1);
+  assert.equal(on.edgedTemperature, 0, "no sample yet, so no temperature is recorded");
+  assert.equal(on.policyTemperature(0.45), 0.45, "the first sample uses the constant");
+  assert.equal(on.edgedTemperature, 0.45);
+  assert.equal(on.temperatureGain, 1, "recording the temperature does not revise the gain");
+  for (const interior of [2, 3, 4, C2_BRANCH_LO, C2_BRANCH_HI]) {
+    on.reviseEdge(interior);
+    assert.equal(on.temperatureGain, 1, `branching ${interior} is inside the band`);
+  }
+  off.policyTemperature(0.45);
+  off.reviseEdge(1);
+  assert.equal(off.temperatureGain, 1);
+  assert.equal(off.edgedTemperature, 0);
+  assert.deepEqual(Array.from(on.net.w1), Array.from(off.net.w1));
+  assert.deepEqual(Array.from(on.net.w2), Array.from(off.net.w2));
+
+  on.reviseEdge(1);
+  assert.ok(Math.abs(on.temperatureGain - up) < 1e-12, "a frozen count heats the sampler");
+  assert.equal(on.policyTemperature(0.45), 0.45 * up, "the next sample uses the revised gain");
+  const heated = on.temperatureGain;
+  assert.ok(Math.abs(heated - up) < 1e-12, "recording the temperature does not revise the gain");
+  on.reviseEdge(1);
+  assert.ok(Math.abs(on.temperatureGain - Math.min(heated * up, TRANSITION_LR)) < 1e-12);
+  assert.ok(on.temperatureGain > heated);
+
+  const cooledFrom = on.temperatureGain;
+  on.reviseEdge(5);
+  assert.ok(Math.abs(on.temperatureGain - Math.max(cooledFrom / up, 1 / TRANSITION_LR)) < 1e-12);
+  assert.ok(on.temperatureGain < cooledFrom, "an open count cools the sampler");
+
+  on.temperatureGain = TRANSITION_LR;
+  on.reviseEdge(1);
+  assert.equal(on.temperatureGain, TRANSITION_LR, "a frozen count cannot leave the top of the band");
+  on.temperatureGain = 1 / TRANSITION_LR;
+  on.reviseEdge(5);
+  assert.equal(on.temperatureGain, 1 / TRANSITION_LR, "an open count cannot leave the bottom of the band");
+  assert.equal(on.policyTemperature(0), 0, "a zero constant stays zero");
+
+  const held = on.temperatureGain;
+  const dumped = on.exportBrain();
+  assert.equal(dumped.temperatureGain, held);
+  const restored = new Loop(4, 4, 4, 5, { edge: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.temperatureGain, held);
+  const older = { ...dumped };
+  delete older.temperatureGain;
+  const legacy = new Loop(4, 4, 4, 5, { edge: true });
+  assert.equal(legacy.importBrain(older), true);
+  assert.equal(legacy.temperatureGain, 1, "a brain from before this revision keeps the constant");
+  const wild = { ...dumped, temperatureGain: 100 };
+  const clipped = new Loop(4, 4, 4, 5, { edge: true });
+  assert.equal(clipped.importBrain(wild), true);
+  assert.equal(clipped.temperatureGain, TRANSITION_LR);
+
+  Math.random = mulberry32(11);
+  const kernelOff = new Kernel("field", 4, { edge: false });
+  Math.random = mulberry32(11);
+  const kernelDefault = new Kernel("field", 4);
+  for (let t = 0; t < 16; t++) {
+    kernelOff.step();
+    kernelDefault.step();
+  }
+  assert.equal(kernelOff.loop.edgedTemperature, 0);
+  assert.equal(kernelDefault.loop.edgedTemperature, 0);
+  assert.equal(kernelOff.loop.temperatureGain, 1);
+  assert.equal(kernelDefault.loop.temperatureGain, 1);
+  assert.deepEqual(Array.from(kernelOff.loop.net.w1), Array.from(kernelDefault.loop.net.w1));
+  assert.deepEqual(Array.from(kernelOff.loop.net.w2), Array.from(kernelDefault.loop.net.w2));
+  assert.equal(kernelOff.x, kernelDefault.x);
+  assert.equal(kernelOff.y, kernelDefault.y);
+  assert.equal(kernelOff.lives, kernelDefault.lives);
+  assert.equal(kernelOff.lastAction, kernelDefault.lastAction);
+
+  Math.random = mulberry32(9);
+  const kernelOn = new Kernel("field", 5, { edge: true });
+  Math.random = mulberry32(9);
+  const kernelPair = new Kernel("field", 5, { edge: false });
+  kernelOn.step();
+  kernelPair.step();
+  assert.equal(kernelOn.lastAction, kernelPair.lastAction, "the first sample uses the constant");
+  assert.deepEqual(Array.from(kernelOn.scores), Array.from(kernelPair.scores));
+  assert.equal(kernelOn.loop.edgedTemperature, kernelOn.params.temperature);
+  kernelOn.step();
+  kernelPair.step();
+  assert.equal(kernelOn.lastAction, kernelPair.lastAction, "the held tick repeats the primitive");
+  assert.equal(kernelOn.loop.edgedTemperature, kernelOn.params.temperature, "a held tick does not record a temperature");
+  kernelOn.loop.temperatureGain = TRANSITION_LR;
+  kernelOn.step();
+  const twoSamples = (kernelOn.params.temperature + kernelOn.params.temperature * TRANSITION_LR) / 2;
+  assert.ok(Math.abs(kernelOn.loop.edgedTemperature - twoSamples) < 1e-9, "the next sample uses the revised temperature");
+  assert.equal(kernelPair.loop.temperatureGain, 1);
+  assert.equal(kernelPair.loop.edgedTemperature, 0);
+
+  Math.random = mulberry32(12);
+  const moved = new Kernel("field", 4, { edge: true });
+  moved.step();
+  assert.ok(moved.loop.edgedTemperature > 0);
+  moved.resetBrain();
+  assert.equal(moved.loop.temperatureGain, 1);
+  assert.equal(moved.loop.edgedTemperature, 0, "a new mind does not keep the old temperature");
+
+  Math.random = mulberry32(13);
+  const randOn = new Kernel("field", 6, { edge: true }, { signal: "random" });
+  Math.random = mulberry32(13);
+  const randOff = new Kernel("field", 6, { edge: false }, { signal: "random" });
+  for (let t = 0; t < 12; t++) {
+    randOn.step();
+    randOff.step();
+  }
+  assert.equal(randOn.loop.edgedTemperature, 0, "the random signal does not read the temperature");
+  assert.equal(randOn.loop.temperatureGain, 1);
+  assert.equal(randOn.x, randOff.x);
+  assert.equal(randOn.y, randOff.y);
+  assert.deepEqual(Array.from(randOn.loop.net.w1), Array.from(randOff.loop.net.w1));
 
   Math.random = mulberry32(20261015);
 });

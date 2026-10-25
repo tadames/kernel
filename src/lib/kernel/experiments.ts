@@ -7,6 +7,7 @@ import type { LoopFeatures } from "./loop.ts";
 import { CANONICAL_ENV } from "./env.ts";
 import { PROBE_EARLY_STEP, buildProbe } from "./probe.ts";
 import { g1Baseline, normalizedSkill, type ProbeBaseline } from "./baselines.ts";
+import { C2_BRANCH_HI, C2_BRANCH_LO } from "./complexity.ts";
 
 export type { ProbeBaseline };
 export { g1Baseline, normalizedSkill };
@@ -43,7 +44,7 @@ export function c1Pass(structEarly: number, structLate: number, noiseLate: numbe
 }
 
 export function c2Pass(meanB: number) {
-  return meanB >= 1.6 && meanB <= 4.6;
+  return meanB >= C2_BRANCH_LO && meanB <= C2_BRANCH_HI;
 }
 
 export type Claim = {

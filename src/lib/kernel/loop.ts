@@ -77,9 +77,18 @@
  * It does not enter the progress bonus and it does not change the
  * cell step or the curiosity weight. The off path does not read or
  * write the width. It does not run while `decode` is on.
+ * `edge` is action-side and off by default. The policy temperature
+ * is a gain on the constant, starting at 1. Branching below the C2
+ * floor heats the sampler. Branching above the C2 ceiling cools it.
+ * A count inside the band leaves the gain. The gain stays inside
+ * [1/TRANSITION_LR, TRANSITION_LR]. It does not enter the progress
+ * bonus and it does not change the cell step or the curiosity weight.
+ * Seeds 1–20 put zero inside the paired probe interval of off minus
+ * on, and lives rose. It stays off. The off path passes the constant
+ * temperature and does not read the gain.
  */
 import { MLP, mse } from "./mlp.ts";
-import { participation } from "./complexity.ts";
+import { C2_BRANCH_HI, C2_BRANCH_LO, participation } from "./complexity.ts";
 import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from "./progress.ts";
 
 /**
@@ -105,6 +114,9 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * `shape` is learning-side. It does not enter the bonus. Seeds 1–20
  * put the paired probe interval of off minus on entirely below zero.
  * It stays off.
+ * `edge` is action-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on, and
+ * lives rose. It stays off.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -127,6 +139,7 @@ export const LOOP_FEATURE_KEYS = [
   "revise",
   "wonder",
   "shape",
+  "edge",
   "transition",
 ] as const;
 
@@ -193,6 +206,12 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Off is the constructed width. The probe gate decides whether it stays off.
    */
   shape: false,
+  /**
+   * Revise policy temperature so branching stays inside the C2 band.
+   * Off is the constant `params.temperature` (0.45 on the grid).
+   * Seeds 1–20: the probe interval included zero, and lives rose. Stays off.
+   */
+  edge: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -289,6 +308,11 @@ export type BrainDump = {
    * this revision. A missing value is the constructed width.
    */
   shapeWidth?: number;
+  /**
+   * Gain on policy temperature while `edge` is on. Absent on brains
+   * saved before this revision. A missing value is gain 1, the constant temperature.
+   */
+  temperatureGain?: number;
 };
 
 export class Loop {
@@ -448,6 +472,18 @@ export class Loop {
   readonly shapeFloor: number;
   /** Highest live width while `shape` is on. The constructed width times TRANSITION_LR. */
   readonly shapeCeiling: number;
+  /**
+   * Multiplier on policy temperature while `edge` is on. Starts at 1,
+   * so the first sampled action uses the constant. Stays 1 when the flag is off.
+   */
+  temperatureGain = 1;
+  /**
+   * Mean temperature passed toward the sampler on sampled actions.
+   * Zero whenever `edge` is off, because the off path does not record one.
+   */
+  edgedTemperature = 0;
+  private edgeMass = 0;
+  private edgeCount = 0;
   /** True after this assimilate computed progress. The first tick does not. */
   private progressReady = false;
   /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
@@ -1347,6 +1383,38 @@ export class Loop {
     else if (this.progress < 0) this.net.narrow(this.shapeFloor);
   }
 
+  /**
+   * Policy temperature under self-tuned criticality. The off path returns
+   * the constant and does not record it. The on path multiplies by the
+   * gain from before this sample's revision and records that used temperature.
+   * Burn-in, when it is running, scales the returned value afterward.
+   */
+  policyTemperature(constant: number): number {
+    if (!this.features.edge) return constant;
+    const used = constant * this.temperatureGain;
+    this.edgeMass += used;
+    this.edgeCount += 1;
+    this.edgedTemperature = this.edgeMass / this.edgeCount;
+    return used;
+  }
+
+  /**
+   * Move the temperature gain after the action has been chosen. This
+   * sample already used the gain from before. Branching below the C2
+   * floor multiplies by 1.05. Branching above the C2 ceiling divides
+   * by 1.05. A count inside the band, including the ends, leaves it.
+   * 0.05 is the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR], the band already locked for the
+   * learning-rate gain. The off path does not read or write the gain.
+   * A held tick does not call this. The random signal does not either.
+   */
+  reviseEdge(branchCount: number) {
+    if (!this.features.edge) return;
+    const up = 1 + 0.05;
+    if (branchCount < C2_BRANCH_LO) this.temperatureGain = Math.min(this.temperatureGain * up, TRANSITION_LR);
+    else if (branchCount > C2_BRANCH_HI) this.temperatureGain = Math.max(this.temperatureGain / up, 1 / TRANSITION_LR);
+  }
+
   /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
   private clipDecode(v: number) {
     if (v > 1.5) return 1.5;
@@ -1548,6 +1616,7 @@ export class Loop {
       stepGain: this.stepGain,
       curiosityGain: this.curiosityGain,
       shapeWidth: this.net.active,
+      temperatureGain: this.temperatureGain,
     };
   }
 
@@ -1609,6 +1678,9 @@ export class Loop {
     }
     if (typeof w.curiosityGain === "number" && Number.isFinite(w.curiosityGain) && w.curiosityGain > 0) {
       this.curiosityGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.curiosityGain));
+    }
+    if (typeof w.temperatureGain === "number" && Number.isFinite(w.temperatureGain) && w.temperatureGain > 0) {
+      this.temperatureGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.temperatureGain));
     }
     if (this.features.shape && typeof w.shapeWidth === "number" && Number.isFinite(w.shapeWidth)) {
       const hi = Math.min(this.shapeCeiling, this.net.h);
