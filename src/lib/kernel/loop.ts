@@ -117,6 +117,10 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * `edge` is action-side. It does not enter the bonus. Seeds 1–20
  * put zero inside the paired probe interval of off minus on, and
  * lives rose. It stays off.
+ * `echo` is learning-side. It does not enter the bonus. Seeds 1–20
+ * and seeds 1–200 put the paired probe interval of off minus on
+ * entirely above zero, and lives did not rise. With echo on, option's
+ * own probe interval includes zero, so echo stays off and option stays on.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -140,6 +144,7 @@ export const LOOP_FEATURE_KEYS = [
   "wonder",
   "shape",
   "edge",
+  "echo",
   "transition",
 ] as const;
 
@@ -212,6 +217,13 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
    * Seeds 1–20: the probe interval included zero, and lives rose. Stays off.
    */
   edge: false,
+  /**
+   * Rehearse the cell transition from SHIPPED_PROGRESS_WINDOW training
+   * steps ago, one extra step at the live rate. Off trains only the
+   * current transition. Seeds 1–200: off minus on 0.0157 [0.0135, 0.0180].
+   * Stays off: with it on, option's probe interval includes zero.
+   */
+  echo: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -313,6 +325,17 @@ export type BrainDump = {
    * saved before this revision. A missing value is gain 1, the constant temperature.
    */
   temperatureGain?: number;
+  /**
+   * Next write slot in the echo ring. Absent on brains saved before
+   * rehearsal. A missing value is an empty ring.
+   */
+  echoAt?: number;
+  /** Pairs stored in the echo ring. Absent on older brains. */
+  echoFill?: number;
+  /** Flat echo inputs, slot order, length `echoFill * inn`. */
+  echoX?: number[];
+  /** Flat echo targets, slot order, length `echoFill * out`. */
+  echoY?: number[];
 };
 
 export class Loop {
@@ -484,6 +507,17 @@ export class Loop {
   edgedTemperature = 0;
   private edgeMass = 0;
   private edgeCount = 0;
+  /**
+   * Fraction of training steps that rehearsed a stored transition.
+   * Zero whenever `echo` is off, because the off path does not record one.
+   */
+  echoed = 0;
+  private echoHits = 0;
+  private echoTrain = 0;
+  private echoX: Float32Array[] | null = null;
+  private echoY: Float32Array[] | null = null;
+  private echoAt = 0;
+  private echoFill = 0;
   /** True after this assimilate computed progress. The first tick does not. */
   private progressReady = false;
   /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
@@ -1261,8 +1295,10 @@ export class Loop {
     const trainTarget = this.cellTrainTarget(target);
     if (this.features.discard) this.assimilateSteps += 1;
     const step = this.features.revise ? this.reviseRate(lr) : lr;
-    if (this.features.decode) this.trainDecode(this.prevInput, trainTarget, step);
-    else this.net.train(this.prevInput, trainTarget, step);
+    const trainedOn = this.prevInput;
+    if (this.features.decode) this.trainDecode(trainedOn, trainTarget, step);
+    else this.net.train(trainedOn, trainTarget, step);
+    this.rehearse(trainedOn, trainTarget, step);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
     this.progressReady = true;
@@ -1413,6 +1449,47 @@ export class Loop {
     const up = 1 + 0.05;
     if (branchCount < C2_BRANCH_LO) this.temperatureGain = Math.min(this.temperatureGain * up, TRANSITION_LR);
     else if (branchCount > C2_BRANCH_HI) this.temperatureGain = Math.max(this.temperatureGain / up, 1 / TRANSITION_LR);
+  }
+
+  /**
+   * One extra cell step on the transition stored SHIPPED_PROGRESS_WINDOW
+   * training steps ago. Surprise and progress for this tick are already
+   * scored, so the rehearsal does not enter the bonus. The off path
+   * returns before allocating the ring. `decode` on returns the same way:
+   * that update is not this cell step. Draws no Math.random.
+   */
+  private rehearse(x: Float32Array, y: Float32Array, lr: number) {
+    if (!this.features.echo || this.features.decode) return;
+    const delay = SHIPPED_PROGRESS_WINDOW;
+    if (!this.echoX || !this.echoY) {
+      this.echoX = new Array(delay);
+      this.echoY = new Array(delay);
+    }
+    if (this.echoFill >= delay) {
+      const slot = this.echoAt;
+      const oldX = this.echoX[slot];
+      const oldY = this.echoY[slot];
+      if (oldX && oldY) {
+        this.net.train(oldX, oldY, lr);
+        this.echoHits += 1;
+      }
+    }
+    let sx = this.echoX[this.echoAt];
+    let sy = this.echoY[this.echoAt];
+    if (!sx || sx.length !== x.length) {
+      sx = new Float32Array(x.length);
+      this.echoX[this.echoAt] = sx;
+    }
+    if (!sy || sy.length !== y.length) {
+      sy = new Float32Array(y.length);
+      this.echoY[this.echoAt] = sy;
+    }
+    sx.set(x);
+    sy.set(y);
+    this.echoAt = (this.echoAt + 1) % delay;
+    if (this.echoFill < delay) this.echoFill += 1;
+    this.echoTrain += 1;
+    this.echoed = this.echoHits / this.echoTrain;
   }
 
   /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
@@ -1617,7 +1694,23 @@ export class Loop {
       curiosityGain: this.curiosityGain,
       shapeWidth: this.net.active,
       temperatureGain: this.temperatureGain,
+      echoAt: this.echoAt,
+      echoFill: this.echoFill,
+      echoX: this.flatEcho(this.echoX, this.inn),
+      echoY: this.flatEcho(this.echoY, this.out),
     };
+  }
+
+  /** Slot-order copy of the stored echo pairs. Absent when the ring is empty. */
+  private flatEcho(slots: Float32Array[] | null, width: number): number[] | undefined {
+    if (!slots || this.echoFill <= 0) return undefined;
+    const flat = new Array<number>(this.echoFill * width);
+    for (let s = 0; s < this.echoFill; s++) {
+      const row = slots[s];
+      const at = s * width;
+      for (let j = 0; j < width; j++) flat[at + j] = row && j < row.length ? row[j]! : 0;
+    }
+    return flat;
   }
 
   importBrain(w: BrainDump): boolean {
@@ -1687,7 +1780,29 @@ export class Loop {
       const lo = Math.min(this.shapeFloor, hi);
       this.net.active = Math.min(hi, Math.max(lo, Math.round(w.shapeWidth)));
     }
+    this.restoreEcho(w);
     return true;
+  }
+
+  /** Empty ring when the dump predates rehearsal or the lengths disagree. */
+  private restoreEcho(w: BrainDump) {
+    if (!this.features.echo) return;
+    const delay = SHIPPED_PROGRESS_WINDOW;
+    const fill = Math.min(delay, Math.max(0, Math.round(w.echoFill ?? 0)));
+    if (fill <= 0 || !w.echoX || !w.echoY) return;
+    if (w.echoX.length !== fill * this.inn || w.echoY.length !== fill * this.out) return;
+    this.echoX = new Array(delay);
+    this.echoY = new Array(delay);
+    for (let s = 0; s < fill; s++) {
+      const x = new Float32Array(this.inn);
+      const y = new Float32Array(this.out);
+      x.set(w.echoX.slice(s * this.inn, (s + 1) * this.inn));
+      y.set(w.echoY.slice(s * this.out, (s + 1) * this.out));
+      this.echoX[s] = x;
+      this.echoY[s] = y;
+    }
+    this.echoFill = fill;
+    this.echoAt = fill < delay ? fill : ((Math.round(w.echoAt ?? 0) % delay) + delay) % delay;
   }
 }
 

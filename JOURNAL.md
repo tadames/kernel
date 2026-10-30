@@ -1,5 +1,65 @@
 # Journal
 
+## 2026-10-30 echo (America/New_York)
+
+Written before `npm run gate -- --flag echo --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `6c22dbf`, and are not this claim.
+
+Priorities 1, 2, and 3 are finished. The rectified-progress gap under matched drift is −0.0109 [−0.0125, −0.0093], entirely below 0.0169. Temperature 0.15 moved rho's detection threshold to 0.0085, and at that temperature the matched noise room and the adaptation-rate drift room still include 0. Forgetting cycles were refuted, and the late-return thread is closed. The doorway on the shipped learner includes 0 at 0.01877 and at 0.3003, and the point estimates are positive. Those measurements are not rerun. Open problems 1 through 6 stay closed. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. `option` stays on. `transition` stays on. The softmax is not retuned. No curiosity term is added.
+
+The previous entry left Field probe late at 0.1102, above the per-cell-mean floor of 0.0979, with on-policy ema at 0.0726. G1 is 1/5. The cell net takes one step per tick, at `TRANSITION_LR` = 4, on the transition the body is standing in. The probe is a uniform sample of the map. This run rehearses the transition from 50 training steps ago, one extra step at the same rate, after surprise is scored. The 50 is the shipped progress window. It is not searched. The extra step does not enter the progress bonus.
+
+### Preregister echo
+
+Hypothesis. On Field, rehearsing the cell transition from 50 training steps ago, one extra step at the same rate, lowers late held-out probe error relative to training only the live transition. The comparison is the flag absent. The absent arm does not store a transition and does not take the extra step.
+
+Instrument. Flag `echo`, default off. Rho, transition still on, option still on, every other flag at its default, including `discard` off, `decode` off, `rollout` off, `revise` off, `wonder` off, `shape` off, and `edge` off. Field, canonical map, frozen probe, 280 steps. Seeds 1–20. The same seeds on both arms. Weight init is reseeded per episode. The flag is learning-side. It does not enter the progress bonus. It does not change the curiosity weight, the temperature, or the option. Surprise and progress are scored before the extra step, on the live transition, as they are today.
+
+Rule, locked here. The delay is `SHIPPED_PROGRESS_WINDOW`, which is 50. It is not searched. The off path does not allocate the ring and does not write it. The constructor draws no extra `Math.random`. An explicit `echo: false` is the same learner as the default. The first tick does not train, so it does not store. A training step stores the pair the live step just used: the pre-move input and the cell target, with family 2 already replaced by the prediction. When 50 pairs are stored, the next training step rehearses the oldest pair, then overwrites that slot. The rehearsed step uses the same rate the live step just used. `decode` on does not store and does not rehearse, because that flag's update is not this cell step. The guard is not a cell of this contrast.
+
+`echoed` is the fraction of training steps that rehearsed a stored pair. It is 0 when the flag is off. It is not a cutoff. The off arm is 0. On a 280-step episode the first kernel step does not train, and the first rehearsal is the 51st training step.
+
+This is one map. There is no room contrast, so the matched-room control is not a cell of this run. The control is the same Field, the same seeds, the flag absent.
+
+- hypothesis: On Field, seeds 1–20, rho, with the other defaults unchanged (option on, transition on), echo on lowers late held-out probe error versus training only the live transition.
+- metric: probeLate
+- direction: lower
+- threshold: paired 95% bootstrap CI of (off − on) lies entirely above zero; G2 and C2 do not lose a majority that off held; paired CI of (lives on − lives off) does not lie entirely above zero
+
+The decision is that gate, 20 seeds. A pass at 20 is not a headline until seeds 1–200 give a paired interval of the same sign that also excludes zero, with no G2, C2, or lives regression on those seeds. A fail at 20 does not go on to 200. The flag then stays off, and the code stays. No second mechanism is added in this run. No second delay is run.
+
+Parent bench, seeds 1–5, before this flag existed. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json` at sha `6c22dbf`.
+
+### Results
+
+The probe prediction is confirmed. Late held-out probe error is lower with the rehearsal on. The paired interval lies entirely above zero at 20 seeds and at 200 seeds. Lives did not rise. G2 and C2 did not regress. The flag stays off anyway. With the rehearsal on, `option`'s own probe interval includes zero, so a default stack with both on would fail the gate that kept `option`. `option` stays on. The code stays. No second delay was run.
+
+40 episodes, 4 workers, 3.7 seconds. Source: `bench/echo/gate-20.json`. 400 episodes, 4 workers, 10.9 seconds. Source: `bench/echo/gate-200.json`.
+
+| arm | seeds | probe late | echoed |
+|---|---:|---:|---:|
+| echo off | 1–20 | 0.1008 | 0 |
+| echo on | 1–20 | 0.0890 | 0.8208 |
+| echo off | 1–200 | 0.1033 | 0 |
+| echo on | 1–200 | 0.0876 | 0.8208 |
+
+Seeds 1–20, off minus on is 0.0118 [0.0058, 0.0194]. Lives on minus lives off is 0.05 [−0.15, 0.25]. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Seeds 1–200, off minus on is 0.0157 [0.0135, 0.0180]. Lives on minus lives off is 0.005 [−0.060, 0.075]. G2 was 200/200 on both arms. C2 was 200/200 on both arms. The on-arm mean at 200 seeds, 0.0876, sits under the per-cell-mean floor of 0.0979. That is the paired contrast. It is not a G1 pass on the shipped learner. `echoed` is 0.8208, which is 229 rehearsals out of 279 training steps. The ring filled on the 51st training step and stayed full.
+
+The rehearsal does not enter the progress bonus. Surprise on the step that first rehearses matches the off arm. The off path allocates nothing and draws no extra random number.
+
+`option` with `echo` on, seeds 1–20. Source: `bench/echo/gate-stack-20.json`. Off minus on is 0.0038 [−0.0013, 0.0082]. The interval includes zero. The point estimate is still lower with `option` on. Lives on minus lives off is −0.15 [−0.50, 0.20]. G2 was 20/20 on both arms. C2 was 20/20 on both arms. Transition on the same stack still passes: off minus on 0.1325 [0.1270, 0.1368]. With `echo` off, `option` is again the published contrast, off minus on 0.0107 [0.0032, 0.0179], and transition is 0.1347 [0.1255, 0.1416]. Source: `bench/echo/gate-kept-20.json`. The CI gate runs every flag that defaults on. Both cannot default on.
+
+Figure: `bench/echo/echo-ci.png`. The bar is the 200-seed paired interval of off minus on. Zero is the vertical line. The bar sits entirely to the right of it.
+
+`echo` remains default off. It does not enter the progress bonus. `option` stays on. `transition` stays on. `discard` stays off. `decode` stays off. `rollout` stays off. `revise` stays off. `wonder` stays off. `shape` stays off. `edge` stays off. No second delay was run. The softmax was not retuned. No curiosity term was added.
+
+Kept defaults, seeds 1–5, sha `6c22dbf`. The row matches the parent because the flag is off. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The five-seed flip of `echo` is not the decision: on 0.0942, off 0.1102, so off minus on is 0.0159 on those five seeds, the same sign as the paired gate. Lives on that row are 0.60 versus 0.40. The 20-seed and 200-seed intervals lie above zero, and the 200-seed lives interval includes zero. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is well above 2 KB. With `echo` off, the probe gate for the flags that default on passes.
+
+### Next hypothesis
+
+Do not turn `echo` on, and do not turn `option` off to make room for it. The rehearsal lowers Field probe error against its absence, at 20 seeds and at 200, and it puts zero inside the probe interval that kept the option. A later run that wants the rehearsal has to show `option`'s interval still excludes zero with the rehearsal in the baseline, or replace the option under its own preregistration. That replacement is not licensed here. Do not retune the softmax, and do not add a curiosity term. Field probe late on the shipped learner is still 0.1102. G1 is still 1/5. The on-arm mean under the floor is the rehearsal, which is not the default.
+
 ## 2026-10-25 doorway (America/New_York)
 
 Written before `npm run doorway`. No doorway gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

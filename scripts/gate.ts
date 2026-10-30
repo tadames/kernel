@@ -198,6 +198,8 @@ async function main() {
       shapeOn: avg(on.map((row) => row.shapedWidth)),
       edgeOff: avg(off.map((row) => row.edgedTemperature)),
       edgeOn: avg(on.map((row) => row.edgedTemperature)),
+      echoOff: avg(off.map((row) => row.echoed)),
+      echoOn: avg(on.map((row) => row.echoed)),
       diff: decision.probe,
       lives: decision.lives,
       g2On: on.filter((row) => row.g2).length,

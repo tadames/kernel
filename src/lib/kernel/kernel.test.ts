@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MLP, mse } from "./mlp.ts";
 import { Loop, DEFAULT_LOOP_FEATURES, TRANSITION_LR } from "./loop.ts";
+import { SHIPPED_PROGRESS_WINDOW } from "./progress.ts";
 import { mulberry32 } from "./presets.ts";
 
 // Weight init uses Math.random. Pin it so the suite does not flicker in CI.
@@ -1907,4 +1908,130 @@ test("food, stream, and band claims hold under a pinned init", () => {
     assert.ok(claim, `missing ${id}`);
     assert.equal(claim.pass, true, `${id} ${claim.detail}`);
   }
+});
+
+test("echo rehearses the transition from the shipped window and the off path does not", () => {
+  assert.equal(DEFAULT_LOOP_FEATURES.echo, false);
+  assert.equal(SHIPPED_PROGRESS_WINDOW, 50);
+  const delay = SHIPPED_PROGRESS_WINDOW;
+  const inn = 8;
+  const hidden = 4;
+  const out = 6;
+  const acts = 5;
+
+  Math.random = mulberry32(7);
+  const shipped = new Loop(inn, hidden, out, acts);
+  Math.random = mulberry32(7);
+  const explicitOff = new Loop(inn, hidden, out, acts, { echo: false });
+  Math.random = mulberry32(7);
+  const constructed = new Loop(inn, hidden, out, acts, { echo: true });
+  assert.deepEqual(Array.from(constructed.net.w1), Array.from(shipped.net.w1), "the constructor draws no extra random number");
+  assert.equal(shipped.echoed, 0);
+  assert.equal(explicitOff.echoed, 0);
+  assert.deepEqual(Array.from(explicitOff.net.w1), Array.from(shipped.net.w1));
+  assert.deepEqual(Array.from(explicitOff.net.w2), Array.from(shipped.net.w2));
+
+  function feed(loop: Loop, n: number) {
+    for (let t = 0; t < n; t++) {
+      const x = new Float32Array(inn);
+      x[t % out] = 1;
+      x[out + (t % acts)] = 1;
+      const y = new Float32Array(out);
+      y[(t + 1) % out] = 1;
+      loop.commit(x);
+      loop.assimilate(y, TRANSITION_LR);
+    }
+  }
+
+  Math.random = mulberry32(8);
+  const on = new Loop(inn, hidden, out, acts, { echo: true });
+  Math.random = mulberry32(8);
+  const off = new Loop(inn, hidden, out, acts, { echo: false });
+  feed(on, delay);
+  feed(off, delay);
+  assert.equal(on.echoed, 0, "the ring fills before it rehearses");
+  assert.equal(off.echoed, 0);
+  assert.deepEqual(Array.from(on.net.w1), Array.from(off.net.w1));
+  assert.deepEqual(Array.from(on.net.w2), Array.from(off.net.w2));
+
+  const x = new Float32Array(inn);
+  x[1] = 1;
+  const y = new Float32Array(out);
+  y[2] = 1;
+  on.commit(x);
+  off.commit(x);
+  on.assimilate(y, TRANSITION_LR);
+  off.assimilate(y, TRANSITION_LR);
+  assert.equal(on.surprise, off.surprise, "surprise is scored before the rehearsal");
+  assert.equal(on.progress, off.progress);
+  assert.ok(Math.abs(on.echoed - 1 / (delay + 1)) < 1e-12);
+  assert.equal(off.echoed, 0);
+  assert.notDeepEqual(Array.from(on.net.w1), Array.from(off.net.w1));
+
+  const dumped = on.exportBrain();
+  assert.equal(dumped.echoFill, delay);
+  assert.equal(dumped.echoX?.length, delay * inn);
+  assert.equal(dumped.echoY?.length, delay * out);
+  Math.random = mulberry32(9);
+  const restored = new Loop(inn, hidden, out, acts, { echo: true });
+  assert.equal(restored.importBrain(dumped), true);
+  assert.equal(restored.exportBrain().echoFill, delay);
+  assert.equal(restored.exportBrain().echoAt, dumped.echoAt);
+  const older = { ...dumped };
+  delete older.echoX;
+  delete older.echoY;
+  delete older.echoFill;
+  delete older.echoAt;
+  Math.random = mulberry32(10);
+  const legacy = new Loop(inn, hidden, out, acts, { echo: true });
+  assert.equal(legacy.importBrain(older), true);
+  assert.equal(legacy.exportBrain().echoFill, 0, "a brain from before rehearsal keeps an empty ring");
+
+  const nextX = new Float32Array(inn);
+  nextX[3] = 1;
+  const nextY = new Float32Array(out);
+  nextY[4] = 1;
+  on.commit(nextX);
+  restored.commit(nextX);
+  on.assimilate(nextY, TRANSITION_LR);
+  restored.assimilate(nextY, TRANSITION_LR);
+  assert.deepEqual(Array.from(on.net.w1), Array.from(restored.net.w1));
+  assert.deepEqual(Array.from(on.net.w2), Array.from(restored.net.w2));
+
+  Math.random = mulberry32(11);
+  const decodeOn = new Loop(inn, hidden, out, acts, { echo: true, decode: true });
+  Math.random = mulberry32(11);
+  const decodeOff = new Loop(inn, hidden, out, acts, { echo: false, decode: true });
+  feed(decodeOn, delay + 2);
+  feed(decodeOff, delay + 2);
+  assert.equal(decodeOn.echoed, 0, "decode does not rehearse");
+  assert.deepEqual(Array.from(decodeOn.net.w1), Array.from(decodeOff.net.w1));
+  assert.deepEqual(Array.from(decodeOn.net.w2), Array.from(decodeOff.net.w2));
+
+  Math.random = mulberry32(12);
+  const kernelOn = new Kernel("field", 4, { echo: true });
+  for (let t = 0; t < 51; t++) kernelOn.step();
+  Math.random = mulberry32(12);
+  const kernelOff = new Kernel("field", 4, { echo: false });
+  for (let t = 0; t < 51; t++) kernelOff.step();
+  assert.equal(kernelOn.loop.echoed, 0);
+  assert.equal(kernelOff.loop.echoed, 0);
+  assert.equal(kernelOn.x, kernelOff.x);
+  assert.equal(kernelOn.y, kernelOff.y);
+  assert.equal(kernelOn.lives, kernelOff.lives);
+  assert.deepEqual(Array.from(kernelOn.loop.net.w1), Array.from(kernelOff.loop.net.w1));
+  assert.deepEqual(Array.from(kernelOn.loop.net.w2), Array.from(kernelOff.loop.net.w2));
+
+  kernelOn.step();
+  kernelOff.step();
+  assert.ok(Math.abs(kernelOn.loop.echoed - 1 / 51) < 1e-12);
+  assert.equal(kernelOff.loop.echoed, 0);
+  assert.equal(kernelOn.loop.surprise, kernelOff.loop.surprise);
+  assert.notDeepEqual(Array.from(kernelOn.loop.net.w1), Array.from(kernelOff.loop.net.w1));
+
+  kernelOn.resetBrain();
+  assert.equal(kernelOn.loop.echoed, 0, "a new mind does not keep the ring");
+  assert.equal(kernelOn.loop.exportBrain().echoFill, 0);
+
+  Math.random = mulberry32(20261015);
 });
