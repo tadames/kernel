@@ -565,3 +565,95 @@ export function creditVerdict(summary: CreditSummary): Call {
   if (summary === "offered") return "refuted";
   return "inconclusive";
 }
+
+export type ChainLink =
+  | "absent"
+  | "gated"
+  | "cancelled"
+  | "offered"
+  | "reversed"
+  | "elsewhere"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * A score term carries a plant-sized doorway gap when its interval excludes 0
+ * and is not strictly inside (−δ, δ). A sign that stays inside δ does not carry.
+ */
+export function chainCarry(excess: Ends, delta: number): boolean {
+  if (!(delta > 0)) return false;
+  if (excess.lo > 0 && excess.hi >= delta) return true;
+  if (excess.hi < 0 && excess.lo <= -delta) return true;
+  return false;
+}
+
+/**
+ * Where the pattern's progress edge is lost on the way into the doorway score.
+ * `rho` is the action-conditional progress term in score units.
+ * `raw` is max(0, ρ̂) before that term multiplies by explore.
+ * The other four are the remaining additive pieces of the score.
+ * Classes are `creditContentClass`. `carry` is `chainCarry` on that piece.
+ * Absent: ρ̂ and its score term are sensitive nulls, and no other piece carries.
+ * Gated: raw ρ̂ prefers the pattern and the score term does not resolve.
+ * Cancelled: the progress term and another piece resolve opposite signs.
+ * Offered: the progress term prefers the pattern and nothing opposes it.
+ * Reversed: the progress term, or raw ρ̂, prefers the noise room.
+ * Elsewhere: the progress pieces are sensitive nulls and another piece carries.
+ * Confounded: random's gap excludes 0.
+ */
+export function chainSummary(
+  randomExcludesZero: boolean,
+  rho: CreditClass,
+  raw: CreditClass,
+  uncertainty: CreditClass,
+  global: CreditClass,
+  extrinsic: CreditClass,
+  follow: CreditClass,
+  carry: { uncertainty: boolean; global: boolean; extrinsic: boolean; follow: boolean },
+): ChainLink {
+  if (randomExcludesZero) return "confounded";
+  const others: CreditClass[] = [uncertainty, global, extrinsic, follow];
+  const rhoAttracted = rho === "attracted";
+  const rhoRepelled = rho === "repelled";
+  const opposed =
+    (rhoAttracted && others.some((klass) => klass === "repelled")) ||
+    (rhoRepelled && others.some((klass) => klass === "attracted"));
+  if (opposed) return "cancelled";
+  if (rhoAttracted) return "offered";
+  if (rhoRepelled || raw === "repelled") return "reversed";
+  if (raw === "attracted" && rho === "null-with-sensitivity") return "gated";
+  const progressNull = rho === "null-with-sensitivity" && raw === "null-with-sensitivity";
+  const carried = carry.uncertainty || carry.global || carry.extrinsic || carry.follow;
+  if (progressNull && carried) return "elsewhere";
+  const settled = (klass: CreditClass, didCarry: boolean) =>
+    klass === "null-with-sensitivity" || ((klass === "attracted" || klass === "repelled") && !didCarry);
+  if (
+    progressNull &&
+    settled(uncertainty, carry.uncertainty) &&
+    settled(global, carry.global) &&
+    settled(extrinsic, carry.extrinsic) &&
+    settled(follow, carry.follow)
+  ) {
+    return "absent";
+  }
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the in-room edge is absent from ρ̂ and from every plant-sized
+ * piece of the doorway score. Refuted: the edge is gated, cancelled, offered,
+ * reversed, or sitting in another piece. Otherwise inconclusive.
+ */
+export function chainVerdict(summary: ChainLink): Call {
+  if (summary === "absent") return "confirmed";
+  if (
+    summary === "gated" ||
+    summary === "cancelled" ||
+    summary === "offered" ||
+    summary === "reversed" ||
+    summary === "elsewhere"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

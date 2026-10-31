@@ -1,5 +1,104 @@
 # Journal
 
+## 2026-10-31 chain (UTC)
+
+Written before `npm run chain`. No doorway piece from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. `echo` stays off. The pure pattern pays more rectified progress than matched noise, 0.0214 [0.0206, 0.0222], and the doorway score does not prefer it, −0.0079 [−0.0273, 0.0115], inside the planted δ 0.0456. A planted bonus of 0.0169 still moves that score, 0.0594 [0.0456, 0.0734]. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not rerun the doorway at another dose, another temperature, or on the third mask. It does not rerun the planted bonus. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+The failure left open is where that edge dies on the way from the room into the choice. Experienced progress is retrospective: the surprise EMA minus the surprise on a step that already began in the room. The score's action-conditional piece is prospective: `max(0, ρ̂)` times explore. ρ̂ is the scent bonus plus the imagined residual drop. Those are not the same number. The planted bonus writes the progress channel directly and the doorway sees it. The pattern does not. This run splits the doorway score into the pieces that add up to it, on the same contrast, and asks which piece, if any, carries the pattern.
+
+### Preregister chain
+
+Hypothesis. On the shipped learner, the pattern's in-room progress edge is absent from the action-conditional progress term of the doorway score, and the summed-score null is not a cancellation. Raw ρ̂, before the explore weight, is a sensitive null too, so the loss is not a plant-sized anticipation hidden by that weight. The comparison is pattern minus matched noise.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The pattern arm paints `patternChannel` `all`. The noise arm omits it and still draws the noise coin, so the episode RNG matches. No boost arm. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are reported and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceScores` allocates the split. It is not a Loop flag. The off path, which is every other sweep, does not allocate it and does not pass it. The split does not draw a random number and does not enter the bonus. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Doorway ticks. A tick counts only when `optionHeld` does not change during the step. That is a sample. A held tick is dropped. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts. The destination rule is the policy's: a blocked step, a step off the map, or wait stays in the current region. A tick with no action on one side is dropped. A seed's number is the mean of the ticks that remain. A seed with no counted tick on either arm is dropped. Paired 95% percentile bootstrap, 2000 resamples. Pattern minus noise.
+
+Pieces, locked here, in score units except raw ρ̂. Let `c` be curiosity, `e` be explore, `L` be `max(0, learning)`, `h` be `max(0, ρ̂)`, and `w` be `RHO_HAT_PROG_WEIGHT`, which is 0.55. The shipped progress channel is `L + extra + w * h`. Extra is the place bonus. This contrast has none. A nonzero extra aborts.
+
+- `rho` is `c * e * 0.75 * 12 * w * h`. This is the action-conditional progress write.
+- `global` is `c * e * 0.75 * 12 * L`. Global progress, gated by explore. The same `L` multiplies every action.
+- `uncertainty` is `c * (0.75 * e * 0.35 + 0.2 * e)`. Explore with no progress.
+- `extrinsic` is goal minus cost on the first action.
+- `follow` is the discounted horizon value, `score − score1`.
+- `rhoHat` is `h`, before the explore weight. It is not a score piece.
+
+The five score pieces sum to the score. A tick whose doorway gaps do not sum to the score gap within 1e-6 aborts. The total score gap is not a call. It is the credit content contrast, and it has to reproduce that run.
+
+δ. Score pieces use `CHAIN_SCORE_DELTA` = 0.04559740761000422, the published planted lower end. Raw ρ̂ uses `CHAIN_RHO_HAT_DELTA` = 0.0169 / 0.55. That is the ρ̂ add that equals the planted progress-channel dose, because the channel adds `w * h`. Neither δ is remeasured. The plant is not run. No other dose is run. No other temperature is run. The third mask is not a cell.
+
+Classes. Each piece uses `creditContentClass` with its δ. Sign comes before the null. `chainCarry` is true only when the interval excludes 0 and is not strictly inside (−δ, δ). A sign that stays inside δ does not carry.
+
+Summary, `chainSummary`, from rho only. Confounded when random's gap on any piece excludes 0. The sweep aborts in that case, before a verdict. Cancelled when the rho term and another score piece resolve opposite signs. Offered when the rho term is attracted and nothing opposes it. Reversed when the rho term or raw ρ̂ is repelled. Gated when raw ρ̂ is attracted and the rho term is a sensitive null. Elsewhere when both progress pieces are sensitive nulls and another score piece carries. Absent when both progress pieces are sensitive nulls and every other score piece is a sensitive null or a sign that does not carry. Unresolved otherwise. A wide interval on another piece blocks absent. Surprise, count, and RND do not flip the summary.
+
+Verdict, `chainVerdict`. Confirmed when the summary is absent: the in-room edge is not in ρ̂ and not in any plant-sized piece of the doorway score. Refuted when the summary is gated, cancelled, offered, reversed, or elsewhere. Otherwise inconclusive.
+
+Harness, not a call. The census is 52 open cells, all kept. A runner that does not get that count throws before any episode. Random's path, target-room fraction, meals, and lives match across the two arms. A mismatch aborts. Rho's occupancy excess on seeds 1–800 matches the published credit mean 0.0023718750000000038 within 1e-12, and the published interval. Rho's rectified gap matches n = 703 and mean 0.021385533643288657 within 1e-12, and the published interval. Rho's total doorway gap matches n = 766 and mean −0.00792605777551224 within 1e-12. A mismatch aborts. Random's piece gaps are a point mass at 0. An interval that excludes 0 aborts. Fewer than a majority of random seeds at a doorway aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. Confirmed: the progress edge is absent from the doorway's pieces. Refuted: it reaches ρ̂, the score, or another piece, or two pieces cancel. Inconclusive: an interval is too wide to class. The third mask is not run. The plant is not run.
+
+Figure: `bench/chain/chain-gap.png`. The bars are rho's paired piece gaps. Zero is the vertical line. δ is the pair of gold lines, the score δ on the score pieces and the ρ̂ δ on the raw bar. Source: `bench/chain/chain.json`. The sweep is `npm run chain`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `18c247f`. The row is the credit learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Results
+
+The prediction is refuted. The summary is reversed. The action-conditional progress term prefers the noise room, and the interval lies entirely below 0. Raw ρ̂ does not: it is a sensitive null. The reversal is not plant-sized. The rho-term interval sits inside δ, so a preference as large as the planted bonus produced is ruled out. No other piece carries. Uncertainty and global progress are sensitive nulls, so this is not a cancellation of a positive progress offer. No term was added. The temperature stays 0.45. `option` stays on.
+
+8000 episodes, 400 steps, 4 workers, 219.6 seconds. Source: `bench/chain/chain.json`. The random walk is the same path on both arms, meals and lives included. Every episode sampled half its steps. The census is 52 open cells, all kept. Rho's occupancy mean, rectified mean, and total doorway mean match the credit run. The harness does not fail. Random's piece gaps are a point mass at 0 on 731 seeds. The kept seeds are a majority. No random interval excludes 0.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is pattern minus matched noise. δ for a score piece is 0.0456. δ for raw ρ̂ is 0.0307. `chainSummary` is reversed. `chainVerdict` is refuted.
+
+| piece | rho | n | class |
+|---|---|---:|---|
+| rho term | −0.0027 [−0.0048, −0.0007] | 766 | repelled |
+| raw ρ̂ | 0.0002 [−0.0004, 0.0008] | 766 | null-with-sensitivity |
+| global | −0.0005 [−0.0012, 0.0002] | 766 | null-with-sensitivity |
+| uncertainty | −0.0006 [−0.0013, 0.0002] | 766 | null-with-sensitivity |
+| extrinsic | −0.0038 [−0.0224, 0.0156] | 766 | null-with-sensitivity |
+| follow | −0.0003 [−0.0004, −0.0003] | 766 | repelled |
+| total score | −0.0079 [−0.0279, 0.0118] | 766 | null-with-sensitivity |
+
+The rho term lies entirely below 0 and strictly inside (−0.0456, 0.0456). It does not carry. Raw ρ̂ lies strictly inside (−0.0307, 0.0307) and includes 0. The in-room rectified edge is not in that ρ̂. The score term that multiplies ρ̂ by explore is the piece that resolves, and it resolves the other way. Uncertainty, which is explore with no progress, includes 0. Global progress, the same explore gated by the progress EMA, includes 0. Nothing plant-sized is being cancelled.
+
+The total score is the credit content contrast, not a call. The mean matches the published −0.00792605777551224. The interval is a sensitive null against the same δ. A seed's mean is about 15 ticks: 14.62 on the pattern arm and 14.92 on the noise arm. Thirty-four seeds had no doorway tick on one arm. The kept seeds are a majority.
+
+The follow-up is not the call. It lies entirely below 0 and entirely inside δ. The same sign and the same size hold for count, surprise, and RND. It is a shared horizon residual, not a rho effect, and it is not plant-sized.
+
+The other explorers are not the call. RND's progress-slot term is also entirely below 0 and inside δ, −0.0027 [−0.0041, −0.0013], n = 762. Count's and surprise's include 0. Count's extrinsic term is entirely above 0 and still inside δ, 0.0247 [0.0066, 0.0410], n = 798. Rho's extrinsic term includes 0. None of these flips the summary.
+
+| piece | random | count | surprise | rnd |
+|---|---|---|---|---|
+| rho term | 0.0000 [0.0000, 0.0000] | −0.0047 [−0.0163, 0.0068] | −0.0030 [−0.0095, 0.0037] | −0.0027 [−0.0041, −0.0013] |
+| raw ρ̂ | 0.0000 [0.0000, 0.0000] | 0.0013 [−0.0039, 0.0062] | 0.0003 [−0.0004, 0.0010] | −0.0003 [−0.0005, 0.0000] |
+| total | 0.0000 [0.0000, 0.0000] | 0.0195 [−0.0026, 0.0437] | −0.0130 [−0.0334, 0.0082] | 0.0001 [−0.0173, 0.0166] |
+
+Random's n is 731 on every piece. Count keeps 798. Surprise keeps 773. RND keeps 762.
+
+Rectified progress, not a call, and the credit checksum. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05. The in-room advantage is the one raw ρ̂ did not carry.
+
+| quantity | gap | n |
+|---|---|---:|
+| rectified | 0.0214 [0.0206, 0.0222] | 703 |
+
+Occupancy, not a call. Target-room fraction, pattern minus noise, rho, 0.0024 [−0.0080, 0.0125], n = 800. The interval includes 0. The mean matches the credit run.
+
+Figure: `bench/chain/chain-gap.png`. Rho's progress term sits just left of zero, inside the gold lines. Raw ρ̂ crosses zero. The extrinsic bar and the total bar are the wide ones, and both cross zero inside the gold lines.
+
+No mechanism was added. `traceScores` omitted allocates nothing. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `18c247f`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The trace is not a default, so the probe gate is not required to keep one. The score path is the shipped score: the five-seed row matches, and rho's doorway mean on this sweep matches the credit mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not rerun this split at another dose, another temperature, or on the third mask. Raw ρ̂ at the doorway is a sensitive null, 0.0002 [−0.0004, 0.0008], against δ 0.0307. The in-room rectified edge, 0.0214 [0.0206, 0.0222], is not that number. The score term that multiplies ρ̂ by explore prefers the noise room by −0.0027 [−0.0048, −0.0007], inside the planted δ 0.0456, and uncertainty does not resolve a cancelling sign. The loss is before ρ̂ is formed. A small negative product is not a license to change the score. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-10-31 credit (UTC)
 
 Written before `npm run credit`. No doorway score from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

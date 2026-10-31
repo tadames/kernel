@@ -11,8 +11,9 @@ import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, PUBLISHED_RANDOM_FRACTION, runBoostEp
 import { runDriftEpisode } from "./drift-run.ts";
 import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
 import { doorwayDelta, runDoorwayEpisode } from "./doorway-run.ts";
-import { runCreditEpisode } from "./credit-run.ts";
-import { imagineScores } from "./policy.ts";
+import { CREDIT_DOSE, runCreditEpisode } from "./credit-run.ts";
+import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain-run.ts";
+import { imagineScores, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
   boostSummary,
@@ -35,6 +36,9 @@ import {
   creditInstrumentCall,
   creditSummary,
   creditVerdict,
+  chainCarry,
+  chainSummary,
+  chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
   repulsionCall,
@@ -672,4 +676,57 @@ test("a pattern doorway credits only when the choice prefers it, and a planted g
   assert.equal(pattern.lives, noise.lives);
   assert.equal(pattern.scoreGap, 0);
   assert.equal(boost.scoreGap, 0);
+});
+
+test("the doorway chain is absent only when progress never reaches a piece", () => {
+  assert.equal(CHAIN_SCORE_DELTA, 0.04559740761000422);
+  assert.equal(CHAIN_RHO_HAT_DELTA, CREDIT_DOSE / RHO_HAT_PROG_WEIGHT);
+  assert.equal(chainCarry({ lo: 0.05, hi: 0.08 }, CHAIN_SCORE_DELTA), true);
+  assert.equal(chainCarry({ lo: 0.01, hi: 0.02 }, CHAIN_SCORE_DELTA), false);
+  assert.equal(chainCarry({ lo: -0.08, hi: -0.05 }, CHAIN_SCORE_DELTA), true);
+  assert.equal(chainCarry({ lo: -0.01, hi: 0.01 }, CHAIN_SCORE_DELTA), false);
+  assert.equal(chainCarry({ lo: 0.05, hi: 0.08 }, 0), false);
+  const quiet = { uncertainty: false, global: false, extrinsic: false, follow: false };
+  const nil = "null-with-sensitivity" as const;
+  assert.equal(chainSummary(false, nil, nil, nil, nil, nil, nil, quiet), "absent");
+  assert.equal(chainSummary(false, nil, nil, "attracted", nil, nil, nil, quiet), "absent");
+  assert.equal(chainSummary(false, nil, "attracted", nil, nil, nil, nil, quiet), "gated");
+  assert.equal(chainSummary(false, "attracted", "attracted", "repelled", nil, nil, nil, quiet), "cancelled");
+  assert.equal(chainSummary(false, "attracted", nil, nil, nil, nil, nil, quiet), "offered");
+  assert.equal(chainSummary(false, "repelled", nil, nil, nil, nil, nil, quiet), "reversed");
+  assert.equal(chainSummary(false, nil, "repelled", nil, nil, nil, nil, quiet), "reversed");
+  assert.equal(
+    chainSummary(false, nil, nil, "attracted", nil, nil, nil, { ...quiet, uncertainty: true }),
+    "elsewhere",
+  );
+  assert.equal(chainSummary(false, nil, nil, "inconclusive", nil, nil, nil, quiet), "unresolved");
+  assert.equal(chainSummary(false, "inconclusive", nil, nil, nil, nil, nil, quiet), "unresolved");
+  assert.equal(chainSummary(true, nil, nil, nil, nil, nil, nil, quiet), "confounded");
+  assert.equal(chainVerdict("absent"), "confirmed");
+  assert.equal(chainVerdict("gated"), "refuted");
+  assert.equal(chainVerdict("cancelled"), "refuted");
+  assert.equal(chainVerdict("offered"), "refuted");
+  assert.equal(chainVerdict("reversed"), "refuted");
+  assert.equal(chainVerdict("elsewhere"), "refuted");
+  assert.equal(chainVerdict("unresolved"), "inconclusive");
+  assert.equal(chainVerdict("confounded"), "inconclusive");
+  const traced = runChainEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const plain = runCreditEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(traced.path, plain.path);
+  assert.equal(traced.foods, plain.foods);
+  assert.equal(traced.lives, plain.lives);
+  assert.equal(traced.distractorFrac, plain.distractorFrac);
+  assert.equal(traced.samples, plain.samples);
+  assert.equal(traced.scoreSteps, plain.scoreSteps);
+  assert.equal(traced.scoreGap, plain.scoreGap);
+  assert.equal(traced.east.n, plain.east.n);
+  assert.equal(traced.east.rectifiedMean, plain.east.rectifiedMean);
+  const random = runChainEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(random.scoreGap, 0);
+  assert.equal(random.rho, 0);
+  assert.equal(random.global, 0);
+  assert.equal(random.uncertainty, 0);
+  assert.equal(random.extrinsic, 0);
+  assert.equal(random.follow, 0);
+  assert.equal(random.rhoHat, 0);
 });

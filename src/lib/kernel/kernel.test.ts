@@ -10,7 +10,7 @@ Math.random = mulberry32(20261015);
 import { Kernel, OPTION_SPAN } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
 import { c2Pass, evaluateClaims } from "./experiments.ts";
-import { expectedResidual, imagineScores } from "./policy.ts";
+import { emptyScoreParts, expectedResidual, imagineScores } from "./policy.ts";
 import { C2_BRANCH_HI, C2_BRANCH_LO, branching, edgeIndex, entropyNorm, participation } from "./complexity.ts";
 
 // existing suite preserved in repo history through 19 prior tests; this file is the full suite.
@@ -154,6 +154,77 @@ test("a zero progress-channel bonus matches the shipped score and a positive bon
   const boosted = score((action) => (action === 0 ? 0.5 : 0));
   assert.ok(boosted[0] > base[0], `boosted ${boosted[0]} base ${base[0]}`);
   assert.equal(boosted[1], base[1]);
+});
+
+test("score parts add up to the shipped score and a place bonus stays in the extra piece", () => {
+  const run = (extra?: (action: number) => number) => {
+    const scores = new Float32Array(2);
+    const plain = new Float32Array(2);
+    const parts = emptyScoreParts(2);
+    const predict = (a: number, into: Float32Array) => {
+      into[0] = a === 0 ? 0.5 : 0.9;
+      into[1] = a === 0 ? 0.5 : 0.1;
+      return into;
+    };
+    const read = () => ({ reward: 0.2, cost: 0.1, novelty: 0.4 });
+    imagineScores({
+      acts: 2,
+      curiosity: 1,
+      goal: 1,
+      progressEma: 0.02,
+      ema: 0.05,
+      horizonRho: true,
+      imagined: [new Float32Array(2), new Float32Array(2)],
+      imagined2: [new Float32Array(2), new Float32Array(2)],
+      imagined3: [new Float32Array(2), new Float32Array(2)],
+      scores: plain,
+      predict,
+      predictFrom: (_pred, _a1, into) => {
+        into[0] = 0.2;
+        into[1] = 0.8;
+        return into;
+      },
+      read,
+      readPred: () => ({ reward: 0, cost: 0, novelty: 0.2 }),
+      progressBonus: (a) => (a === 0 ? 0.03 : 0),
+      progExtra: extra,
+    });
+    imagineScores({
+      acts: 2,
+      curiosity: 1,
+      goal: 1,
+      progressEma: 0.02,
+      ema: 0.05,
+      horizonRho: true,
+      imagined: [new Float32Array(2), new Float32Array(2)],
+      imagined2: [new Float32Array(2), new Float32Array(2)],
+      imagined3: [new Float32Array(2), new Float32Array(2)],
+      scores,
+      predict,
+      predictFrom: (_pred, _a1, into) => {
+        into[0] = 0.2;
+        into[1] = 0.8;
+        return into;
+      },
+      read,
+      readPred: () => ({ reward: 0, cost: 0, novelty: 0.2 }),
+      progressBonus: (a) => (a === 0 ? 0.03 : 0),
+      progExtra: extra,
+      parts,
+    });
+    return { scores, plain, parts };
+  };
+  const base = run();
+  assert.equal(base.scores[0], base.plain[0]);
+  assert.equal(base.scores[1], base.plain[1]);
+  assert.equal(base.parts.extra[0], 0);
+  assert.ok(base.parts.rho[0]! > base.parts.rho[1]!, "the progress bonus should land in the rho piece");
+  assert.ok(base.parts.follow[0] !== 0, "horizon follow-up should be its own piece");
+  const boosted = run((action) => (action === 0 ? 0.5 : 0));
+  assert.ok(boosted.parts.extra[0]! > 0, "a place bonus should land in the extra piece");
+  assert.equal(boosted.parts.extra[1], 0);
+  assert.equal(boosted.parts.rho[0], base.parts.rho[0]);
+  assert.ok(Math.abs(boosted.scores[0]! - base.scores[0]! - boosted.parts.extra[0]!) < 1e-9);
 });
 
 test("horizon residual drop can be removed without changing a flat residual", () => {

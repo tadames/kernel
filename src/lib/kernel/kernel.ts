@@ -1,6 +1,6 @@
 import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
-import { imagineScores, softmaxSample } from "./policy.ts";
+import { emptyScoreParts, imagineScores, softmaxSample, type ScoreParts } from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
   generateWorld,
@@ -131,6 +131,13 @@ export type KernelOptions = {
     /** Steps to delay the on-half. Omitted is 0, the first half of the period. */
     offset?: number;
   };
+  /**
+   * Measurement-only split of the action scores. Omitted does not allocate
+   * the buffers and does not pass them into imagination. Not a Loop feature
+   * flag. The default agent does not change. The split does not draw a
+   * random number and does not enter the bonus.
+   */
+  traceScores?: boolean;
 };
 
 /**
@@ -204,6 +211,11 @@ export class Kernel {
   readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
   /** Square-wave place bonus. Null is the shipped policy. */
   readonly periodicBoost: { add: number; region: 0 | 1; period: number; offset: number } | null;
+  /**
+   * Additive split of the last sampled scores. Null unless `traceScores`.
+   * A held tick does not refresh it.
+   */
+  readonly scoreParts: ScoreParts | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -294,6 +306,7 @@ export class Kernel {
     this.periodicBoost = wave
       ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
       : null;
+    this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
@@ -729,6 +742,7 @@ export class Kernel {
     this.followReady = false;
     if (this.signal === "random") {
       this.scores.fill(0);
+      this.zeroScoreParts();
       this.policyEntropy = 1;
       this.branching = ACTS;
       this.edge = edgeIndex(1);
@@ -801,6 +815,7 @@ export class Kernel {
           ? (a) => this.progressExtra(view.destGrid, a)
           : undefined,
       follow: this.features.rollout ? this.followBuf : undefined,
+      parts: this.scoreParts ?? undefined,
     });
     if (this.features.rollout) this.followReady = true;
     let temp = this.loop.policyTemperature(this.params.temperature);
@@ -810,6 +825,18 @@ export class Kernel {
     this.edge = edgeIndex(this.policyEntropy);
     this.loop.reviseEdge(this.branching);
     return softmaxSample(this.scores, temp, this.rand);
+  }
+
+  private zeroScoreParts() {
+    const parts = this.scoreParts;
+    if (!parts) return;
+    parts.rho.fill(0);
+    parts.global.fill(0);
+    parts.uncertainty.fill(0);
+    parts.extra.fill(0);
+    parts.extrinsic.fill(0);
+    parts.follow.fill(0);
+    parts.rhoHat.fill(0);
   }
 
   private note(text: string) {
