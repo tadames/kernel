@@ -28,6 +28,8 @@ import {
   noAttractionCall,
   policySplitCall,
   policyTermsCall,
+  competeSummary,
+  competeVerdict,
   doorwaySummary,
   repulsionCall,
   rhoGapBand,
@@ -507,6 +509,23 @@ test("the sharp temperature is kept only when the gain clears and nothing is hur
   assert.equal(doorwaySummary("inconclusive", "inconclusive"), "inconclusive");
   assert.equal(doorwaySummary("refuted", "confirmed"), "refuted");
   assert.equal(doorwaySummary("inconclusive", "refuted"), "refuted");
+});
+
+test("a pattern channel is swamped only when the pure room attracts and the third does not", () => {
+  assert.equal(competeSummary(false, "confirmed", "null-with-sensitivity"), "swamped");
+  assert.equal(competeSummary(false, "confirmed", "repelled"), "swamped");
+  assert.equal(competeVerdict("swamped", "confirmed"), "confirmed");
+  assert.equal(competeSummary(false, "confirmed", "attracted"), "found");
+  assert.equal(competeSummary(false, "inconclusive", "attracted"), "found");
+  assert.equal(competeVerdict("found", "confirmed"), "refuted");
+  assert.equal(competeSummary(false, "inconclusive", "inconclusive"), "pure-miss");
+  assert.equal(competeVerdict("pure-miss", "inconclusive"), "inconclusive");
+  assert.equal(competeSummary(false, "refuted", "inconclusive"), "pure-miss");
+  assert.equal(competeVerdict("pure-miss", "refuted"), "refuted");
+  assert.equal(competeSummary(false, "confirmed", "inconclusive"), "unresolved");
+  assert.equal(competeVerdict("unresolved", "confirmed"), "inconclusive");
+  assert.equal(competeSummary(true, "confirmed", "null-with-sensitivity"), "confounded");
+  assert.equal(competeVerdict("confounded", "confirmed"), "inconclusive");
 });
 
 test("the doorway delta drops a one-sided tick and ignores a held tick's stale score", () => {

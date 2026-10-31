@@ -1,5 +1,86 @@
 # Journal
 
+## 2026-10-31 compete (UTC)
+
+Written before `npm run compete`. No occupancy number from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. The doorway on the shipped learner includes 0 at both rates. `echo` stays off: it lowers probe error and puts zero inside the interval that kept `option`. This run does not turn `echo` on, does not turn `option` off, does not retune the softmax, and does not add a curiosity term. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+The matched-room study compared stationary noise to one frozen fair-bit picture of the same cells. That picture is stationary and not a low-frequency pattern. The entry named the pattern as the other static room and did not use it, because a 5×5 window sees its period. Drift compared two copies of one pattern. Neither contrast asks whether rho prefers a compressible pattern to matched noise, or whether that preference survives when the pattern is only a channel inside the noise. This run is that pair. The pattern does not drift. It is the slow channel because it is constant while the noise is redrawn every step.
+
+### Preregister compete
+
+Hypothesis. Rho prefers a room whose every open cell is a held low-frequency pattern to the same room filled with stationary white noise, and loses that preference when only the cells whose rank is divisible by 3 keep the pattern. The rest of those cells are the noise. The comparison is pattern minus noise.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–200. The seed stream is `seed * 10007 + 24001`. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are reported and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Mask. Region-1 open cells in scan order. `all` keeps every cell. `third` keeps ranks divisible by 3. On this map that is 52 open cells and 18 kept. A runner that does not get those two counts throws before any episode. No other fraction is run. The kept cells show `patternBit` of `EAST_HOLD_LATENT`. The noise coin is still drawn on a kept cell and then discarded, so the episode RNG matches the historical noise room. The noise arm omits `patternChannel`. One noise episode is shared by both levels. A random walk that ignores observations is the same path, meals and lives included. A mismatch aborts before any call.
+
+Metric. Target-room fraction, the fraction of steps that began in region 1. Excess is the pattern arm minus the noise arm, one number per seed. Paired 95% percentile bootstrap, 2000 resamples. Level index is 0 for the third and 1 for the pure room. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+Salts, locked in `scripts/compete.ts`. Excess uses `24000 + 10 × level + explorer`. Rectified progress, rho only, uses `24100 + 10 × level + 4`. Training surprise in the room uses `24200 + 10 × level + explorer`. Fraction intervals use `24300 + 2 × explorer` for the noise arm and `24300 + 20 × level + 2 × explorer + 1` for the pattern arm. Fractions are not a test.
+
+Calls. `greaterCall` on each excess. The pure room is rho at `all`. The third's class is `phaseCellClass` with δ equal to the pure lower end, and only when the pure call is confirmed. Otherwise δ is null and a third that includes 0 cannot be a sensitive null.
+
+Summary, `competeSummary`, from rho only. Confounded when random's excess excludes 0 at either level. Found when the third is attracted. Pure-miss when the third is not attracted and the pure call is not confirmed. Swamped when the pure call is confirmed and the third is a sensitive null or a repulsion. Unresolved when the pure call is confirmed and the third includes 0 without sitting inside δ.
+
+Verdict, `competeVerdict`. Confirmed when the summary is swamped: rho finds the pure pattern and does not find it once noise fills the other cells. Refuted when the summary is found, or when the summary is pure-miss and the pure call is refuted: rho prefers the noise room to a room that is entirely the pattern. Otherwise inconclusive. Surprise, count, and RND do not flip the verdict.
+
+Rectified progress is max(0, ema − surprise), mean over steps that began in region 1, pattern minus noise, rho only. A seed with fewer than 8 steps in the room on either arm is dropped. `rhoGapBand` places that gap on 0.05 and 0.0169. It is not a call. It cannot rescue a verdict. If the verdict is not confirmed and the gap is at or above 0.05, the entry says the dose curve would have predicted a detectable occupancy shift. If the gap is below 0.05, the entry says an occupancy miss is what that curve predicts.
+
+Training surprise in the room, pattern minus noise, is not a call. A negative gap means the pattern is less surprising. It cannot rescue a verdict.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. Confirmed: the learnable channel fails once noise occupies the rest of the room, after the pure room has been shown to attract rho. Refuted: rho still prefers the mixed room, or rho prefers noise to the pure pattern. Inconclusive: the pure room does not resolve, or it attracts and the third's interval is too wide to be a sensitive null.
+
+Figure: `bench/compete/compete-gap.png`. The bars are the paired occupancy gaps. Zero is the vertical line. Source: `bench/compete/compete.json`. The sweep is `npm run compete`. It is not part of CI.
+
+### Results
+
+The prediction is inconclusive. Rho's occupancy excess includes 0 when the whole room is the pattern, so the third is not a swamp test. The summary is pure-miss. The verdict is inconclusive. The pure gap is not a preference for noise: the interval does not lie entirely below 0. No term was added. The temperature stays 0.45. `option` stays on.
+
+3000 episodes, 400 steps, 4 workers, 75.8 seconds. Source: `bench/compete/compete.json`. The random walk is the same path on both arms of each level, meals and lives included. The census is 52 open cells and 18 kept. The harness does not fail.
+
+#### Summary. Inconclusive.
+
+Temperature 0.45. Excess is pattern minus matched noise. `competeSummary` is pure-miss: the pure call is not confirmed, and the third is not attracted. δ is unavailable. `competeVerdict` is inconclusive.
+
+| level | rho occupancy | n | call |
+|---|---|---:|---|
+| all | 0.0028 [−0.0183, 0.0235] | 200 | inconclusive |
+| third | −0.0053 [−0.0197, 0.0096] | 200 | inconclusive |
+
+The pure point estimate is positive and small. The interval reaches about ±0.02. A shift of 0.05, the dose at which a planted bonus moves rho, is outside it. The third's point estimate is negative. Neither interval excludes 0.
+
+The other explorers are not the call. Every occupancy interval includes 0. Random is a point mass at 0, so the summary is not confounded.
+
+| level | random | count | surprise | rnd |
+|---|---|---|---|---|
+| all | 0.0000 [0.0000, 0.0000] | 0.0097 [−0.0103, 0.0301] | −0.0034 [−0.0275, 0.0195] | 0.0015 [−0.0165, 0.0199] |
+| third | 0.0000 [0.0000, 0.0000] | 0.0157 [−0.0032, 0.0348] | 0.0089 [−0.0091, 0.0271] | 0.0060 [−0.0090, 0.0203] |
+
+Rectified progress, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The pure gap lies entirely above 0 and entirely below 0.05, and not entirely below 0.0169. The band is rho-blind. The verdict is not confirmed, and the gap is below 0.05, so the occupancy miss is what the dose curve predicts. The third's gap is positive and entirely below 0.0169.
+
+| level | rectified | n | band |
+|---|---|---:|---|
+| all | 0.0217 [0.0201, 0.0232] | 177 | rho-blind |
+| third | 0.0017 [0.0007, 0.0028] | 180 | below 0.0169 |
+
+Training surprise in the room, not a call. The pure pattern is less surprising for rho, −0.0256 [−0.0280, −0.0230], n = 187. The same sign holds for random, count, surprise, and RND, and each of those intervals lies entirely below 0. The content swap is visible. It does not move occupancy. The third's surprise gap for rho includes 0, −0.0004 [−0.0021, 0.0016], n = 190.
+
+Rho's noise-arm fraction is 0.2567 [0.2355, 0.2785]. The pure pattern arm is 0.2595 [0.2380, 0.2817]. Random stays at 0.1884 on every arm.
+
+Figure: `bench/compete/compete-gap.png`. Both of rho's bars cross zero.
+
+No mechanism was added. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `da20dfc`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. No kernel mechanism file changed, so the probe gate is not required.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Rho does not prefer a held low-frequency pattern to matched stationary noise. The rectified gap, 0.0217 [0.0201, 0.0232], lies entirely under 0.05, so the miss is what the dose curve predicts. The third is not a demonstrated swamp: the pure room did not attract, and δ was never set. Do not rerun the pair with more seeds, a searched fraction, or a sliced episode. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-10-30 echo (America/New_York)
 
 Written before `npm run gate -- --flag echo --seeds 20`. No probe contrast from that command is in the preregistration. The five-seed numbers in this block are the parent learner, seeds 1–5, sha `6c22dbf`, and are not this claim.
