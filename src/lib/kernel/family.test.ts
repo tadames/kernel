@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { CENTER, Kernel } from "./kernel.ts";
-import { applyFamily, createFamily, distractorSpec, driftRatesFromTau, EAST_HOLD_LATENT, forgettingRatesFromTau, patternBit, splitSpec } from "./family.ts";
+import { applyFamily, channelKeeps, createFamily, distractorSpec, driftRatesFromTau, EAST_HOLD_LATENT, forgettingRatesFromTau, PATTERN_CHANNEL_OPEN, PATTERN_CHANNEL_THIRD, patternBit, patternChannelCensus, splitSpec } from "./family.ts";
+import { runCompeteEpisode } from "./compete-run.ts";
 import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid } from "./env.ts";
 import { LOCKED_DRIFT_TAU } from "./drift-run.ts";
 import { fitTau } from "./phase-run.ts";
@@ -445,4 +446,58 @@ test("target foods are five non-edible markers and do not move a random walk", (
     assert.equal(marked.foods, plain.foods);
     assert.equal(marked.lives, plain.lives);
   }
+});
+
+test("a pattern channel discards the noise coin on kept cells and draws it on every cell", () => {
+  assert.equal(channelKeeps(0, "third"), true);
+  assert.equal(channelKeeps(1, "third"), false);
+  assert.equal(channelKeeps(2, "third"), false);
+  assert.equal(channelKeeps(3, "third"), true);
+  assert.equal(channelKeeps(1, "all"), true);
+  const censusThird = patternChannelCensus("third");
+  const censusAll = patternChannelCensus("all");
+  assert.deepEqual(censusThird, { open: PATTERN_CHANNEL_OPEN, kept: PATTERN_CHANNEL_THIRD });
+  assert.deepEqual(censusAll, { open: PATTERN_CHANNEL_OPEN, kept: PATTERN_CHANNEL_OPEN });
+
+  const base = { learnability: 1, driftRate: 0, distractorRelevance: 0 };
+  const noise = createFamily("distractor", 15, 3000, base, false);
+  const third = createFamily("distractor", 15, 3000, { ...base, patternChannel: "third" }, false);
+  const all = createFamily("distractor", 15, 3000, { ...base, patternChannel: "all" }, false);
+  applyFamily(noise.cells, noise.family, base, mulberry32(9));
+  applyFamily(third.cells, third.family, { ...base, patternChannel: "third" }, mulberry32(9));
+  applyFamily(all.cells, all.family, { ...base, patternChannel: "all" }, mulberry32(9));
+  let kept = 0;
+  let differed = 0;
+  for (let y = 0; y < 15; y++) {
+    for (let x = 0; x < 15; x++) {
+      const i = y * 15 + x;
+      if (noise.family.region[i] !== 1) {
+        assert.equal(third.family.channel[i], 0);
+        assert.equal(all.family.channel[i], 0);
+        continue;
+      }
+      assert.equal(all.family.glow[i], patternBit(x, y, EAST_HOLD_LATENT));
+      if (third.family.channel[i]) {
+        kept += 1;
+        assert.equal(third.family.glow[i], patternBit(x, y, EAST_HOLD_LATENT));
+        if (noise.family.glow[i] !== third.family.glow[i]) differed += 1;
+      } else {
+        assert.equal(third.family.glow[i], noise.family.glow[i]);
+      }
+    }
+  }
+  assert.equal(kept, PATTERN_CHANNEL_THIRD);
+  assert.ok(differed > 0);
+  assert.throws(() => createFamily("distractor", 15, 3000, { ...base, patternChannel: "all", driftRate: 0.1 }, false));
+  assert.throws(() => createFamily("distractor", 15, 3000, { ...base, patternChannel: "third", mirrorRooms: true }, false));
+
+  const episode = { id: 0, seed: 4, signal: "random" as const, steps: 40, level: "all" as const };
+  const walk = runCompeteEpisode({ ...episode, arm: "noise" });
+  const painted = runCompeteEpisode({ ...episode, arm: "pattern" });
+  const partial = runCompeteEpisode({ ...episode, level: "third", arm: "pattern" });
+  assert.equal(painted.path, walk.path);
+  assert.equal(partial.path, walk.path);
+  assert.equal(painted.distractorFrac, walk.distractorFrac);
+  assert.equal(partial.foods, walk.foods);
+  assert.equal(painted.lives, walk.lives);
 });
