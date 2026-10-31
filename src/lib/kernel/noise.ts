@@ -451,3 +451,54 @@ function slopeCall(lo: number, hi: number, nWindows: number, nBoot: number, iter
   if (containsHalf) return "inconclusive";
   return "refuted";
 }
+
+export type DoorwaySummary = "confirmed" | "refuted" | "inconclusive";
+
+/**
+ * Doorway deficit, drift minus held, at the adaptation rate and at the fast rate.
+ * Both arguments are `repulsionCall`: confirmed means the interval lies entirely below 0.
+ * Confirmed: the fast rate repels and the adaptation rate does not resolve.
+ * Refuted: either rate prefers the drifting room, both rates repel, or only the
+ * adaptation rate repels. Otherwise the choice did not resolve a repulsion.
+ */
+export function doorwaySummary(atTau: Call, atFast: Call): DoorwaySummary {
+  if (atTau === "refuted" || atFast === "refuted") return "refuted";
+  if (atFast === "confirmed" && atTau === "inconclusive") return "confirmed";
+  if (atFast === "confirmed" && atTau === "confirmed") return "refuted";
+  if (atTau === "confirmed") return "refuted";
+  return "inconclusive";
+}
+
+export type CompeteMixed = "attracted" | "repelled" | "null-with-sensitivity" | "inconclusive";
+
+export type CompeteSummary = "swamped" | "found" | "pure-miss" | "unresolved" | "confounded";
+
+/**
+ * Pattern-channel occupancy, pattern minus matched noise.
+ * `pure` is greaterCall when every open cell is the pattern.
+ * `mixed` is the third-of-cells class, using δ from the pure lower end
+ * only when `pure` is confirmed.
+ * Found: the third still attracts, so noise did not hide the channel.
+ * Swamped: the pure room attracts and the third is a sensitive null or a repulsion.
+ * Pure-miss: the pure room does not attract and the third does not either.
+ * Unresolved: the pure room attracts and the third includes 0 outside δ.
+ * Confounded: random's excess excludes 0.
+ */
+export function competeSummary(randomExcludesZero: boolean, pure: Call, mixed: CompeteMixed): CompeteSummary {
+  if (randomExcludesZero) return "confounded";
+  if (mixed === "attracted") return "found";
+  if (pure !== "confirmed") return "pure-miss";
+  if (mixed === "null-with-sensitivity" || mixed === "repelled") return "swamped";
+  return "unresolved";
+}
+
+/**
+ * Confirmed is the swamped failure. Refuted is a third that still attracts,
+ * or a pure room rho prefers less than noise. Anything else is inconclusive.
+ */
+export function competeVerdict(summary: CompeteSummary, pure: Call): Call {
+  if (summary === "swamped") return "confirmed";
+  if (summary === "found") return "refuted";
+  if (summary === "pure-miss" && pure === "refuted") return "refuted";
+  return "inconclusive";
+}

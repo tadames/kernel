@@ -10,6 +10,7 @@ import { runNoiseEpisode } from "./noise-run.ts";
 import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, PUBLISHED_RANDOM_FRACTION, runBoostEpisode } from "./boost-run.ts";
 import { runDriftEpisode } from "./drift-run.ts";
 import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
+import { doorwayDelta, runDoorwayEpisode } from "./doorway-run.ts";
 import { imagineScores } from "./policy.ts";
 import {
   amplitudeCall,
@@ -27,6 +28,9 @@ import {
   noAttractionCall,
   policySplitCall,
   policyTermsCall,
+  competeSummary,
+  competeVerdict,
+  doorwaySummary,
   repulsionCall,
   rhoGapBand,
   RHO_DETECT_DOSE,
@@ -342,6 +346,7 @@ test("CI does not run the noise sweep", () => {
   assert.equal(yml.includes("npm run noise"), false);
   assert.equal(yml.includes("boost-room"), false);
   assert.equal(yml.includes("drift-gap"), false);
+  assert.equal(yml.includes("npm run doorway"), false);
 });
 
 test("the drift-gap call places a rectified gap on the dose curve", () => {
@@ -498,6 +503,62 @@ test("the sharp temperature is kept only when the gain clears and nothing is hur
   assert.equal(repulsionCall({ lo: -0.02, hi: -0.001 }), "confirmed");
   assert.equal(repulsionCall({ lo: 0.001, hi: 0.02 }), "refuted");
   assert.equal(repulsionCall({ lo: -0.01, hi: 0.02 }), "inconclusive");
+  assert.equal(doorwaySummary("inconclusive", "confirmed"), "confirmed");
+  assert.equal(doorwaySummary("confirmed", "confirmed"), "refuted");
+  assert.equal(doorwaySummary("confirmed", "inconclusive"), "refuted");
+  assert.equal(doorwaySummary("inconclusive", "inconclusive"), "inconclusive");
+  assert.equal(doorwaySummary("refuted", "confirmed"), "refuted");
+  assert.equal(doorwaySummary("inconclusive", "refuted"), "refuted");
+});
+
+test("a pattern channel is swamped only when the pure room attracts and the third does not", () => {
+  assert.equal(competeSummary(false, "confirmed", "null-with-sensitivity"), "swamped");
+  assert.equal(competeSummary(false, "confirmed", "repelled"), "swamped");
+  assert.equal(competeVerdict("swamped", "confirmed"), "confirmed");
+  assert.equal(competeSummary(false, "confirmed", "attracted"), "found");
+  assert.equal(competeSummary(false, "inconclusive", "attracted"), "found");
+  assert.equal(competeVerdict("found", "confirmed"), "refuted");
+  assert.equal(competeSummary(false, "inconclusive", "inconclusive"), "pure-miss");
+  assert.equal(competeVerdict("pure-miss", "inconclusive"), "inconclusive");
+  assert.equal(competeSummary(false, "refuted", "inconclusive"), "pure-miss");
+  assert.equal(competeVerdict("pure-miss", "refuted"), "refuted");
+  assert.equal(competeSummary(false, "confirmed", "inconclusive"), "unresolved");
+  assert.equal(competeVerdict("unresolved", "confirmed"), "inconclusive");
+  assert.equal(competeSummary(true, "confirmed", "null-with-sensitivity"), "confounded");
+  assert.equal(competeVerdict("confounded", "confirmed"), "inconclusive");
+});
+
+test("the doorway delta drops a one-sided tick and ignores a held tick's stale score", () => {
+  assert.equal(doorwayDelta([0, 0, 0, 0, 0], (action) => action === 1), 0);
+  assert.equal(doorwayDelta([0, 2, 0, 0, 0], (action) => action === 1), 2);
+  assert.equal(doorwayDelta([1, 1, 1, 1, 1], () => true), null);
+  const drift = runDoorwayEpisode({
+    id: 0,
+    seed: 3,
+    signal: "random",
+    steps: 40,
+    driftRate: 0.01877,
+    arm: "drift",
+    policyTemperature: SHARP_POLICY_TEMPERATURE,
+  });
+  const held = runDoorwayEpisode({
+    id: 1,
+    seed: 3,
+    signal: "random",
+    steps: 40,
+    driftRate: 0.01877,
+    arm: "held",
+    policyTemperature: SHARP_POLICY_TEMPERATURE,
+  });
+  assert.equal(drift.samples, 20);
+  assert.equal(held.samples, 20);
+  assert.equal(drift.scoreGap, 0);
+  assert.equal(held.scoreGap, 0);
+  assert.equal(drift.path, held.path);
+  assert.equal(drift.distractorFrac, held.distractorFrac);
+  assert.equal(drift.foods, held.foods);
+  assert.equal(drift.lives, held.lives);
+  assert.equal(new Kernel("field", 1).features.option, true);
 });
 
 test("policy temperature defaults to the shipped softmax and does not move a random walk", () => {

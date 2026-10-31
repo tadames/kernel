@@ -24,6 +24,12 @@
  * bit of 1 is edible food. The split world ignores this and puts real food
  * in both rooms.
  *
+ * patternChannel paints a held low-frequency pattern on a locked subset of
+ * region 1 and leaves the other cells as stationary noise. The noise coin
+ * is still drawn on the painted cells. Omitted leaves the historical room.
+ * It does not combine with drift, a frozen fair-bit picture, a matched
+ * pattern, the cycle world, an edible room, food markers, or a mirror.
+ *
  * The glow is drawn in the wall channel and does not block motion. Real food
  * stays in the food channel. On this family the policy's extrinsic term reads
  * the body (true walls, true food), so a glow bit is not a meal and not a wall.
@@ -73,7 +79,47 @@ export type FamilyMemory = {
    * stays the one painted at the start. Default off.
    */
   burnDrift: boolean;
+  /**
+   * 1 where region 1 keeps the held low-frequency pattern instead of the
+   * noise bit just drawn. Absent means no channel. Zeros are the historical
+   * room.
+   */
+  channel: Uint8Array;
 };
+
+export type PatternChannel = "third" | "all";
+
+/**
+ * Rank among region-1 open cells, in scan order. `all` keeps every rank.
+ * `third` keeps ranks divisible by 3. No other fraction is defined.
+ */
+export function channelKeeps(rank: number, which: PatternChannel): boolean {
+  if (which === "all") return true;
+  return rank % 3 === 0;
+}
+
+/** Locked census on the wide-door map, layout seed 3000, size 15. */
+export const PATTERN_CHANNEL_OPEN = 52;
+export const PATTERN_CHANNEL_THIRD = 18;
+
+/**
+ * patternChannel is a distractor measurement. Any other world, or a second
+ * manipulation of the same room, is refused before the shell is built.
+ */
+export function rejectPatternChannel(kind: FamilyKind, params: EnvParams) {
+  if (params.patternChannel == null) return;
+  if (params.patternChannel !== "third" && params.patternChannel !== "all") {
+    throw new Error(`patternChannel ${String(params.patternChannel)} is not locked`);
+  }
+  if (kind !== "distractor") throw new Error("patternChannel is a distractor measurement");
+  if (params.driftRate > 0) throw new Error("patternChannel does not combine with drift");
+  if (params.roomContent === "static") throw new Error("patternChannel does not combine with a frozen picture");
+  if (params.matchedPattern) throw new Error("patternChannel does not combine with a matched pattern");
+  if (params.cycleWorld) throw new Error("patternChannel does not combine with the cycle world");
+  if (params.distractorRelevance >= 0.5) throw new Error("patternChannel does not combine with an edible room");
+  if (params.mirrorRooms) throw new Error("patternChannel does not combine with a mirror");
+  if (params.targetFoods) throw new Error("patternChannel does not combine with food markers");
+}
 
 /** Low-frequency pattern. A 5×5 window can see the period. */
 export function patternBit(x: number, y: number, latent: number) {
@@ -137,6 +183,7 @@ export function createFamily(
   params: EnvParams,
   patternHold = false,
 ): { cells: Uint8Array; family: FamilyMemory } {
+  rejectPatternChannel(kind, params);
   const rand = mulberry32(layoutSeed >>> 0);
   const cells = new Uint8Array(size * size);
   const region = new Uint8Array(size * size);
@@ -220,6 +267,15 @@ export function createFamily(
     }
   }
 
+  const channel = new Uint8Array(size * size);
+  if (params.patternChannel === "third" || params.patternChannel === "all") {
+    let rank = 0;
+    for (let i = 0; i < cells.length; i++) {
+      if (region[i] !== 1 || cells[i] === 1) continue;
+      if (channelKeeps(rank, params.patternChannel)) channel[i] = 1;
+      rank += 1;
+    }
+  }
   const family: FamilyMemory = {
     mode: modeOf(kind, params, patternHold),
     size,
@@ -234,6 +290,7 @@ export function createFamily(
     freezeTarget: false,
     mirrored: false,
     burnDrift: false,
+    channel,
   };
   applyFamily(cells, family, params, mulberry32((layoutSeed ^ 0x51ed) >>> 0));
   if (params.mirrorRooms) reflectFamily(cells, family);
@@ -285,6 +342,7 @@ export function reflectFamily(cells: Uint8Array, family: FamilyMemory) {
   family.stochastic = flip(family.stochastic);
   family.fixedGlow = flip(family.fixedGlow);
   family.decoy = flip(family.decoy);
+  family.channel = flip(family.channel);
   family.dividerX = size - 1 - family.dividerX;
   family.mirrored = true;
 }
@@ -297,6 +355,7 @@ export function cloneFamily(family: FamilyMemory): FamilyMemory {
     stochastic: family.stochastic,
     fixedGlow: family.fixedGlow,
     decoy: family.decoy.slice(),
+    channel: family.channel.slice(),
   };
 }
 
@@ -327,6 +386,8 @@ export function applyFamily(cells: Uint8Array, family: FamilyMemory, params: Env
       if (family.mode === "noise") {
         const drawn = rand() < 0.5 ? 1 : 0;
         bit = family.freezeTarget ? family.glow[i]! : drawn;
+        // The coin was drawn. A channel cell discards it and shows the pattern.
+        if (!family.freezeTarget && family.channel[i]) bit = patternBit(x, y, EAST_HOLD_LATENT);
       } else bit = patternBit(x, y, family.eastLatent);
       if (edible) {
         cells[i] = bit ? 2 : 0;
@@ -395,6 +456,25 @@ export function forgettingRatesFromTau(tau: number) {
     const half = safe * factor;
     return 1 - Math.exp(-Math.LN2 / half);
   });
+}
+
+/** Open cells and kept cells of a pattern channel on the distractor shell. */
+export function patternChannelCensus(which: PatternChannel, layoutSeed = FAMILY_LAYOUT_SEED, size = 15) {
+  const built = createFamily(
+    "distractor",
+    size,
+    layoutSeed,
+    { learnability: 1, driftRate: 0, distractorRelevance: 0, patternChannel: which },
+    false,
+  );
+  let open = 0;
+  let kept = 0;
+  for (let i = 0; i < built.family.region.length; i++) {
+    if (built.family.region[i] !== 1) continue;
+    open += 1;
+    if (built.family.channel[i]) kept += 1;
+  }
+  return { open, kept };
 }
 
 export function closestRate(rates: number[], target: number) {
