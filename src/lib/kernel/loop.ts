@@ -34,9 +34,61 @@
  * code, so ρ̂ can score a window the latent predictor has not already compressed.
  * A second self-step scores past a wall that first self-prediction treats as a
  * wall, and only after slowEma < 0.12.
+ * `discard` is learning-side and off by default. After 40 training steps it
+ * drops a non-scent channel from the cell loss when that channel's model
+ * residual is not below the error of its own running mean. Surprise and the
+ * progress bonus still see the real residual.
+ * `decode` is learning-side and off by default. The cell net's first layer
+ * matches a stop-grad code of the next window instead of the cell error.
+ * The second layer decodes that hidden code to cells, which is what the
+ * probe reads. The code is trained so the current readout can decode it,
+ * and the predictor cannot move the encoder. Surprise still sees the real
+ * residual. The code width is the hidden width. There is no second mask.
+ * `option` is action-side and on by default. The sampled direction is
+ * executed for two ticks. The second tick does not sample. It does not
+ * enter the progress bonus and it does not change the cell loss. The
+ * off path still samples every tick and draws no extra random number.
+ * `rollout` is action-side and off by default. On the option's second
+ * tick it executes the horizon-2 follow-up imagined at the commitment,
+ * instead of repeating the primitive. It does not enter the progress
+ * bonus and it does not change the cell loss. The off path is the
+ * shipped option: the second tick repeats the primitive, and the score
+ * path writes no follow-up index.
+ * `revise` is learning-side and off by default. The cell step size is
+ * a gain on the passed learning rate, starting at 1. The gain moves
+ * with the sign of progress and is clipped to
+ * [1/TRANSITION_LR, TRANSITION_LR]. It does not enter the progress
+ * bonus. The off path steps at the passed rate and does not read the gain.
+ * `wonder` is action-side and off by default. The curiosity weight
+ * passed to the policy is a gain on the constant, starting at 1.
+ * The gain moves with the sign of progress and is clipped to the
+ * same band. It does not enter the progress bonus and it does not
+ * change the cell step. The off path passes the constant and does
+ * not read the gain.
+ * `shape` is learning-side and off by default. The cell net's live
+ * hidden width starts at the constructed width. Positive progress
+ * adds one unit by splitting the unit with the largest outgoing
+ * energy. The copy's incoming weights are scaled by 1 ± 0.05 on
+ * alternating inputs so the new unit is not a twin the gradient
+ * cannot separate. Negative progress removes the unit with the
+ * smallest outgoing energy.
+ * The width stays inside
+ * [round(hidden / TRANSITION_LR), round(hidden * TRANSITION_LR)].
+ * It does not enter the progress bonus and it does not change the
+ * cell step or the curiosity weight. The off path does not read or
+ * write the width. It does not run while `decode` is on.
+ * `edge` is action-side and off by default. The policy temperature
+ * is a gain on the constant, starting at 1. Branching below the C2
+ * floor heats the sampler. Branching above the C2 ceiling cools it.
+ * A count inside the band leaves the gain. The gain stays inside
+ * [1/TRANSITION_LR, TRANSITION_LR]. It does not enter the progress
+ * bonus and it does not change the cell step or the curiosity weight.
+ * Seeds 1–20 put zero inside the paired probe interval of off minus
+ * on, and lives rose. It stays off. The off path passes the constant
+ * temperature and does not read the gain.
  */
 import { MLP, mse } from "./mlp.ts";
-import { participation } from "./complexity.ts";
+import { C2_BRANCH_HI, C2_BRANCH_LO, participation } from "./complexity.ts";
 import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from "./progress.ts";
 
 /**
@@ -45,7 +97,30 @@ import { heldOutProgressRing, SHIPPED_PROGRESS_WINDOW, type ProgressMode } from 
  * probe ablation says it beats its own absence. See AGENTS.project.md.
  * The 2026-10-15 probe gate turned the noisy set off. None of them lowered
  * held-out probe error. `transition` is the cell learner, not a bonus term:
- * the same gate kept it because probe error fell.
+ * the same gate kept it because probe error fell. `discard` is also
+ * learning-side. It does not enter the bonus. It stays off unless a
+ * preregistered probe gate says it beats its absence. `decode` is
+ * learning-side too. It does not enter the bonus. It stays off unless
+ * that same gate says the latent target beats the cell loss. `option`
+ * is action-side. It does not enter the bonus. The same gate kept it:
+ * holding the sampled direction lowered Field probe error on seeds 1–20
+ * and on seeds 1–200, and lives did not rise. `rollout` is action-side
+ * too. It does not enter the bonus. Seeds 1–20 put the paired probe
+ * interval of off minus on entirely below zero, and lives rose. It stays off.
+ * `revise` is learning-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on. It stays off.
+ * `wonder` is action-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on. It stays off.
+ * `shape` is learning-side. It does not enter the bonus. Seeds 1–20
+ * put the paired probe interval of off minus on entirely below zero.
+ * It stays off.
+ * `edge` is action-side. It does not enter the bonus. Seeds 1–20
+ * put zero inside the paired probe interval of off minus on, and
+ * lives rose. It stays off.
+ * `echo` is learning-side. It does not enter the bonus. Seeds 1–20
+ * and seeds 1–200 put the paired probe interval of off minus on
+ * entirely above zero, and lives did not rise. With echo on, option's
+ * own probe interval includes zero, so echo stays off and option stays on.
  */
 export const LOOP_FEATURE_KEYS = [
   "encoder",
@@ -61,6 +136,15 @@ export const LOOP_FEATURE_KEYS = [
   "slowWindow3",
   "slowSelfWindow",
   "slowSelfWindow2",
+  "discard",
+  "decode",
+  "option",
+  "rollout",
+  "revise",
+  "wonder",
+  "shape",
+  "edge",
+  "echo",
   "transition",
 ] as const;
 
@@ -73,7 +157,7 @@ export type LoopFeatures = Record<LoopFeatureKey, boolean>;
  * probe). Every previously noisy term failed: the paired CI of (off − on)
  * did not lie above zero. encoderMix and wake were exact ties. latentRho
  * and slowRhoHat made probe error worse. The code remains; the defaults
- * are off. See JOURNAL.md.
+ * are off. `option` was added later and kept on 2026-10-23. See JOURNAL.md.
  */
 export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   encoder: false,
@@ -89,6 +173,57 @@ export const DEFAULT_LOOP_FEATURES: LoopFeatures = {
   slowWindow3: false,
   slowSelfWindow: false,
   slowSelfWindow2: false,
+  /**
+   * Drop non-scent channels the model is not beating their running mean on.
+   * Off is the shipped loss. The probe gate decides whether it stays off.
+   */
+  discard: false,
+  /**
+   * Latent training target, decoded back to cells. Off is the cell loss.
+   * The probe gate decides whether it stays off.
+   */
+  decode: false,
+  /**
+   * Hold the sampled direction for a second tick. Off samples every tick.
+   * Kept on: the probe gate, seeds 1–20 and seeds 1–200.
+   */
+  option: true,
+  /**
+   * On the option's second tick, execute the horizon-2 follow-up imagined
+   * at the commitment instead of repeating the primitive. Off repeats it.
+   * Seeds 1–20: probe error rose and lives rose. Stays off.
+   */
+  rollout: false,
+  /**
+   * Revise the cell step from the sign of progress. Off is the constant
+   * passed to assimilate (`TRANSITION_LR` on the grid).
+   * Seeds 1–20: the probe interval included zero. Stays off.
+   */
+  revise: false,
+  /**
+   * Revise the curiosity weight from the sign of progress. Off is the
+   * constant passed to the policy (`params.curiosity`, 1 on the grid).
+   * Seeds 1–20: the probe interval included zero. Stays off.
+   */
+  wonder: false,
+  /**
+   * Revise the cell net's hidden width from the sign of progress.
+   * Off is the constructed width. The probe gate decides whether it stays off.
+   */
+  shape: false,
+  /**
+   * Revise policy temperature so branching stays inside the C2 band.
+   * Off is the constant `params.temperature` (0.45 on the grid).
+   * Seeds 1–20: the probe interval included zero, and lives rose. Stays off.
+   */
+  edge: false,
+  /**
+   * Rehearse the cell transition from SHIPPED_PROGRESS_WINDOW training
+   * steps ago, one extra step at the live rate. Off trains only the
+   * current transition. Seeds 1–200: off minus on 0.0157 [0.0135, 0.0180].
+   * Stays off: with it on, option's probe interval includes zero.
+   */
+  echo: false,
   /** (window, action) → next window, at TRANSITION_LR. Off reconstructs the window already in the input. */
   transition: true,
 };
@@ -160,6 +295,47 @@ export type BrainDump = {
   slowSelfWindow?: number;
   /** Second self-step past a first self-window wall. Absent on older brains. */
   slowSelfWindow2?: number;
+  /** Running per-channel target mean used by `discard`. Absent on older brains. */
+  targetMean?: number[];
+  /** Running marginal error used by `discard`. Absent on older brains. */
+  marginalEma?: number[];
+  /** Training steps completed while `discard` was on. Absent on older brains. */
+  assimilateSteps?: number;
+  /** Target encoder for `decode`. Absent on brains saved before the latent target. */
+  decW?: number[];
+  /** Target-encoder bias for `decode`. Absent on older brains. */
+  decB?: number[];
+  /**
+   * Gain on the cell step while `revise` is on. Absent on brains saved
+   * before self-revision. A missing value is gain 1, the constant step.
+   */
+  stepGain?: number;
+  /**
+   * Gain on the curiosity weight while `wonder` is on. Absent on brains
+   * saved before this revision. A missing value is gain 1, the constant weight.
+   */
+  curiosityGain?: number;
+  /**
+   * Live hidden width while `shape` is on. Absent on brains saved before
+   * this revision. A missing value is the constructed width.
+   */
+  shapeWidth?: number;
+  /**
+   * Gain on policy temperature while `edge` is on. Absent on brains
+   * saved before this revision. A missing value is gain 1, the constant temperature.
+   */
+  temperatureGain?: number;
+  /**
+   * Next write slot in the echo ring. Absent on brains saved before
+   * rehearsal. A missing value is an empty ring.
+   */
+  echoAt?: number;
+  /** Pairs stored in the echo ring. Absent on older brains. */
+  echoFill?: number;
+  /** Flat echo inputs, slot order, length `echoFill * inn`. */
+  echoX?: number[];
+  /** Flat echo targets, slot order, length `echoFill * out`. */
+  echoY?: number[];
 };
 
 export class Loop {
@@ -174,6 +350,12 @@ export class Loop {
   static readonly SLOW_WAKE = 0.06;
   /** Second slow window stays shut until the slow code has earned the same line as horizon 3. */
   static readonly SLOW_WINDOW2_EMA = 0.12;
+  /**
+   * Training updates that stay on the full cell loss before `discard` may
+   * drop a channel. The first kernel step does not train, so this is 40
+   * gradient steps, and the early probe at step 40 is still unmasked.
+   */
+  static readonly DISCARD_WARMUP = 40;
 
   readonly net: MLP;
   /** Second compressor. Input and target are hidden activations, not cells. */
@@ -262,6 +444,91 @@ export class Loop {
   slowSelfWindow = 0;
   /** Last second self-step drop that cleared the floor past a first self-window wall. */
   slowSelfWindow2 = 0;
+  /** Per-output running mean of the training target. Used only by `discard`. */
+  targetMean: Float32Array;
+  /** Per-output error of predicting that running mean. Used only by `discard`. */
+  marginalEma: Float32Array;
+  /** Training steps taken while `discard` is on. The off path leaves this at 0. */
+  assimilateSteps = 0;
+  /**
+   * Share of non-scent outputs dropped on the last training step.
+   * Zero during warmup and whenever `discard` is off.
+   */
+  discardFraction = 0;
+  /**
+   * Mean squared gap between the hidden code and the stop-grad target on the
+   * last training step. Zero whenever `decode` is off.
+   */
+  decodeResidual = 0;
+  /**
+   * Multiplier on the cell step while `revise` is on. Starts at 1, so the
+   * first training step is the passed rate. Stays 1 when the flag is off.
+   */
+  stepGain = 1;
+  /**
+   * Mean cell step used on training steps. Zero whenever `revise` is off,
+   * because the off path does not record a rate.
+   */
+  revisedLr = 0;
+  private reviseMass = 0;
+  private reviseCount = 0;
+  /**
+   * Multiplier on the curiosity weight while `wonder` is on. Starts at 1,
+   * so the first sampled action uses the constant. Stays 1 when the flag is off.
+   */
+  curiosityGain = 1;
+  /**
+   * Mean curiosity weight passed into the policy. Zero whenever `wonder`
+   * is off, because the off path does not record a weight.
+   */
+  revisedCuriosity = 0;
+  private wonderMass = 0;
+  private wonderCount = 0;
+  /**
+   * Mean live hidden width used on training steps. Zero whenever `shape`
+   * is off, because the off path does not record a width.
+   */
+  shapedWidth = 0;
+  private shapeMass = 0;
+  private shapeCount = 0;
+  /** Lowest live width while `shape` is on. The constructed width divided by TRANSITION_LR. */
+  readonly shapeFloor: number;
+  /** Highest live width while `shape` is on. The constructed width times TRANSITION_LR. */
+  readonly shapeCeiling: number;
+  /**
+   * Multiplier on policy temperature while `edge` is on. Starts at 1,
+   * so the first sampled action uses the constant. Stays 1 when the flag is off.
+   */
+  temperatureGain = 1;
+  /**
+   * Mean temperature passed toward the sampler on sampled actions.
+   * Zero whenever `edge` is off, because the off path does not record one.
+   */
+  edgedTemperature = 0;
+  private edgeMass = 0;
+  private edgeCount = 0;
+  /**
+   * Fraction of training steps that rehearsed a stored transition.
+   * Zero whenever `echo` is off, because the off path does not record one.
+   */
+  echoed = 0;
+  private echoHits = 0;
+  private echoTrain = 0;
+  private echoX: Float32Array[] | null = null;
+  private echoY: Float32Array[] | null = null;
+  private echoAt = 0;
+  private echoFill = 0;
+  /** True after this assimilate computed progress. The first tick does not. */
+  private progressReady = false;
+  /** Target encoder. A copy of `proj` at init, so it draws no Math.random. */
+  decW: Float32Array;
+  /** Target-encoder bias. Starts at 0. */
+  decB: Float32Array;
+  private decCode: Float32Array;
+  private decIn: Float32Array;
+  private decHat: Float32Array;
+  private decDz: Float32Array;
+  private decGz: Float32Array;
   private slowCode: Float32Array;
   private prevSlow: Float32Array | null = null;
   private slowPred: Float32Array;
@@ -284,6 +551,8 @@ export class Loop {
   ) {
     this.acts = acts;
     this.features = resolveLoopFeatures(features);
+    this.shapeFloor = Math.max(1, Math.round(hidden / TRANSITION_LR));
+    this.shapeCeiling = Math.max(this.shapeFloor, Math.round(hidden * TRANSITION_LR));
     this.net = new MLP(inn, hidden, out);
     const latentH = Math.max(4, hidden >> 2);
     this.latent = new MLP(hidden + acts, latentH, hidden);
@@ -291,6 +560,10 @@ export class Loop {
     this.lastPred.fill(0.5);
     this.residualEma = new Float32Array(out);
     this.residualEma.fill(0.25);
+    this.targetMean = new Float32Array(out);
+    this.targetMean.fill(0.5);
+    this.marginalEma = new Float32Array(out);
+    this.marginalEma.fill(0.25);
     this.scentCells = out % 3 === 0 ? out / 3 : 0;
     this.scentPred = new Float32Array(Math.max(1, this.scentCells));
     this.scentPred.fill(0.5);
@@ -334,6 +607,15 @@ export class Loop {
     this.slowBias = new Float32Array(acts * hidden);
     this.slowActionEma = new Float32Array(acts);
     this.slowActionEma.fill(0.25);
+    // After every Math.random draw in this constructor. Copying `proj` does
+    // not move the stream, so a flag that stays off is the same learner.
+    this.decW = new Float32Array(this.proj);
+    this.decB = new Float32Array(hidden);
+    this.decCode = new Float32Array(hidden);
+    this.decIn = new Float32Array(out);
+    this.decHat = new Float32Array(out);
+    this.decDz = new Float32Array(out);
+    this.decGz = new Float32Array(hidden);
   }
 
   private families() {
@@ -960,6 +1242,7 @@ export class Loop {
    * then compress. Family 2 is excluded from δ and from the training target.
    */
   assimilate(target: Float32Array, lr: number) {
+    this.progressReady = false;
     if (!this.prevInput) {
       this.lastPred.fill(0.5);
       this.surprise = 0.25;
@@ -967,7 +1250,7 @@ export class Loop {
       return;
     }
     this.net.forward(this.prevInput, this.lastPred);
-    const encoded = this.net.lastHidden().slice();
+    const encoded = this.net.lastHidden().slice(0, this.net.active);
     const fam = this.families();
     const famErr = [0, 0, 0];
     const famN = [0, 0, 0];
@@ -1008,13 +1291,296 @@ export class Loop {
     this.project(target, this.latentNow);
     this.noteEncObs(target);
 
-    const trainTarget = target.slice();
-    if (fam === 3) {
-      for (let i = 2; i < this.out; i += 3) trainTarget[i] = this.lastPred[i];
-    }
-    this.net.train(this.prevInput, trainTarget, lr);
+    if (this.features.discard) this.noteMarginal(target);
+    const trainTarget = this.cellTrainTarget(target);
+    if (this.features.discard) this.assimilateSteps += 1;
+    const step = this.features.revise ? this.reviseRate(lr) : lr;
+    const trainedOn = this.prevInput;
+    if (this.features.decode) this.trainDecode(trainedOn, trainTarget, step);
+    else this.net.train(trainedOn, trainTarget, step);
+    this.rehearse(trainedOn, trainTarget, step);
     this.participation = participation(encoded);
     this.commitHidden(this.latentNow);
+    this.progressReady = true;
+    this.reviseShape();
+  }
+
+  /**
+   * Marginal of each non-scent channel. The mean is the value before this
+   * target is folded in, so the error is what a constant predictor would
+   * have paid. Rate 0.1 matches `residualEma`. Family 2 is not tracked.
+   */
+  private noteMarginal(target: Float32Array) {
+    const fam = this.families();
+    const n = Math.min(target.length, this.out);
+    for (let i = 0; i < n; i++) {
+      if (fam === 3 && i % 3 === 2) continue;
+      const mean = this.targetMean[i]!;
+      const d = target[i]! - mean;
+      this.marginalEma[i] = 0.9 * this.marginalEma[i]! + 0.1 * d * d;
+      this.targetMean[i] = 0.9 * mean + 0.1 * target[i]!;
+    }
+  }
+
+  /**
+   * Cell-net target. Family 2 is always the prediction, so scent never
+   * trains the plan. When `discard` is on and 40 training steps are done,
+   * a non-scent channel whose model residual is not strictly below its
+   * marginal error is copied from the prediction too. That is a zero
+   * gradient. The comparison reads the EMAs after this step's update.
+   */
+  cellTrainTarget(target: Float32Array): Float32Array {
+    const trainTarget = target.slice();
+    const fam = this.families();
+    const n = Math.min(target.length, this.out);
+    if (fam === 3) {
+      for (let i = 2; i < n; i += 3) trainTarget[i] = this.lastPred[i]!;
+    }
+    if (!this.features.discard) return trainTarget;
+    let masked = 0;
+    let scored = 0;
+    const drop = this.assimilateSteps >= Loop.DISCARD_WARMUP;
+    for (let i = 0; i < n; i++) {
+      if (fam === 3 && i % 3 === 2) continue;
+      scored += 1;
+      if (drop && this.residualEma[i]! >= this.marginalEma[i]!) {
+        trainTarget[i] = this.lastPred[i]!;
+        masked += 1;
+      }
+    }
+    this.discardFraction = scored ? masked / scored : 0;
+    return trainTarget;
+  }
+
+  /**
+   * Cell step under self-revision. This call uses the gain from before,
+   * then moves the gain for the next step. Positive progress multiplies
+   * by 1.05, negative progress divides by 1.05, and zero leaves it.
+   * 0.05 is the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR].
+   */
+  private reviseRate(lr: number): number {
+    const used = lr * this.stepGain;
+    const up = 1 + 0.05;
+    if (this.progress > 0) this.stepGain = Math.min(this.stepGain * up, TRANSITION_LR);
+    else if (this.progress < 0) this.stepGain = Math.max(this.stepGain / up, 1 / TRANSITION_LR);
+    this.reviseMass += used;
+    this.reviseCount += 1;
+    this.revisedLr = this.reviseMass / this.reviseCount;
+    return used;
+  }
+
+  /**
+   * Curiosity weight under self-revision. The off path returns the constant
+   * and does not record it. The on path multiplies by the gain from before
+   * this tick's revision and records that used weight.
+   */
+  curiosityWeight(constant: number): number {
+    if (!this.features.wonder) return constant;
+    const used = constant * this.curiosityGain;
+    this.wonderMass += used;
+    this.wonderCount += 1;
+    this.revisedCuriosity = this.wonderMass / this.wonderCount;
+    return used;
+  }
+
+  /**
+   * Move the curiosity gain after the action has been chosen. This tick
+   * already used the gain from before. Positive progress multiplies by
+   * 1.05, negative progress divides by 1.05, and zero leaves it. 0.05 is
+   * the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR], the band already locked for the
+   * learning-rate gain. No training step, no revision: the first tick
+   * does not train. The off path does not read or write the gain.
+   */
+  reviseCuriosity() {
+    if (!this.features.wonder || !this.progressReady) return;
+    const up = 1 + 0.05;
+    if (this.progress > 0) this.curiosityGain = Math.min(this.curiosityGain * up, TRANSITION_LR);
+    else if (this.progress < 0) this.curiosityGain = Math.max(this.curiosityGain / up, 1 / TRANSITION_LR);
+  }
+
+  /**
+   * Hidden width under self-revision. This call records the width the step
+   * just used, then moves it for the next step. Positive progress adds one
+   * unit. Negative progress removes one. Zero leaves it. The added unit is
+   * a split with a fixed 0.05 symmetry break, not a new random draw. The width stays inside
+   * [shapeFloor, shapeCeiling]. No training step, no revision. `decode` on
+   * keeps the constructed width, because that code's width is this hidden
+   * size. The off path does not read or write the width.
+   */
+  private reviseShape() {
+    if (!this.features.shape || this.features.decode || !this.progressReady) return;
+    const used = this.net.active;
+    this.shapeMass += used;
+    this.shapeCount += 1;
+    this.shapedWidth = this.shapeMass / this.shapeCount;
+    if (this.progress > 0) this.net.widen(this.shapeCeiling);
+    else if (this.progress < 0) this.net.narrow(this.shapeFloor);
+  }
+
+  /**
+   * Policy temperature under self-tuned criticality. The off path returns
+   * the constant and does not record it. The on path multiplies by the
+   * gain from before this sample's revision and records that used temperature.
+   * Burn-in, when it is running, scales the returned value afterward.
+   */
+  policyTemperature(constant: number): number {
+    if (!this.features.edge) return constant;
+    const used = constant * this.temperatureGain;
+    this.edgeMass += used;
+    this.edgeCount += 1;
+    this.edgedTemperature = this.edgeMass / this.edgeCount;
+    return used;
+  }
+
+  /**
+   * Move the temperature gain after the action has been chosen. This
+   * sample already used the gain from before. Branching below the C2
+   * floor multiplies by 1.05. Branching above the C2 ceiling divides
+   * by 1.05. A count inside the band, including the ends, leaves it.
+   * 0.05 is the coefficient on `progressEma`. The gain stays inside
+   * [1/TRANSITION_LR, TRANSITION_LR], the band already locked for the
+   * learning-rate gain. The off path does not read or write the gain.
+   * A held tick does not call this. The random signal does not either.
+   */
+  reviseEdge(branchCount: number) {
+    if (!this.features.edge) return;
+    const up = 1 + 0.05;
+    if (branchCount < C2_BRANCH_LO) this.temperatureGain = Math.min(this.temperatureGain * up, TRANSITION_LR);
+    else if (branchCount > C2_BRANCH_HI) this.temperatureGain = Math.max(this.temperatureGain / up, 1 / TRANSITION_LR);
+  }
+
+  /**
+   * One extra cell step on the transition stored SHIPPED_PROGRESS_WINDOW
+   * training steps ago. Surprise and progress for this tick are already
+   * scored, so the rehearsal does not enter the bonus. The off path
+   * returns before allocating the ring. `decode` on returns the same way:
+   * that update is not this cell step. Draws no Math.random.
+   */
+  private rehearse(x: Float32Array, y: Float32Array, lr: number) {
+    if (!this.features.echo || this.features.decode) return;
+    const delay = SHIPPED_PROGRESS_WINDOW;
+    if (!this.echoX || !this.echoY) {
+      this.echoX = new Array(delay);
+      this.echoY = new Array(delay);
+    }
+    if (this.echoFill >= delay) {
+      const slot = this.echoAt;
+      const oldX = this.echoX[slot];
+      const oldY = this.echoY[slot];
+      if (oldX && oldY) {
+        this.net.train(oldX, oldY, lr);
+        this.echoHits += 1;
+      }
+    }
+    let sx = this.echoX[this.echoAt];
+    let sy = this.echoY[this.echoAt];
+    if (!sx || sx.length !== x.length) {
+      sx = new Float32Array(x.length);
+      this.echoX[this.echoAt] = sx;
+    }
+    if (!sy || sy.length !== y.length) {
+      sy = new Float32Array(y.length);
+      this.echoY[this.echoAt] = sy;
+    }
+    sx.set(x);
+    sy.set(y);
+    this.echoAt = (this.echoAt + 1) % delay;
+    if (this.echoFill < delay) this.echoFill += 1;
+    this.echoTrain += 1;
+    this.echoed = this.echoHits / this.echoTrain;
+  }
+
+  /** Same ±1.5 clip as the curiosity encoder. A step cannot run away. */
+  private clipDecode(v: number) {
+    if (v > 1.5) return 1.5;
+    if (v < -1.5) return -1.5;
+    return v;
+  }
+
+  /** z = tanh(E x + b). `src` is the cell target with family 2 already zeroed. */
+  private writeDecodeCode(src: Float32Array, into: Float32Array) {
+    const n = Math.min(src.length, this.out);
+    for (let i = 0; i < this.hidden; i++) {
+      let s = this.decB[i]!;
+      const row = i * this.out;
+      for (let j = 0; j < n; j++) s += this.decW[row + j]! * src[j]!;
+      into[i] = Math.tanh(s);
+    }
+    return into;
+  }
+
+  /**
+   * Latent target for the transition. Three updates, each reading the
+   * weights from before the step. The predictor matches the hidden to a
+   * detached code. The readout decodes that hidden to cells. The encoder
+   * is trained so the current readout can decode the code, and it does not
+   * see the predictor's hidden. Family 2 is not a feature of the code and
+   * takes no encoder gradient. Surprise was already scored on the real cells.
+   */
+  private trainDecode(x: Float32Array, trainTarget: Float32Array, lr: number) {
+    const src = this.decIn;
+    const n = Math.min(trainTarget.length, this.out);
+    src.fill(0);
+    for (let j = 0; j < n; j++) src[j] = trainTarget[j]!;
+    if (this.families() === 3) {
+      for (let i = 2; i < n; i += 3) src[i] = 0;
+    }
+    this.writeDecodeCode(src, this.decCode);
+    this.decodeResidual = this.net.matchHidden(x, this.decCode, lr);
+    this.learnDecodeEncoder(src, trainTarget, lr);
+    this.net.decodeReadout(trainTarget, lr);
+  }
+
+  /**
+   * Reconstruction of the cell target through the current readout.
+   * W2 and b2 are stop-grad. Family 2's error is zero, matching the plan.
+   * Only the encoder moves, and each weight is clipped to ±1.5.
+   */
+  private learnDecodeEncoder(src: Float32Array, target: Float32Array, lr: number) {
+    const h = this.hidden;
+    const nOut = this.out;
+    const z = this.decCode;
+    const y = this.decHat;
+    const gz = this.decGz;
+    const dz2 = this.decDz;
+    const w2 = this.net.w2;
+    const b2 = this.net.b2;
+    const n = Math.min(src.length, nOut);
+    for (let i = 0; i < h; i++) {
+      let s = this.decB[i]!;
+      const row = i * nOut;
+      for (let j = 0; j < n; j++) s += this.decW[row + j]! * src[j]!;
+      z[i] = Math.tanh(s);
+    }
+    const scale = 2 / nOut;
+    const fam = this.families();
+    for (let k = 0; k < nOut; k++) {
+      let s = b2[k]!;
+      const row = k * h;
+      for (let i = 0; i < h; i++) s += w2[row + i]! * z[i]!;
+      const clipped = s < -12 ? -12 : s > 12 ? 12 : s;
+      const yk = 1 / (1 + Math.exp(-clipped));
+      y[k] = yk;
+      const skip = fam === 3 && k % 3 === 2;
+      const err = skip ? 0 : (yk - (target[k] ?? 0)) * scale;
+      dz2[k] = err * yk * (1 - yk);
+    }
+    for (let i = 0; i < h; i++) {
+      let g = 0;
+      for (let k = 0; k < nOut; k++) g += w2[k * h + i]! * dz2[k]!;
+      const zi = z[i]!;
+      gz[i] = g * (1 - zi * zi);
+    }
+    for (let i = 0; i < h; i++) {
+      const g = gz[i]!;
+      const row = i * nOut;
+      for (let j = 0; j < n; j++) {
+        this.decW[row + j] = this.clipDecode(this.decW[row + j]! - lr * g * src[j]!);
+      }
+      this.decB[i] = this.clipDecode(this.decB[i]! - lr * g);
+    }
   }
 
   /**
@@ -1119,10 +1685,41 @@ export class Loop {
       slowWindow3: this.slowWindow3,
       slowSelfWindow: this.slowSelfWindow,
       slowSelfWindow2: this.slowSelfWindow2,
+      targetMean: Array.from(this.targetMean),
+      marginalEma: Array.from(this.marginalEma),
+      assimilateSteps: this.assimilateSteps,
+      decW: Array.from(this.decW),
+      decB: Array.from(this.decB),
+      stepGain: this.stepGain,
+      curiosityGain: this.curiosityGain,
+      shapeWidth: this.net.active,
+      temperatureGain: this.temperatureGain,
+      echoAt: this.echoAt,
+      echoFill: this.echoFill,
+      echoX: this.flatEcho(this.echoX, this.inn),
+      echoY: this.flatEcho(this.echoY, this.out),
     };
   }
 
+  /** Slot-order copy of the stored echo pairs. Absent when the ring is empty. */
+  private flatEcho(slots: Float32Array[] | null, width: number): number[] | undefined {
+    if (!slots || this.echoFill <= 0) return undefined;
+    const flat = new Array<number>(this.echoFill * width);
+    for (let s = 0; s < this.echoFill; s++) {
+      const row = slots[s];
+      const at = s * width;
+      for (let j = 0; j < width; j++) flat[at + j] = row && j < row.length ? row[j]! : 0;
+    }
+    return flat;
+  }
+
   importBrain(w: BrainDump): boolean {
+    if (this.features.shape && this.inn > 0 && this.out > 0 && w.w1.length % this.inn === 0 && w.w2.length % this.out === 0) {
+      const span = w.w1.length / this.inn;
+      if (span === w.w2.length / this.out && span > this.net.h && span <= this.shapeCeiling && w.b1.length === span) {
+        this.net.ensureSpan(span);
+      }
+    }
     const ok = this.net.importWeights(w);
     if (!ok) return false;
     if (w.latentW1 && w.latentB1 && w.latentW2 && w.latentB2) {
@@ -1164,7 +1761,48 @@ export class Loop {
     this.slowWindow3 = w.slowWindow3 ?? 0;
     this.slowSelfWindow = w.slowSelfWindow ?? 0;
     this.slowSelfWindow2 = w.slowSelfWindow2 ?? 0;
+    if (w.targetMean && w.targetMean.length === this.targetMean.length) this.targetMean.set(w.targetMean);
+    if (w.marginalEma && w.marginalEma.length === this.marginalEma.length) this.marginalEma.set(w.marginalEma);
+    this.assimilateSteps = w.assimilateSteps ?? 0;
+    if (w.decW && w.decW.length === this.decW.length) this.decW.set(w.decW);
+    if (w.decB && w.decB.length === this.decB.length) this.decB.set(w.decB);
+    if (typeof w.stepGain === "number" && Number.isFinite(w.stepGain) && w.stepGain > 0) {
+      this.stepGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.stepGain));
+    }
+    if (typeof w.curiosityGain === "number" && Number.isFinite(w.curiosityGain) && w.curiosityGain > 0) {
+      this.curiosityGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.curiosityGain));
+    }
+    if (typeof w.temperatureGain === "number" && Number.isFinite(w.temperatureGain) && w.temperatureGain > 0) {
+      this.temperatureGain = Math.min(TRANSITION_LR, Math.max(1 / TRANSITION_LR, w.temperatureGain));
+    }
+    if (this.features.shape && typeof w.shapeWidth === "number" && Number.isFinite(w.shapeWidth)) {
+      const hi = Math.min(this.shapeCeiling, this.net.h);
+      const lo = Math.min(this.shapeFloor, hi);
+      this.net.active = Math.min(hi, Math.max(lo, Math.round(w.shapeWidth)));
+    }
+    this.restoreEcho(w);
     return true;
+  }
+
+  /** Empty ring when the dump predates rehearsal or the lengths disagree. */
+  private restoreEcho(w: BrainDump) {
+    if (!this.features.echo) return;
+    const delay = SHIPPED_PROGRESS_WINDOW;
+    const fill = Math.min(delay, Math.max(0, Math.round(w.echoFill ?? 0)));
+    if (fill <= 0 || !w.echoX || !w.echoY) return;
+    if (w.echoX.length !== fill * this.inn || w.echoY.length !== fill * this.out) return;
+    this.echoX = new Array(delay);
+    this.echoY = new Array(delay);
+    for (let s = 0; s < fill; s++) {
+      const x = new Float32Array(this.inn);
+      const y = new Float32Array(this.out);
+      x.set(w.echoX.slice(s * this.inn, (s + 1) * this.inn));
+      y.set(w.echoY.slice(s * this.out, (s + 1) * this.out));
+      this.echoX[s] = x;
+      this.echoY[s] = y;
+    }
+    this.echoFill = fill;
+    this.echoAt = fill < delay ? fill : ((Math.round(w.echoAt ?? 0) % delay) + delay) % delay;
   }
 }
 
