@@ -502,3 +502,66 @@ export function competeVerdict(summary: CompeteSummary, pure: Call): Call {
   if (summary === "pure-miss" && pure === "refuted") return "refuted";
   return "inconclusive";
 }
+
+/**
+ * Half-width target for the pattern doorway contrast at 800 seeds.
+ * The adaptation-rate doorway interval was 0.0079 [−0.0269, 0.0435], n = 199,
+ * half-width 0.0352, seed SD about 0.253. At 800 seeds the normal half-width
+ * is about 0.0176. A planted-bonus lower end at or above this bar is wider
+ * than twice that half-width, so a content interval that includes 0 is a
+ * sensitive null. The class still uses the instrument's own lower end.
+ */
+export const CREDIT_POWER_DELTA = 0.036;
+
+export type CreditSummary = "blind" | "against" | "offered" | "unresolved" | "no-instrument" | "confounded";
+
+export type CreditClass = "attracted" | "repelled" | "null-with-sensitivity" | "inconclusive";
+
+/** Planted doorway gap. Too few eligible seeds is inconclusive and does not call a sign. */
+export function creditInstrumentCall(excess: Ends, n: number, nSeeds: number): Call {
+  if (!(n * 2 > nSeeds)) return "inconclusive";
+  return greaterCall(excess);
+}
+
+/**
+ * Pattern minus noise, same majority rule, then the phase-diagram class.
+ * Sign comes before the null. δ is the instrument's lower end, or null
+ * when the planted bonus did not clear.
+ */
+export function creditContentClass(excess: Ends, n: number, nSeeds: number, delta: number | null): CreditClass {
+  if (!(n * 2 > nSeeds)) return "inconclusive";
+  if (excess.lo > 0) return "attracted";
+  if (excess.hi < 0) return "repelled";
+  if (delta != null && delta > 0 && excess.lo > -delta && excess.hi < delta) return "null-with-sensitivity";
+  return "inconclusive";
+}
+
+/**
+ * Doorway score of the pure pattern against matched noise, once a planted
+ * bonus of 0.0169 has been shown to move that score.
+ * Blind: the choice does not resolve a preference inside δ.
+ * Against: the choice prefers the noise room.
+ * Offered: the choice prefers the pattern.
+ * Unresolved: the interval is too wide to class.
+ * No-instrument: the planted bonus did not clear, so δ is unavailable.
+ * Confounded: random's content gap or the planted gap excludes 0.
+ */
+export function creditSummary(randomExcludesZero: boolean, instrument: Call, content: CreditClass): CreditSummary {
+  if (randomExcludesZero) return "confounded";
+  if (instrument !== "confirmed") return "no-instrument";
+  if (content === "null-with-sensitivity") return "blind";
+  if (content === "repelled") return "against";
+  if (content === "attracted") return "offered";
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the pattern is not offered at the choice.
+ * Refuted: the choice prefers the pattern.
+ * Otherwise inconclusive.
+ */
+export function creditVerdict(summary: CreditSummary): Call {
+  if (summary === "blind" || summary === "against") return "confirmed";
+  if (summary === "offered") return "refuted";
+  return "inconclusive";
+}

@@ -25,6 +25,7 @@
     "drift-gap": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/drift-gap.ts",
     "doorway": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/doorway.ts",
     "compete": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/compete.ts",
+    "credit": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/credit.ts",
     "boost-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/boost.ts",
     "sharp": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/sharp.ts",
     "timescale": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/timescale.ts",

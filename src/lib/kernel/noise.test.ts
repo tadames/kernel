@@ -11,6 +11,7 @@ import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, PUBLISHED_RANDOM_FRACTION, runBoostEp
 import { runDriftEpisode } from "./drift-run.ts";
 import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
 import { doorwayDelta, runDoorwayEpisode } from "./doorway-run.ts";
+import { runCreditEpisode } from "./credit-run.ts";
 import { imagineScores } from "./policy.ts";
 import {
   amplitudeCall,
@@ -30,6 +31,11 @@ import {
   policyTermsCall,
   competeSummary,
   competeVerdict,
+  creditContentClass,
+  creditInstrumentCall,
+  creditSummary,
+  creditVerdict,
+  CREDIT_POWER_DELTA,
   doorwaySummary,
   repulsionCall,
   rhoGapBand,
@@ -626,4 +632,44 @@ test("a place bonus does not move a random walk and does raise the score gap", (
   on.step();
   assert.ok(on.scores[1]! > off.scores[1]! + 0.5, `east on ${on.scores[1]} off ${off.scores[1]}`);
   assert.equal(on.scores[3], off.scores[3]);
+});
+
+test("a pattern doorway credits only when the choice prefers it, and a planted gap sets delta", () => {
+  assert.equal(CREDIT_POWER_DELTA, 0.036);
+  assert.equal(creditInstrumentCall({ lo: 0.04, hi: 0.06 }, 800, 800), "confirmed");
+  assert.equal(creditInstrumentCall({ lo: -0.01, hi: 0.02 }, 800, 800), "inconclusive");
+  assert.equal(creditInstrumentCall({ lo: 0.04, hi: 0.06 }, 100, 800), "inconclusive");
+  const delta = 0.0367;
+  assert.equal(creditContentClass({ lo: 0.01, hi: 0.02 }, 800, 800, delta), "attracted");
+  assert.equal(creditContentClass({ lo: -0.02, hi: -0.001 }, 800, 800, delta), "repelled");
+  assert.equal(creditContentClass({ lo: -0.01, hi: 0.01 }, 800, 800, delta), "null-with-sensitivity");
+  assert.equal(creditContentClass({ lo: 0, hi: 0 }, 800, 800, delta), "null-with-sensitivity");
+  assert.equal(creditContentClass({ lo: -0.05, hi: 0.01 }, 800, 800, delta), "inconclusive");
+  assert.equal(creditContentClass({ lo: -0.01, hi: 0.01 }, 800, 800, null), "inconclusive");
+  assert.equal(creditContentClass({ lo: -0.01, hi: 0.01 }, 100, 800, delta), "inconclusive");
+  assert.equal(creditSummary(false, "confirmed", "null-with-sensitivity"), "blind");
+  assert.equal(creditSummary(false, "confirmed", "repelled"), "against");
+  assert.equal(creditSummary(false, "confirmed", "attracted"), "offered");
+  assert.equal(creditSummary(false, "confirmed", "inconclusive"), "unresolved");
+  assert.equal(creditSummary(false, "inconclusive", "null-with-sensitivity"), "no-instrument");
+  assert.equal(creditSummary(true, "confirmed", "null-with-sensitivity"), "confounded");
+  assert.equal(creditVerdict("blind"), "confirmed");
+  assert.equal(creditVerdict("against"), "confirmed");
+  assert.equal(creditVerdict("offered"), "refuted");
+  assert.equal(creditVerdict("unresolved"), "inconclusive");
+  assert.equal(creditVerdict("no-instrument"), "inconclusive");
+  assert.equal(creditVerdict("confounded"), "inconclusive");
+  const pattern = runCreditEpisode({ id: 0, seed: 3, signal: "random", steps: 40, arm: "pattern" });
+  const noise = runCreditEpisode({ id: 1, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  const boost = runCreditEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "boost" });
+  assert.equal(pattern.samples, 20);
+  assert.equal(noise.samples, 20);
+  assert.equal(boost.samples, 20);
+  assert.equal(pattern.path, noise.path);
+  assert.equal(pattern.path, boost.path);
+  assert.equal(pattern.distractorFrac, noise.distractorFrac);
+  assert.equal(pattern.foods, noise.foods);
+  assert.equal(pattern.lives, noise.lives);
+  assert.equal(pattern.scoreGap, 0);
+  assert.equal(boost.scoreGap, 0);
 });

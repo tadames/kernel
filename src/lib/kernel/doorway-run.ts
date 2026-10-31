@@ -71,7 +71,7 @@ function withSeed<T>(seed: number, fn: () => T): T {
 }
 
 /** Same destination rule as the policy's visit count: a blocked step stays. */
-function actionRegion(k: Kernel, x: number, y: number, action: number) {
+export function doorwayActionRegion(k: Kernel, x: number, y: number, action: number) {
   const nx = x + DIRS[action]!.x;
   const ny = y + DIRS[action]!.y;
   const oob = nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE;
@@ -108,7 +108,7 @@ export function runDoorwayEpisode(req: DoorwayRequest): DoorwayResult {
       if (reg === 1) inRoom += 1;
       if (k.optionHeld !== heldBefore) continue;
       samples += 1;
-      const delta = doorwayDelta(k.scores, (action) => actionRegion(k, x, y, action) === 1);
+      const delta = doorwayDelta(k.scores, (action) => doorwayActionRegion(k, x, y, action) === 1);
       if (delta == null) continue;
       scoreSum += delta;
       scoreSteps += 1;

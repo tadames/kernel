@@ -1,5 +1,91 @@
 # Journal
 
+## 2026-10-31 credit (UTC)
+
+Written before `npm run credit`. No doorway score from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. The doorway on the shipped learner includes 0 at both drift rates. `echo` stays off. The pure pattern versus matched noise left occupancy at 0.0028 [−0.0183, 0.0235], and the rectified gap, 0.0217 [0.0201, 0.0232], lies entirely under 0.05, so that occupancy miss is what the dose curve predicts. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not rerun that occupancy pair with more seeds, a searched fraction, or a sliced episode. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+The dose curve at temperature 0.45 separated the logits before it separated time. A planted progress-channel bonus of 0.0169, the same band as the pattern's rectified gap, moved rho's doorway score by 0.0525 [0.0367, 0.0694] and left occupancy at 0.0126 [−0.0039, 0.0291]. The pattern study measured the in-room gap and the occupancy, and did not measure the doorway score. The drift doorway was a different contrast, a negative gap below 0.0169, and its intervals were about ±0.035 on about 16 ticks. That design is not repeated. This run asks whether the pattern's progress advantage is offered at the choice.
+
+### Preregister credit
+
+Hypothesis. On the shipped learner, a planted progress-channel bonus of 0.0169 still moves the doorway score, and the pure pattern does not. The comparison for the pattern is pattern minus matched noise. The comparison for the plant is boosted minus the same pattern, with no other change.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The pattern arm paints `patternChannel` `all`. The noise arm omits it and still draws the noise coin, so the episode RNG matches. The boost arm is the pattern arm plus `intrinsicBoost` add 0.0169 on region 1. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the compete episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are reported and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. This is not a Loop flag. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Doorway score. A tick counts only when `optionHeld` does not change during the step. That is a sample: `choose` wrote `scores` for the cell the body is standing in. A held tick repeats the committed direction and is dropped. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts the sweep before any call. The score on a sampled tick is the mean score of actions whose real destination is region 1, minus the mean score of the others. The destination rule is the policy's: a blocked step, a step off the map, or wait stays in the current region. A tick with no action on one side is dropped. A seed's number is the mean of the ticks that remain. A seed with no counted tick on either arm of a contrast is dropped. Paired 95% percentile bootstrap, 2000 resamples.
+
+Contrasts. The plant is boost minus pattern. The content is pattern minus noise. Only the pure room is run. The third is not a cell. No other dose is run. No other temperature is run.
+
+Power, locked here, from the adaptation-rate doorway interval 0.0079 [−0.0269, 0.0435], n = 199. The half-width is 0.0352. The seed SD is 0.0352 / 1.96 × √199 ≈ 0.253. At 800 seeds the normal half-width is about 0.0176. `CREDIT_POWER_DELTA` is 0.036, which is above twice that half-width and below the published planted lower end 0.0367. The power assumption holds when rho's planted interval is confirmed and its lower end is at least 0.036. A content interval that includes 0 is then a sensitive null against that δ. If the planted lower end is below 0.036, the assumption failed. The class is still `creditContentClass`. A wide interval stays unresolved. The assumption does not move δ and it does not rescue a verdict.
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. The planted score uses salt `26000 + explorer`. The content score uses salt `26100 + explorer`. `creditInstrumentCall` on the planted gap: too few eligible seeds, meaning the kept seeds are not a majority of 800, is inconclusive and does not call a sign. Otherwise `greaterCall`. δ is that lower end, and only when rho's planted call is confirmed. Otherwise δ is null.
+
+Content class, `creditContentClass`, is `phaseCellClass` with the same majority rule. Attracted when the CI lies entirely above 0. Repelled when it lies entirely below 0. Null-with-sensitivity when δ is available and the CI lies strictly inside (−δ, δ). Otherwise inconclusive. Sign comes before the null.
+
+Summary, `creditSummary`, from rho only. Confounded when random's planted gap or random's content gap excludes 0. The sweep aborts in that case, before a verdict. No-instrument when the planted call is not confirmed. Blind when the content class is null-with-sensitivity. Against when the content class is repelled. Offered when the content class is attracted. Unresolved otherwise. Surprise, count, and RND do not flip the summary.
+
+Verdict, `creditVerdict`. Confirmed when the summary is blind or against: the progress advantage is not offered as a preference for the pattern. Refuted when the summary is offered: the choice prefers the pattern, so the occupancy miss is the softmax conversion the dose curve already measured. Otherwise inconclusive.
+
+Harness, not a call. The census is 52 open cells, all kept. A runner that does not get that count throws before any episode. Random's path, target-room fraction, meals, and lives match across the three arms. A mismatch aborts. Rho's occupancy excess on seeds 1–200 matches the published compete mean 0.0027625000000000037 within 1e-12. Rho's rectified gap on those seeds, dropping a seed with fewer than 8 steps in the room on either arm, matches n = 177 and mean 0.02165466068345234 within 1e-12. A mismatch aborts. Random's doorway gaps are a point mass at 0. An interval that excludes 0 aborts. Fewer than a majority of random seeds at a doorway aborts.
+
+Rectified progress, pattern minus noise, rho, salt 26304, is not a call. It cannot rescue a verdict. Occupancy, pattern minus noise, salt `26200 + explorer`, is not a call. These 800 seeds do not reopen the pure-room occupancy result. A content occupancy interval that excludes 0 does not change the verdict. Training surprise in the room, pattern minus noise, salt `26400 + explorer`, is not a call.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. Confirmed: in-room progress is not a doorway preference for the pattern. Refuted: the choice prefers the pattern. Inconclusive: the planted bonus does not clear on this learner, or the content interval is too wide to class. The third mask is not run in any of the three.
+
+Figure: `bench/credit/credit-gap.png`. The bars are the paired doorway gaps. Zero is the vertical line. δ, when the instrument confirms, is the pair of gold lines. Source: `bench/credit/credit.json`. The sweep is `npm run credit`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `9256957`. The row is the compete learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Results
+
+The prediction is confirmed. The planted bonus still moves the doorway score, and the pure pattern does not. The summary is blind. The verdict is confirmed. The content interval includes 0, so this is not a measured preference for the noise room. It lies inside δ, so a preference as large as the planted bonus produced is ruled out. No term was added. The temperature stays 0.45. `option` stays on.
+
+12000 episodes, 400 steps, 4 workers, 305.1 seconds. Source: `bench/credit/credit.json`. The random walk is the same path on all three arms, meals and lives included. Every episode sampled half its steps. Seeds 1–200 reproduce the compete occupancy mean and the compete rectified mean. The census is 52 open cells, all kept. The harness does not fail. Random's doorway gap is a point mass at 0 on 731 seeds. The kept seeds are a majority. The gap does not exclude 0.
+
+#### Summary. Confirmed.
+
+Temperature 0.45. The planted gap is boost minus the same pattern, add 0.0169 on region 1. The content gap is pattern minus matched noise. δ is the planted lower end, 0.0456. The power assumption holds: that end is above 0.036. `creditSummary` is blind. `creditVerdict` is confirmed.
+
+| contrast | rho doorway | n | class |
+|---|---|---:|---|
+| planted 0.0169 | 0.0594 [0.0456, 0.0734] | 778 | confirmed |
+| pattern − noise | −0.0079 [−0.0273, 0.0115] | 766 | null-with-sensitivity |
+
+The planted interval lies entirely above 0. The content interval lies strictly inside (−0.0456, 0.0456). A seed's mean is about 15 ticks: 14.62 on the pattern arm, 14.92 on the noise arm, and 14.66 on the boost arm. Twenty-two seeds had no doorway tick on one arm of the plant, and thirty-four on the content contrast. The kept seeds are a majority.
+
+The other explorers are not the call. Every planted interval for a directed explorer lies entirely above 0. Every content interval is a sensitive null against the same δ. Count's content upper end, 0.0418, is the closest to δ and still under it. Surprise's content point estimate is negative. Its interval includes 0.
+
+| contrast | random | count | surprise | rnd |
+|---|---|---|---|---|
+| planted | 0.0000 [0.0000, 0.0000] | 0.0449 [0.0315, 0.0588] | 0.0494 [0.0357, 0.0628] | 0.0686 [0.0541, 0.0822] |
+| pattern − noise | 0.0000 [0.0000, 0.0000] | 0.0195 [−0.0032, 0.0418] | −0.0130 [−0.0344, 0.0084] | 0.0001 [−0.0168, 0.0166] |
+
+Random's n is 731 on both contrasts. Count keeps 798. Surprise keeps 789 and 773. RND keeps 768 and 762.
+
+Rectified progress, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05. The in-room advantage is the one the doorway did not offer. It is larger than 0.0169 and smaller than the occupancy dose.
+
+| quantity | gap | n |
+|---|---|---:|
+| rectified | 0.0214 [0.0206, 0.0222] | 703 |
+
+Training surprise in the room, not a call. The pure pattern is less surprising for rho, −0.0272 [−0.0286, −0.0258], n = 745. The same sign holds for random, count, surprise, and RND, and each of those intervals lies entirely below 0. The content swap is visible inside the room. It does not move the doorway score by δ.
+
+Occupancy, not a call, and not a reopening of the pure-room result. Target-room fraction, pattern minus noise, 800 seeds. Rho is 0.0024 [−0.0080, 0.0125]. The interval includes 0. Count is 0.0020 [−0.0089, 0.0121]. Surprise is 0.0009 [−0.0105, 0.0123]. RND is 0.0036 [−0.0054, 0.0129]. Random is a point mass at 0. Rho's noise-arm fraction is 0.2433 [0.2325, 0.2546]. The pattern arm is 0.2456 [0.2347, 0.2571]. Random stays at 0.1749 on every arm.
+
+Figure: `bench/credit/credit-gap.png`. Rho's planted bar sits to the right of zero. Rho's pattern bar crosses zero and stays between the gold lines.
+
+No mechanism was added. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off outside this sweep. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `9256957`. The row matches the parent. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. No kernel mechanism file changed, so the probe gate is not required.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. The pure pattern pays more rectified progress than matched noise, 0.0214 [0.0206, 0.0222], and the doorway score does not prefer it. A planted bonus of the same size still moves that score, 0.0594 [0.0456, 0.0734], and the pattern interval sits inside that δ. The failure is credit. In-room progress is not offered at the choice. Do not rerun the doorway at another dose, another temperature, or on the third mask. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-10-31 compete (UTC)
 
 Written before `npm run compete`. No occupancy number from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
