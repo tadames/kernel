@@ -10,7 +10,12 @@ import { runNoiseEpisode } from "./noise-run.ts";
 import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, PUBLISHED_RANDOM_FRACTION, runBoostEpisode } from "./boost-run.ts";
 import { runDriftEpisode } from "./drift-run.ts";
 import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
-import { imagineScores } from "./policy.ts";
+import { doorwayDelta, runDoorwayEpisode } from "./doorway-run.ts";
+import { CREDIT_DOSE, runCreditEpisode } from "./credit-run.ts";
+import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain-run.ts";
+import { runReachEpisode, stayLevel } from "./reach-run.ts";
+import { INVERT_SCALE_EPS, runInvertEpisode } from "./invert-run.ts";
+import { imagineScores, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
   boostSummary,
@@ -27,6 +32,21 @@ import {
   noAttractionCall,
   policySplitCall,
   policyTermsCall,
+  competeSummary,
+  competeVerdict,
+  creditContentClass,
+  creditInstrumentCall,
+  creditSummary,
+  creditVerdict,
+  chainCarry,
+  chainSummary,
+  reachSummary,
+  reachVerdict,
+  invertSummary,
+  invertVerdict,
+  chainVerdict,
+  CREDIT_POWER_DELTA,
+  doorwaySummary,
   repulsionCall,
   rhoGapBand,
   RHO_DETECT_DOSE,
@@ -342,6 +362,7 @@ test("CI does not run the noise sweep", () => {
   assert.equal(yml.includes("npm run noise"), false);
   assert.equal(yml.includes("boost-room"), false);
   assert.equal(yml.includes("drift-gap"), false);
+  assert.equal(yml.includes("npm run doorway"), false);
 });
 
 test("the drift-gap call places a rectified gap on the dose curve", () => {
@@ -498,6 +519,62 @@ test("the sharp temperature is kept only when the gain clears and nothing is hur
   assert.equal(repulsionCall({ lo: -0.02, hi: -0.001 }), "confirmed");
   assert.equal(repulsionCall({ lo: 0.001, hi: 0.02 }), "refuted");
   assert.equal(repulsionCall({ lo: -0.01, hi: 0.02 }), "inconclusive");
+  assert.equal(doorwaySummary("inconclusive", "confirmed"), "confirmed");
+  assert.equal(doorwaySummary("confirmed", "confirmed"), "refuted");
+  assert.equal(doorwaySummary("confirmed", "inconclusive"), "refuted");
+  assert.equal(doorwaySummary("inconclusive", "inconclusive"), "inconclusive");
+  assert.equal(doorwaySummary("refuted", "confirmed"), "refuted");
+  assert.equal(doorwaySummary("inconclusive", "refuted"), "refuted");
+});
+
+test("a pattern channel is swamped only when the pure room attracts and the third does not", () => {
+  assert.equal(competeSummary(false, "confirmed", "null-with-sensitivity"), "swamped");
+  assert.equal(competeSummary(false, "confirmed", "repelled"), "swamped");
+  assert.equal(competeVerdict("swamped", "confirmed"), "confirmed");
+  assert.equal(competeSummary(false, "confirmed", "attracted"), "found");
+  assert.equal(competeSummary(false, "inconclusive", "attracted"), "found");
+  assert.equal(competeVerdict("found", "confirmed"), "refuted");
+  assert.equal(competeSummary(false, "inconclusive", "inconclusive"), "pure-miss");
+  assert.equal(competeVerdict("pure-miss", "inconclusive"), "inconclusive");
+  assert.equal(competeSummary(false, "refuted", "inconclusive"), "pure-miss");
+  assert.equal(competeVerdict("pure-miss", "refuted"), "refuted");
+  assert.equal(competeSummary(false, "confirmed", "inconclusive"), "unresolved");
+  assert.equal(competeVerdict("unresolved", "confirmed"), "inconclusive");
+  assert.equal(competeSummary(true, "confirmed", "null-with-sensitivity"), "confounded");
+  assert.equal(competeVerdict("confounded", "confirmed"), "inconclusive");
+});
+
+test("the doorway delta drops a one-sided tick and ignores a held tick's stale score", () => {
+  assert.equal(doorwayDelta([0, 0, 0, 0, 0], (action) => action === 1), 0);
+  assert.equal(doorwayDelta([0, 2, 0, 0, 0], (action) => action === 1), 2);
+  assert.equal(doorwayDelta([1, 1, 1, 1, 1], () => true), null);
+  const drift = runDoorwayEpisode({
+    id: 0,
+    seed: 3,
+    signal: "random",
+    steps: 40,
+    driftRate: 0.01877,
+    arm: "drift",
+    policyTemperature: SHARP_POLICY_TEMPERATURE,
+  });
+  const held = runDoorwayEpisode({
+    id: 1,
+    seed: 3,
+    signal: "random",
+    steps: 40,
+    driftRate: 0.01877,
+    arm: "held",
+    policyTemperature: SHARP_POLICY_TEMPERATURE,
+  });
+  assert.equal(drift.samples, 20);
+  assert.equal(held.samples, 20);
+  assert.equal(drift.scoreGap, 0);
+  assert.equal(held.scoreGap, 0);
+  assert.equal(drift.path, held.path);
+  assert.equal(drift.distractorFrac, held.distractorFrac);
+  assert.equal(drift.foods, held.foods);
+  assert.equal(drift.lives, held.lives);
+  assert.equal(new Kernel("field", 1).features.option, true);
 });
 
 test("policy temperature defaults to the shipped softmax and does not move a random walk", () => {
@@ -565,4 +642,213 @@ test("a place bonus does not move a random walk and does raise the score gap", (
   on.step();
   assert.ok(on.scores[1]! > off.scores[1]! + 0.5, `east on ${on.scores[1]} off ${off.scores[1]}`);
   assert.equal(on.scores[3], off.scores[3]);
+});
+
+test("a pattern doorway credits only when the choice prefers it, and a planted gap sets delta", () => {
+  assert.equal(CREDIT_POWER_DELTA, 0.036);
+  assert.equal(creditInstrumentCall({ lo: 0.04, hi: 0.06 }, 800, 800), "confirmed");
+  assert.equal(creditInstrumentCall({ lo: -0.01, hi: 0.02 }, 800, 800), "inconclusive");
+  assert.equal(creditInstrumentCall({ lo: 0.04, hi: 0.06 }, 100, 800), "inconclusive");
+  const delta = 0.0367;
+  assert.equal(creditContentClass({ lo: 0.01, hi: 0.02 }, 800, 800, delta), "attracted");
+  assert.equal(creditContentClass({ lo: -0.02, hi: -0.001 }, 800, 800, delta), "repelled");
+  assert.equal(creditContentClass({ lo: -0.01, hi: 0.01 }, 800, 800, delta), "null-with-sensitivity");
+  assert.equal(creditContentClass({ lo: 0, hi: 0 }, 800, 800, delta), "null-with-sensitivity");
+  assert.equal(creditContentClass({ lo: -0.05, hi: 0.01 }, 800, 800, delta), "inconclusive");
+  assert.equal(creditContentClass({ lo: -0.01, hi: 0.01 }, 800, 800, null), "inconclusive");
+  assert.equal(creditContentClass({ lo: -0.01, hi: 0.01 }, 100, 800, delta), "inconclusive");
+  assert.equal(creditSummary(false, "confirmed", "null-with-sensitivity"), "blind");
+  assert.equal(creditSummary(false, "confirmed", "repelled"), "against");
+  assert.equal(creditSummary(false, "confirmed", "attracted"), "offered");
+  assert.equal(creditSummary(false, "confirmed", "inconclusive"), "unresolved");
+  assert.equal(creditSummary(false, "inconclusive", "null-with-sensitivity"), "no-instrument");
+  assert.equal(creditSummary(true, "confirmed", "null-with-sensitivity"), "confounded");
+  assert.equal(creditVerdict("blind"), "confirmed");
+  assert.equal(creditVerdict("against"), "confirmed");
+  assert.equal(creditVerdict("offered"), "refuted");
+  assert.equal(creditVerdict("unresolved"), "inconclusive");
+  assert.equal(creditVerdict("no-instrument"), "inconclusive");
+  assert.equal(creditVerdict("confounded"), "inconclusive");
+  const pattern = runCreditEpisode({ id: 0, seed: 3, signal: "random", steps: 40, arm: "pattern" });
+  const noise = runCreditEpisode({ id: 1, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  const boost = runCreditEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "boost" });
+  assert.equal(pattern.samples, 20);
+  assert.equal(noise.samples, 20);
+  assert.equal(boost.samples, 20);
+  assert.equal(pattern.path, noise.path);
+  assert.equal(pattern.path, boost.path);
+  assert.equal(pattern.distractorFrac, noise.distractorFrac);
+  assert.equal(pattern.foods, noise.foods);
+  assert.equal(pattern.lives, noise.lives);
+  assert.equal(pattern.scoreGap, 0);
+  assert.equal(boost.scoreGap, 0);
+});
+
+test("the doorway chain is absent only when progress never reaches a piece", () => {
+  assert.equal(CHAIN_SCORE_DELTA, 0.04559740761000422);
+  assert.equal(CHAIN_RHO_HAT_DELTA, CREDIT_DOSE / RHO_HAT_PROG_WEIGHT);
+  assert.equal(chainCarry({ lo: 0.05, hi: 0.08 }, CHAIN_SCORE_DELTA), true);
+  assert.equal(chainCarry({ lo: 0.01, hi: 0.02 }, CHAIN_SCORE_DELTA), false);
+  assert.equal(chainCarry({ lo: -0.08, hi: -0.05 }, CHAIN_SCORE_DELTA), true);
+  assert.equal(chainCarry({ lo: -0.01, hi: 0.01 }, CHAIN_SCORE_DELTA), false);
+  assert.equal(chainCarry({ lo: 0.05, hi: 0.08 }, 0), false);
+  const quiet = { uncertainty: false, global: false, extrinsic: false, follow: false };
+  const nil = "null-with-sensitivity" as const;
+  assert.equal(chainSummary(false, nil, nil, nil, nil, nil, nil, quiet), "absent");
+  assert.equal(chainSummary(false, nil, nil, "attracted", nil, nil, nil, quiet), "absent");
+  assert.equal(chainSummary(false, nil, "attracted", nil, nil, nil, nil, quiet), "gated");
+  assert.equal(chainSummary(false, "attracted", "attracted", "repelled", nil, nil, nil, quiet), "cancelled");
+  assert.equal(chainSummary(false, "attracted", nil, nil, nil, nil, nil, quiet), "offered");
+  assert.equal(chainSummary(false, "repelled", nil, nil, nil, nil, nil, quiet), "reversed");
+  assert.equal(chainSummary(false, nil, "repelled", nil, nil, nil, nil, quiet), "reversed");
+  assert.equal(
+    chainSummary(false, nil, nil, "attracted", nil, nil, nil, { ...quiet, uncertainty: true }),
+    "elsewhere",
+  );
+  assert.equal(chainSummary(false, nil, nil, "inconclusive", nil, nil, nil, quiet), "unresolved");
+  assert.equal(chainSummary(false, "inconclusive", nil, nil, nil, nil, nil, quiet), "unresolved");
+  assert.equal(chainSummary(true, nil, nil, nil, nil, nil, nil, quiet), "confounded");
+  assert.equal(chainVerdict("absent"), "confirmed");
+  assert.equal(chainVerdict("gated"), "refuted");
+  assert.equal(chainVerdict("cancelled"), "refuted");
+  assert.equal(chainVerdict("offered"), "refuted");
+  assert.equal(chainVerdict("reversed"), "refuted");
+  assert.equal(chainVerdict("elsewhere"), "refuted");
+  assert.equal(chainVerdict("unresolved"), "inconclusive");
+  assert.equal(chainVerdict("confounded"), "inconclusive");
+  const traced = runChainEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const plain = runCreditEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(traced.path, plain.path);
+  assert.equal(traced.foods, plain.foods);
+  assert.equal(traced.lives, plain.lives);
+  assert.equal(traced.distractorFrac, plain.distractorFrac);
+  assert.equal(traced.samples, plain.samples);
+  assert.equal(traced.scoreSteps, plain.scoreSteps);
+  assert.equal(traced.scoreGap, plain.scoreGap);
+  assert.equal(traced.east.n, plain.east.n);
+  assert.equal(traced.east.rectifiedMean, plain.east.rectifiedMean);
+  const random = runChainEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(random.scoreGap, 0);
+  assert.equal(random.rho, 0);
+  assert.equal(random.global, 0);
+  assert.equal(random.uncertainty, 0);
+  assert.equal(random.extrinsic, 0);
+  assert.equal(random.follow, 0);
+  assert.equal(random.rhoHat, 0);
+});
+
+test("reach is confirmed only when every rho-hat piece is a sensitive null", () => {
+  const nil = "null-with-sensitivity" as const;
+  assert.equal(reachSummary(false, nil, nil, nil, nil, nil, nil, nil, nil), "absent");
+  assert.equal(reachSummary(false, nil, nil, nil, "attracted", nil, nil, nil, nil), "credit");
+  assert.equal(reachSummary(false, nil, nil, nil, nil, "repelled", nil, nil, nil), "flipped");
+  assert.equal(reachSummary(false, nil, nil, nil, "attracted", "repelled", nil, nil, nil), "opposed");
+  assert.equal(reachSummary(false, "attracted", "repelled", nil, nil, nil, nil, nil, nil), "cancelled");
+  assert.equal(reachSummary(false, "attracted", nil, nil, nil, nil, nil, nil, nil), "reached");
+  assert.equal(reachSummary(false, nil, "repelled", nil, "attracted", nil, nil, nil, nil), "reversed");
+  assert.equal(reachSummary(false, nil, nil, nil, nil, nil, nil, nil, "attracted"), "pooled");
+  assert.equal(reachSummary(false, nil, nil, nil, nil, nil, nil, "repelled", nil), "pooled");
+  assert.equal(reachSummary(false, "inconclusive", nil, nil, nil, nil, nil, nil, nil), "unresolved");
+  assert.equal(reachSummary(false, nil, nil, nil, "inconclusive", nil, nil, nil, nil), "unresolved");
+  assert.equal(reachSummary(true, nil, nil, nil, nil, nil, nil, nil, nil), "confounded");
+  assert.equal(reachVerdict("absent"), "confirmed");
+  assert.equal(reachVerdict("credit"), "refuted");
+  assert.equal(reachVerdict("cancelled"), "refuted");
+  assert.equal(reachVerdict("reached"), "refuted");
+  assert.equal(reachVerdict("reversed"), "refuted");
+  assert.equal(reachVerdict("flipped"), "refuted");
+  assert.equal(reachVerdict("opposed"), "refuted");
+  assert.equal(reachVerdict("pooled"), "refuted");
+  assert.equal(reachVerdict("unresolved"), "inconclusive");
+  assert.equal(reachVerdict("confounded"), "inconclusive");
+  assert.equal(stayLevel([1, 2, 3], () => false), null);
+  assert.equal(stayLevel([1, 2, 4], (action) => action !== 1), 2.5);
+  const reached = runReachEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const chained = runChainEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(reached.path, chained.path);
+  assert.equal(reached.foods, chained.foods);
+  assert.equal(reached.lives, chained.lives);
+  assert.equal(reached.distractorFrac, chained.distractorFrac);
+  assert.equal(reached.samples, chained.samples);
+  assert.equal(reached.scoreSteps, chained.scoreSteps);
+  assert.equal(reached.scoreGap, chained.scoreGap);
+  assert.equal(reached.rhoHat, chained.rhoHat);
+  assert.equal(reached.east.n, chained.east.n);
+  assert.equal(reached.east.rectifiedMean, chained.east.rectifiedMean);
+  assert.ok(Math.abs(reached.doorBonus + reached.doorDrop2 + reached.doorDrop3 - reached.rhoHat) < 1e-6);
+  const quiet = runReachEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(quiet.doorBonus, 0);
+  assert.equal(quiet.doorDrop2, 0);
+  assert.equal(quiet.doorDrop3, 0);
+  assert.equal(quiet.roomBonus, 0);
+  assert.equal(quiet.roomDrop2, 0);
+  assert.equal(quiet.roomDrop3, 0);
+  assert.equal(quiet.rhoHat, 0);
+  const counted = runReachEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
+  assert.equal(counted.doorDrop2, 0);
+  assert.equal(counted.doorDrop3, 0);
+  assert.equal(counted.roomDrop2, 0);
+  assert.equal(counted.roomDrop3, 0);
+  const plain = new Kernel("field", 3);
+  assert.equal(plain.rhoHatParts, null);
+  assert.equal(plain.rhoDrop, null);
+});
+
+test("the sign inversion is confirmed only when dividing by the first residual restores it", () => {
+  const nil = "null-with-sensitivity" as const;
+  const rep = "repelled" as const;
+  const att = "attracted" as const;
+  assert.equal(INVERT_SCALE_EPS, 1e-6);
+  assert.equal(invertSummary(true, rep, rep, rep, nil, rep, rep, att, att), "confounded");
+  assert.equal(invertSummary(false, "inconclusive", rep, rep, nil, rep, rep, att, att), "unresolved");
+  assert.equal(invertSummary(false, nil, rep, rep, nil, rep, rep, att, att), "unreproduced");
+  assert.equal(invertSummary(false, att, rep, rep, nil, rep, rep, att, att), "unreproduced");
+  assert.equal(invertSummary(false, rep, nil, rep, rep, rep, rep, att, att), "variance");
+  assert.equal(invertSummary(false, rep, nil, rep, rep, rep, "inconclusive", att, att), "unresolved");
+  assert.equal(invertSummary(false, rep, nil, rep, rep, rep, nil, att, att), "rectified");
+  assert.equal(invertSummary(false, rep, att, rep, rep, rep, rep, att, att), "rectified");
+  assert.equal(invertSummary(false, rep, rep, att, rep, rep, rep, att, att), "selected");
+  assert.equal(invertSummary(false, rep, rep, nil, rep, rep, rep, att, att), "selected");
+  assert.equal(invertSummary(false, rep, rep, rep, nil, rep, rep, att, att), "scale");
+  assert.equal(invertSummary(false, rep, rep, rep, att, rep, rep, att, att), "scale");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, nil, rep, att, att), "lag");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, att, rep, att, att), "lag");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, nil, att), "window");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, "inconclusive", att), "unresolved");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, att, att), "intrinsic");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, att, nil), "intrinsic");
+  assert.equal(invertVerdict("scale"), "confirmed");
+  assert.equal(invertVerdict("rectified"), "refuted");
+  assert.equal(invertVerdict("selected"), "refuted");
+  assert.equal(invertVerdict("variance"), "refuted");
+  assert.equal(invertVerdict("lag"), "refuted");
+  assert.equal(invertVerdict("window"), "refuted");
+  assert.equal(invertVerdict("intrinsic"), "refuted");
+  assert.equal(invertVerdict("unreproduced"), "inconclusive");
+  assert.equal(invertVerdict("unresolved"), "inconclusive");
+  assert.equal(invertVerdict("confounded"), "inconclusive");
+  const inverted = runInvertEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const reached = runReachEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(inverted.path, reached.path);
+  assert.equal(inverted.foods, reached.foods);
+  assert.equal(inverted.lives, reached.lives);
+  assert.equal(inverted.distractorFrac, reached.distractorFrac);
+  assert.equal(inverted.samples, reached.samples);
+  assert.equal(inverted.scoreSteps, reached.scoreSteps);
+  assert.equal(inverted.scoreGap, reached.scoreGap);
+  assert.equal(inverted.east.n, reached.east.n);
+  assert.equal(inverted.east.rectifiedMean, reached.east.rectifiedMean);
+  assert.equal(inverted.roomSteps, reached.roomSteps);
+  assert.equal(inverted.drop2, reached.roomDrop2);
+  assert.ok(inverted.earlySteps + inverted.lateSteps === inverted.roomSteps);
+  const quiet = runInvertEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(quiet.drop2, 0);
+  assert.equal(quiet.signed, 0);
+  assert.equal(quiet.mean, 0);
+  assert.equal(quiet.scale, 0);
+  assert.equal(quiet.order, 0);
+  assert.equal(quiet.spread, 0);
+  assert.equal(quiet.res1, 0);
+  const counted = runInvertEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
+  assert.equal(counted.drop2, 0);
 });

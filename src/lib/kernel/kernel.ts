@@ -1,6 +1,15 @@
 import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
-import { imagineScores, softmaxSample } from "./policy.ts";
+import {
+  emptyRhoDropTrace,
+  emptyRhoHatParts,
+  emptyScoreParts,
+  imagineScores,
+  softmaxSample,
+  type RhoDropTrace,
+  type RhoHatParts,
+  type ScoreParts,
+} from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
   generateWorld,
@@ -46,6 +55,13 @@ export const DIRS = [
   { x: 0, y: 0 },
 ] as const;
 export const DIR_NAMES = ["north", "east", "south", "west", "wait"] as const;
+
+/**
+ * Ticks a sampled direction is executed before the policy samples again.
+ * 2 is the locked option: the commitment tick plus one held tick.
+ * The probe gate is the test of that choice. It is not a searched length.
+ */
+export const OPTION_SPAN = 2;
 
 const HISTORY = 140;
 
@@ -124,6 +140,28 @@ export type KernelOptions = {
     /** Steps to delay the on-half. Omitted is 0, the first half of the period. */
     offset?: number;
   };
+  /**
+   * Measurement-only split of the action scores. Omitted does not allocate
+   * the buffers and does not pass them into imagination. Not a Loop feature
+   * flag. The default agent does not change. The split does not draw a
+   * random number and does not enter the bonus.
+   */
+  traceScores?: boolean;
+  /**
+   * Measurement-only split of ρ̂ into the bonus slot and the two horizon
+   * drops. Omitted does not allocate the buffers and does not pass them
+   * into imagination. Not a Loop feature flag. The default agent does not
+   * change. The split does not draw a random number and does not enter the
+   * bonus.
+   */
+  traceRho?: boolean;
+  /**
+   * Measurement-only residuals behind the horizon-2 drop. Omitted does not
+   * allocate the buffers and does not pass them into imagination. Not a
+   * Loop feature flag. The default agent does not change. The trace does
+   * not draw a random number and does not enter the bonus.
+   */
+  traceDrop?: boolean;
 };
 
 /**
@@ -197,6 +235,22 @@ export class Kernel {
   readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
   /** Square-wave place bonus. Null is the shipped policy. */
   readonly periodicBoost: { add: number; region: 0 | 1; period: number; offset: number } | null;
+  /**
+   * Additive split of the last sampled scores. Null unless `traceScores`.
+   * A held tick does not refresh it.
+   */
+  readonly scoreParts: ScoreParts | null;
+  /**
+   * Split of the last sampled ρ̂. Null unless `traceRho`. A held tick does
+   * not refresh it. The default agent does not allocate it.
+   */
+  readonly rhoHatParts: RhoHatParts | null;
+  /**
+   * Residuals behind the last sampled horizon-2 drop. Null unless
+   * `traceDrop`. A held tick does not refresh it. The default agent does
+   * not allocate it.
+   */
+  readonly rhoDrop: RhoDropTrace | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -212,6 +266,31 @@ export class Kernel {
   lives = 0;
   history: number[] = [];
   lastAction = 4;
+  /** Ticks remaining in the current option, after the commitment tick. Zero when `option` is off. */
+  private optionLeft = 0;
+  /** Direction committed by the last sample. Unused when `option` is off. */
+  private heldAction = 4;
+  /**
+   * Steps that repeated a committed direction instead of sampling.
+   * Stays 0 when `option` is off, so the off path can be checked against it.
+   */
+  optionHeld = 0;
+  /** Horizon-2 follow-up per first action. Written only when `rollout` is on. */
+  private followBuf = new Int32Array(ACTS);
+  /** True after a commitment whose imagination wrote `followBuf`. */
+  private followReady = false;
+  /** Action stored for the option's second tick. The primitive when `rollout` is off. */
+  private rolloutAction = 4;
+  /**
+   * Follow-up from the last commitment. Stays at wait when `rollout` is off,
+   * so the off path can be checked against it.
+   */
+  rolloutFollow = 4;
+  /**
+   * Second ticks that executed a follow-up different from the committed primitive.
+   * Stays 0 when `rollout` is off.
+   */
+  rolloutSwitched = 0;
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
   policyEntropy = 1;
@@ -262,6 +341,9 @@ export class Kernel {
     this.periodicBoost = wave
       ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
       : null;
+    this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
+    this.rhoHatParts = options?.traceRho ? emptyRhoHatParts(ACTS) : null;
+    this.rhoDrop = options?.traceDrop ? emptyRhoDropTrace(ACTS) : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
@@ -329,6 +411,13 @@ export class Kernel {
     this.thinkCooldown = 0;
     this.burnIn = 0;
     this.obsMean.fill(0);
+    this.optionLeft = 0;
+    this.heldAction = 4;
+    this.optionHeld = 0;
+    this.followReady = false;
+    this.rolloutAction = 4;
+    this.rolloutFollow = 4;
+    this.rolloutSwitched = 0;
   }
 
   private placeAgent() {
@@ -503,6 +592,13 @@ export class Kernel {
     this.applyProgress();
     this.visitCounts.fill(0);
     this.rnd = new RndCuriosity(this.seed ^ 0x51ed, OBS);
+    this.optionLeft = 0;
+    this.heldAction = 4;
+    this.optionHeld = 0;
+    this.followReady = false;
+    this.rolloutAction = 4;
+    this.rolloutFollow = 4;
+    this.rolloutSwitched = 0;
   }
 
   get ema() {
@@ -650,9 +746,42 @@ export class Kernel {
     else this.cells[i] = this.cells[i] === 2 ? 0 : 2;
   }
 
+  /**
+   * Sample, then either repeat that direction or execute the imagined
+   * follow-up, until `OPTION_SPAN` ticks have run. Called only when `option`
+   * is on. The off path never reaches this, so it draws no extra policy noise
+   * and does not read the hold counter. `rollout` off takes the repeat branch
+   * and does not read the follow-up.
+   */
+  private heldOrChoose(obs: Float32Array): number {
+    if (this.optionLeft > 0) {
+      this.optionLeft -= 1;
+      if (this.features.rollout) {
+        const action = this.rolloutAction;
+        if (action === this.heldAction) this.optionHeld += 1;
+        else this.rolloutSwitched += 1;
+        return action;
+      }
+      this.optionHeld += 1;
+      return this.heldAction;
+    }
+    const action = this.choose(obs);
+    this.heldAction = action;
+    if (this.features.rollout) {
+      this.rolloutAction = this.followReady ? this.followBuf[action]! : action;
+      this.rolloutFollow = this.rolloutAction;
+    }
+    this.optionLeft = OPTION_SPAN - 1;
+    return action;
+  }
+
   private choose(obs: Float32Array): number {
+    this.followReady = false;
     if (this.signal === "random") {
       this.scores.fill(0);
+      this.zeroScoreParts();
+      this.zeroRhoHatParts();
+      this.zeroRhoDrop();
       this.policyEntropy = 1;
       this.branching = ACTS;
       this.edge = edgeIndex(1);
@@ -662,7 +791,7 @@ export class Kernel {
     const view = this.signalView();
     imagineScores({
       acts: ACTS,
-      curiosity: this.params.curiosity,
+      curiosity: this.loop.curiosityWeight(this.params.curiosity),
       goal: this.params.goal,
       progressEma: signalProgressEma(this.signal, view),
       horizonRho: this.signal === "rho" && this.scoreHorizonDrop,
@@ -724,13 +853,49 @@ export class Kernel {
         this.intrinsicBoost || this.periodicBoost
           ? (a) => this.progressExtra(view.destGrid, a)
           : undefined,
+      follow: this.features.rollout ? this.followBuf : undefined,
+      parts: this.scoreParts ?? undefined,
+      hatParts: this.rhoHatParts ?? undefined,
+      hatTrace: this.rhoDrop ?? undefined,
     });
-    let temp = this.params.temperature;
+    if (this.features.rollout) this.followReady = true;
+    let temp = this.loop.policyTemperature(this.params.temperature);
     if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
     this.policyEntropy = entropyNorm(this.scores, temp);
     this.branching = branching(this.scores);
     this.edge = edgeIndex(this.policyEntropy);
+    this.loop.reviseEdge(this.branching);
     return softmaxSample(this.scores, temp, this.rand);
+  }
+
+  private zeroScoreParts() {
+    const parts = this.scoreParts;
+    if (!parts) return;
+    parts.rho.fill(0);
+    parts.global.fill(0);
+    parts.uncertainty.fill(0);
+    parts.extra.fill(0);
+    parts.extrinsic.fill(0);
+    parts.follow.fill(0);
+    parts.rhoHat.fill(0);
+  }
+
+  private zeroRhoHatParts() {
+    const parts = this.rhoHatParts;
+    if (!parts) return;
+    parts.bonus.fill(0);
+    parts.drop2.fill(0);
+    parts.drop3.fill(0);
+  }
+
+  private zeroRhoDrop() {
+    const trace = this.rhoDrop;
+    if (!trace) return;
+    trace.res1.fill(0);
+    trace.best.fill(0);
+    trace.mean.fill(0);
+    trace.min.fill(0);
+    trace.max.fill(0);
   }
 
   private note(text: string) {
@@ -769,8 +934,10 @@ export class Kernel {
     if (this.forgettingRate > 0) this.loop.net.decay(this.forgettingRate);
     this.history.push(this.loop.surprise);
     if (this.history.length > HISTORY) this.history.shift();
-    const action = this.choose(obs);
+    const action = this.features.option ? this.heldOrChoose(obs) : this.choose(obs);
     this.lastAction = action;
+    // The action already used the gain from before. Revise it for the next sample.
+    this.loop.reviseCuriosity();
     // Held-out probe and imagination both ask M(window, action) for the next window.
     // Commit that pair before the body moves. The historical commit stored the
     // window after the move, so the loss was reconstruction and the probe could not fall.
