@@ -657,3 +657,89 @@ export function chainVerdict(summary: ChainLink): Call {
   }
   return "inconclusive";
 }
+
+export type ReachLink =
+  | "absent"
+  | "credit"
+  | "cancelled"
+  | "reached"
+  | "reversed"
+  | "flipped"
+  | "opposed"
+  | "pooled"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Where the retrospective edge is lost before ρ̂ is formed.
+ * The six piece classes are the scent/bonus slot, the horizon-2 drop, and
+ * the horizon-3 drop, first as a doorway preference and then as an in-room
+ * level. The two sums are those three pieces added, at the same two places.
+ * Sign comes before size. A class of attracted or repelled is a sign,
+ * including one that stays inside δ. `chainCarry` is reported and is not
+ * this summary.
+ * Absent: all eight are sensitive nulls. The edge is not in any piece and
+ * not in the sum, in the room or at the door.
+ * Cancelled: the doorway pieces resolve both signs.
+ * Reached: a doorway piece prefers the pattern and none prefers the noise.
+ * Reversed: a doorway piece prefers the noise and none prefers the pattern.
+ * Opposed: the doorway pieces are sensitive nulls and the in-room pieces
+ * resolve both signs.
+ * Credit: the doorway pieces are sensitive nulls and an in-room piece
+ * prefers the pattern.
+ * Flipped: the doorway pieces are sensitive nulls and an in-room piece
+ * prefers the noise.
+ * Pooled: every piece is a sensitive null and a sum is not.
+ * Confounded: random's gap excludes 0.
+ */
+export function reachSummary(
+  randomExcludesZero: boolean,
+  doorBonus: CreditClass,
+  doorDrop2: CreditClass,
+  doorDrop3: CreditClass,
+  roomBonus: CreditClass,
+  roomDrop2: CreditClass,
+  roomDrop3: CreditClass,
+  doorSum: CreditClass,
+  roomSum: CreditClass,
+): ReachLink {
+  if (randomExcludesZero) return "confounded";
+  const door = [doorBonus, doorDrop2, doorDrop3];
+  const room = [roomBonus, roomDrop2, roomDrop3];
+  const attracted = (klass: CreditClass[]) => klass.some((item) => item === "attracted");
+  const repelled = (klass: CreditClass[]) => klass.some((item) => item === "repelled");
+  if (attracted(door) && repelled(door)) return "cancelled";
+  if (attracted(door)) return "reached";
+  if (repelled(door)) return "reversed";
+  const doorNull = door.every((item) => item === "null-with-sensitivity");
+  if (doorNull && attracted(room) && repelled(room)) return "opposed";
+  if (doorNull && attracted(room)) return "credit";
+  if (doorNull && repelled(room)) return "flipped";
+  const piecesNull = doorNull && room.every((item) => item === "null-with-sensitivity");
+  if (piecesNull && (doorSum === "attracted" || doorSum === "repelled" || roomSum === "attracted" || roomSum === "repelled")) {
+    return "pooled";
+  }
+  if (piecesNull && doorSum === "null-with-sensitivity" && roomSum === "null-with-sensitivity") return "absent";
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the retrospective edge is a sensitive null in every piece of
+ * ρ̂ and in both sums. Refuted: a piece or a sum resolves, or the doorway
+ * pieces cancel. Otherwise inconclusive.
+ */
+export function reachVerdict(summary: ReachLink): Call {
+  if (summary === "absent") return "confirmed";
+  if (
+    summary === "credit" ||
+    summary === "cancelled" ||
+    summary === "reached" ||
+    summary === "reversed" ||
+    summary === "flipped" ||
+    summary === "opposed" ||
+    summary === "pooled"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

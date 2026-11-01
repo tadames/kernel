@@ -1,6 +1,6 @@
 import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
-import { emptyScoreParts, imagineScores, softmaxSample, type ScoreParts } from "./policy.ts";
+import { emptyRhoHatParts, emptyScoreParts, imagineScores, softmaxSample, type RhoHatParts, type ScoreParts } from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
   generateWorld,
@@ -138,6 +138,14 @@ export type KernelOptions = {
    * random number and does not enter the bonus.
    */
   traceScores?: boolean;
+  /**
+   * Measurement-only split of ρ̂ into the bonus slot and the two horizon
+   * drops. Omitted does not allocate the buffers and does not pass them
+   * into imagination. Not a Loop feature flag. The default agent does not
+   * change. The split does not draw a random number and does not enter the
+   * bonus.
+   */
+  traceRho?: boolean;
 };
 
 /**
@@ -216,6 +224,11 @@ export class Kernel {
    * A held tick does not refresh it.
    */
   readonly scoreParts: ScoreParts | null;
+  /**
+   * Split of the last sampled ρ̂. Null unless `traceRho`. A held tick does
+   * not refresh it. The default agent does not allocate it.
+   */
+  readonly rhoHatParts: RhoHatParts | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -307,6 +320,7 @@ export class Kernel {
       ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
       : null;
     this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
+    this.rhoHatParts = options?.traceRho ? emptyRhoHatParts(ACTS) : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
@@ -743,6 +757,7 @@ export class Kernel {
     if (this.signal === "random") {
       this.scores.fill(0);
       this.zeroScoreParts();
+      this.zeroRhoHatParts();
       this.policyEntropy = 1;
       this.branching = ACTS;
       this.edge = edgeIndex(1);
@@ -816,6 +831,7 @@ export class Kernel {
           : undefined,
       follow: this.features.rollout ? this.followBuf : undefined,
       parts: this.scoreParts ?? undefined,
+      hatParts: this.rhoHatParts ?? undefined,
     });
     if (this.features.rollout) this.followReady = true;
     let temp = this.loop.policyTemperature(this.params.temperature);
@@ -837,6 +853,14 @@ export class Kernel {
     parts.extrinsic.fill(0);
     parts.follow.fill(0);
     parts.rhoHat.fill(0);
+  }
+
+  private zeroRhoHatParts() {
+    const parts = this.rhoHatParts;
+    if (!parts) return;
+    parts.bonus.fill(0);
+    parts.drop2.fill(0);
+    parts.drop3.fill(0);
   }
 
   private note(text: string) {

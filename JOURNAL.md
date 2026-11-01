@@ -1,5 +1,96 @@
 # Journal
 
+## 2026-11-01 reach (UTC)
+
+Written before `npm run reach`. No rho-hat piece from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. `echo` stays off. The pure pattern pays more rectified progress than matched noise, 0.0214 [0.0206, 0.0222], and raw ρ̂ at the doorway is a sensitive null, 0.0002 [−0.0004, 0.0008], against δ 0.0307. The score term that multiplies ρ̂ by explore prefers the noise room by −0.0027 [−0.0048, −0.0007], inside the planted δ 0.0456. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not rerun the doorway score split at another dose, another temperature, or on the third mask. It does not rerun the planted bonus. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+The loss left open is before ρ̂ is formed. ρ̂ is three rectified adds: the bonus slot, the horizon-2 residual drop, and the horizon-3 residual drop. For rho the bonus slot is the scent residual drop. The chain measured their sum at the doorway and it was a sensitive null. It did not say whether the pieces cancel, or whether any piece carries the retrospective edge on the steps where that edge is measured. This run splits the sum and reads the same pieces inside the room.
+
+### Preregister reach
+
+Hypothesis. On the shipped learner, pattern minus matched noise is a sensitive null for the bonus slot, the horizon-2 drop, and the horizon-3 drop, both as a doorway preference and as an in-room level, and for the sum of the three at both places. The doorway null is not a cancellation across the three pieces. The retrospective edge does not enter ρ̂ where it is experienced, so the miss at the door is not credit assignment of an in-room ρ̂.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The pattern arm paints `patternChannel` `all`. The noise arm omits it and still draws the noise coin, so the episode RNG matches. No boost arm. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are reported and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceScores` and `traceRho` allocate the splits. Neither is a Loop flag. The off path, which is every other sweep and the default agent, does not allocate them and does not pass them. The splits do not draw a random number and do not enter the bonus. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Pieces, locked here, in ρ̂ units. Each is already `max(0, ·)`. They sum to `max(0, ρ̂)`.
+
+- `bonus` is `max(0, progressBonus)`. For rho this is `scentRhoHat`. For count, surprise, and RND it is that explorer's action bonus. Horizon drops on those three are 0. A nonzero drop aborts.
+- `drop2` is `max(0, res1 − bestRes2)` when the horizon drop is on, else 0. Only rho has it on.
+- `drop3` is `max(0, bestRes2 − bestRes3)` when the third step runs, else 0.
+- `sum` is the three added. At the doorway it is the chain's raw ρ̂, read from the score trace, not from adding the seed means. A seed whose piece means miss that ρ̂ by more than 1e-6 aborts.
+
+Places. A tick counts only when `optionHeld` does not change during the step. That is a sample. A held tick is dropped. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts. The destination rule is the policy's: a blocked step, a step off the map, or wait stays in the current region.
+
+- `door` is the chain doorway. The number is the mean of actions whose destination is region 1, minus the mean of the others. A tick with no action on one side is dropped. The ticks are the chain's ticks, wherever the body stands.
+- `room` is a level, not a preference. A sample tick counts only when the body began the step in region 1. The number is the unweighted mean of the piece over actions whose destination is region 1. A tick with no such action aborts. Wait stays, so a body already in the room has one.
+
+A seed's number is the mean of the ticks that remain. A seed with no counted tick on either arm of a place is dropped from that place. Paired 95% percentile bootstrap, 2000 resamples. Pattern minus noise.
+
+δ is `CHAIN_RHO_HAT_DELTA` = 0.0169 / 0.55. That is the ρ̂ add equal to the planted progress-channel dose. It is not remeasured. The plant is not run. No other dose is run. No other temperature is run. The third mask is not a cell. The doorway score split is not rerun.
+
+Classes. Each of the eight uses `creditContentClass` with this δ. Sign comes before the null. `chainCarry` is reported and does not flip the summary. A sign inside δ is still a sign.
+
+Summary, `reachSummary`, from rho only. Confounded when random's gap on any of the eight excludes 0. The sweep aborts in that case, before a verdict. Cancelled when the doorway pieces resolve both signs. Reached when a doorway piece is attracted and none is repelled. Reversed when a doorway piece is repelled and none is attracted. Opposed when the doorway pieces are sensitive nulls and the in-room pieces resolve both signs. Credit when the doorway pieces are sensitive nulls and an in-room piece is attracted. Flipped when the doorway pieces are sensitive nulls and an in-room piece is repelled. Pooled when every piece is a sensitive null and a sum is attracted or repelled. Absent when all eight are sensitive nulls. Unresolved otherwise. Surprise, count, and RND do not flip the summary.
+
+Verdict, `reachVerdict`. Confirmed when the summary is absent: the retrospective edge is not in ρ̂, in the room or at the door, and the doorway null is not a cancellation. Refuted when the summary is credit, cancelled, reached, reversed, flipped, opposed, or pooled. Otherwise inconclusive.
+
+Harness, not a call. The census is 52 open cells, all kept. A runner that does not get that count throws before any episode. Random's path, target-room fraction, meals, and lives match across the two arms. A mismatch aborts. Rho's occupancy excess on seeds 1–800 matches the published credit mean 0.0023718750000000038 within 1e-12, and the published interval. Rho's rectified gap matches n = 703 and mean 0.021385533643288657 within 1e-12, and the published interval. Rho's total doorway score matches n = 766 and mean −0.00792605777551224 within 1e-12. Rho's doorway sum matches n = 766 and mean 0.0002382607482198441 within 1e-12, and the published interval −0.00035924714906002933 to 0.0008395950742139654. A mismatch aborts. Random's eight gaps are a point mass at 0. An interval that excludes 0 aborts. Fewer than a majority of random seeds at either place aborts. A horizon drop on count, surprise, or RND aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. Confirmed: the edge is absent from every piece of ρ̂, in the room and at the door. Refuted: a piece or a sum resolves, or the doorway pieces cancel. Inconclusive: an interval is too wide to class. The third mask is not run. The plant is not run. A sign inside δ is not a license to change the score.
+
+Figure: `bench/reach/reach-gap.png`. The bars are rho's paired piece gaps, doorway preference above and in-room level below. Zero is the vertical line. δ is the pair of gold lines. Source: `bench/reach/reach.json`. The sweep is `npm run reach`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `18c247f`. The row is the chain learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`. This run's bench is filled in with the results. A row that does not match is a learner that moved, and the sweep is void.
+
+### Results
+
+The prediction is refuted. The summary is cancelled. The doorway pieces of ρ̂ resolve opposite signs, and the sum stays the chain's sensitive null. No piece carries. The cancellation is three crumbs inside δ. Inside the room the horizon-2 drop prefers the noise room, the opposite sign of the retrospective edge, and that interval also sits inside δ. No term was added. The temperature stays 0.45. `option` stays on.
+
+8000 episodes, 400 steps, 4 workers, 223.9 seconds. Source: `bench/reach/reach.json`. The random walk is the same path on both arms, meals and lives included. Every episode sampled half its steps. The census is 52 open cells, all kept. Rho's occupancy mean, rectified mean, doorway-score mean, and raw-ρ̂ mean match the published runs. The harness does not fail. Random's eight gaps are a point mass at 0, on 731 doorway seeds and 691 in-room seeds. Both are a majority. No random interval excludes 0. Count, surprise, and RND write no horizon drop.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is pattern minus matched noise. δ is 0.0307. `reachSummary` is cancelled. `reachVerdict` is refuted. Carry is false on every rho piece.
+
+| place | piece | rho | n | class | carry |
+|---|---|---|---:|---|---|
+| door | scent / bonus | −0.00010 [−0.00018, −0.00003] | 766 | repelled | no |
+| door | horizon-2 drop | 0.0009 [0.0004, 0.0015] | 766 | attracted | no |
+| door | horizon-3 drop | −0.0006 [−0.0007, −0.0005] | 766 | repelled | no |
+| door | sum | 0.0002 [−0.0004, 0.0008] | 766 | null-with-sensitivity | no |
+| room | scent / bonus | −0.0000 [−0.0001, 0.0000] | 745 | null-with-sensitivity | no |
+| room | horizon-2 drop | −0.0174 [−0.0186, −0.0163] | 745 | repelled | no |
+| room | horizon-3 drop | 0.0003 [0.0001, 0.0005] | 745 | attracted | no |
+| room | sum | −0.0171 [−0.0183, −0.0160] | 745 | repelled | no |
+
+The doorway sum is the chain raw ρ̂. The mean matches 0.0002382607482198441 and the interval matches. It includes 0 and lies inside δ. The horizon-2 crumb points at the pattern. The scent crumb and the horizon-3 crumb point at the noise. All three lie inside δ, so none carries. Their sum is the published null. This is a cancellation of signs, and it is not plant-sized.
+
+The in-room horizon-2 drop lies entirely below 0 and strictly inside (−0.0307, 0.0307). It does not carry. The retrospective edge on the same episodes is 0.0214 [0.0206, 0.0222], entirely above 0. The prospective drop and the retrospective edge have opposite signs. The pattern room pays more experienced progress and less imagined residual drop. The scent slot inside the room includes 0. The horizon-3 crumb prefers the pattern and does not carry. A seed's in-room mean is about 49 sample ticks: 48.98 on the pattern arm and 48.48 on the noise arm. The doorway mean is about 15 ticks, the same as the chain.
+
+The other explorers are not the call. Their horizon drops are 0, so a doorway sum is their bonus slot, and those four doorway sums are the chain's raw ρ̂ rows. Inside the room, surprise's bonus is the expected residual of actions that stay. It prefers the pattern's certainty by more than δ, −0.0572 [−0.0625, −0.0521], n = 762, and it carries. That is not ρ̂. Count's in-room bonus includes 0, −0.0027 [−0.0072, 0.0022], n = 796. RND's includes 0, −0.0001 [−0.0018, 0.0018], n = 743. None of these flips the summary.
+
+Rectified progress, the credit checksum, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05.
+
+| quantity | gap | n |
+|---|---|---:|
+| rectified | 0.0214 [0.0206, 0.0222] | 703 |
+
+Occupancy, not a call. Target-room fraction, pattern minus noise, rho, 0.0024 [−0.0080, 0.0125], n = 800. The interval includes 0. The mean matches the credit run.
+
+Figure: `bench/reach/reach-gap.png`. Rho's doorway bars sit on zero, inside the gold lines. The in-room horizon-2 bar and the in-room sum sit to the left of zero, still inside the gold lines.
+
+No mechanism was added. `traceRho` omitted allocates nothing. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `635b1fe`. The row matches the chain learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The traces are not defaults, so the probe gate is not required to keep one. It was run anyway, because `policy.ts` and `kernel.ts` grew an omitted trace. `npm run gate -- --flags option,transition --seeds 20` passes. Option off minus on is 0.0107 [0.0032, 0.0179]. Transition off minus on is 0.1347 [0.1255, 0.1416]. The score path is the shipped score: the five-seed row matches, and rho's doorway sum on this sweep matches the chain mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not rerun this split at another dose, another temperature, or on the third mask. The doorway sum of ρ̂ is still the published sensitive null, 0.0002 [−0.0004, 0.0008]. The three doorway pieces cancel as signs and none carries against δ 0.0307, so the cancellation is not a license to change the score. Inside the room the horizon-2 drop prefers the noise, −0.0174 [−0.0186, −0.0163], the opposite sign of the retrospective edge, and it does not carry. Surprise's in-room expected residual does carry a certainty advantage for the pattern, −0.0572 [−0.0625, −0.0521], and that term is not ρ̂. Its doorway row is the chain's sensitive null. Swapping the drop for the residual would be scoring surprise again. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-10-31 chain (UTC)
 
 Written before `npm run chain`. No doorway piece from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

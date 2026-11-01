@@ -93,6 +93,27 @@ export type ScoreParts = {
   rhoHat: Float32Array;
 };
 
+/**
+ * Additive pieces of ρ̂. Each is already rectified, so they sum to the
+ * `max(0, ρ̂)` that enters the score. Omitted from the score path.
+ */
+export type RhoHatParts = {
+  /** `max(0, progressBonus)`. For rho this is the scent residual drop. */
+  bonus: Float32Array;
+  /** `max(0, res1 − bestRes2)` when the horizon drop is on, else 0. */
+  drop2: Float32Array;
+  /** `max(0, bestRes2 − bestRes3)` when the third step runs, else 0. */
+  drop3: Float32Array;
+};
+
+export function emptyRhoHatParts(acts: number): RhoHatParts {
+  return {
+    bonus: new Float32Array(acts),
+    drop2: new Float32Array(acts),
+    drop3: new Float32Array(acts),
+  };
+}
+
 export function emptyScoreParts(acts: number): ScoreParts {
   return {
     rho: new Float32Array(acts),
@@ -192,6 +213,13 @@ export function imagineScores(opts: {
    * the score path unchanged. The pieces sum to `scores`.
    */
   parts?: ScoreParts;
+  /**
+   * Split of ρ̂ into the bonus slot and the two horizon drops. Omitted
+   * writes nothing. The three are already rectified and sum to the ρ̂ that
+   * enters the score. The split does not draw a random number and does not
+   * change the score.
+   */
+  hatParts?: RhoHatParts;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -206,7 +234,10 @@ export function imagineScores(opts: {
     const pred = opts.predict(a, opts.imagined[a]);
     const v = opts.read(pred, a);
     const res1 = expectedResidual(pred, opts.residualWeight);
-    let rhoHat = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
+    const bonus = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
+    let rhoHat = bonus;
+    let drop2 = 0;
+    let drop3 = 0;
     const extra = opts.progExtra ? opts.progExtra(a) : 0;
     if (opts.follow) opts.follow[a] = a;
 
@@ -229,7 +260,10 @@ export function imagineScores(opts: {
           }
         }
       }
-      if (horizonRho) rhoHat += Math.max(0, res1 - bestRes2);
+      if (horizonRho) {
+        drop2 = Math.max(0, res1 - bestRes2);
+        rhoHat += drop2;
+      }
       let best3 = 0;
       if (threeStep && bestPred2) {
         let best3v = -Infinity;
@@ -245,7 +279,10 @@ export function imagineScores(opts: {
           }
         }
         best3 = best3v;
-        if (horizonRho) rhoHat += Math.max(0, bestRes2 - bestRes3);
+        if (horizonRho) {
+          drop3 = Math.max(0, bestRes2 - bestRes3);
+          rhoHat += drop3;
+        }
       }
       const score1 = valueOf(
         v,
@@ -290,6 +327,11 @@ export function imagineScores(opts: {
       if (Math.abs(sum - opts.scores[a]!) > 1e-6) {
         throw new Error(`score parts ${sum} do not add up to ${opts.scores[a]}`);
       }
+    }
+    if (opts.hatParts) {
+      opts.hatParts.bonus[a] = bonus;
+      opts.hatParts.drop2[a] = drop2;
+      opts.hatParts.drop3[a] = drop3;
     }
   }
   return opts.scores;

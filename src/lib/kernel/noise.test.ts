@@ -13,6 +13,7 @@ import { PROGRESS_SLOT_WEIGHT, runDriftGapEpisode } from "./drift-gap-run.ts";
 import { doorwayDelta, runDoorwayEpisode } from "./doorway-run.ts";
 import { CREDIT_DOSE, runCreditEpisode } from "./credit-run.ts";
 import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain-run.ts";
+import { runReachEpisode, stayLevel } from "./reach-run.ts";
 import { imagineScores, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
@@ -38,6 +39,8 @@ import {
   creditVerdict,
   chainCarry,
   chainSummary,
+  reachSummary,
+  reachVerdict,
   chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
@@ -729,4 +732,60 @@ test("the doorway chain is absent only when progress never reaches a piece", () 
   assert.equal(random.extrinsic, 0);
   assert.equal(random.follow, 0);
   assert.equal(random.rhoHat, 0);
+});
+
+test("reach is confirmed only when every rho-hat piece is a sensitive null", () => {
+  const nil = "null-with-sensitivity" as const;
+  assert.equal(reachSummary(false, nil, nil, nil, nil, nil, nil, nil, nil), "absent");
+  assert.equal(reachSummary(false, nil, nil, nil, "attracted", nil, nil, nil, nil), "credit");
+  assert.equal(reachSummary(false, nil, nil, nil, nil, "repelled", nil, nil, nil), "flipped");
+  assert.equal(reachSummary(false, nil, nil, nil, "attracted", "repelled", nil, nil, nil), "opposed");
+  assert.equal(reachSummary(false, "attracted", "repelled", nil, nil, nil, nil, nil, nil), "cancelled");
+  assert.equal(reachSummary(false, "attracted", nil, nil, nil, nil, nil, nil, nil), "reached");
+  assert.equal(reachSummary(false, nil, "repelled", nil, "attracted", nil, nil, nil, nil), "reversed");
+  assert.equal(reachSummary(false, nil, nil, nil, nil, nil, nil, nil, "attracted"), "pooled");
+  assert.equal(reachSummary(false, nil, nil, nil, nil, nil, nil, "repelled", nil), "pooled");
+  assert.equal(reachSummary(false, "inconclusive", nil, nil, nil, nil, nil, nil, nil), "unresolved");
+  assert.equal(reachSummary(false, nil, nil, nil, "inconclusive", nil, nil, nil, nil), "unresolved");
+  assert.equal(reachSummary(true, nil, nil, nil, nil, nil, nil, nil, nil), "confounded");
+  assert.equal(reachVerdict("absent"), "confirmed");
+  assert.equal(reachVerdict("credit"), "refuted");
+  assert.equal(reachVerdict("cancelled"), "refuted");
+  assert.equal(reachVerdict("reached"), "refuted");
+  assert.equal(reachVerdict("reversed"), "refuted");
+  assert.equal(reachVerdict("flipped"), "refuted");
+  assert.equal(reachVerdict("opposed"), "refuted");
+  assert.equal(reachVerdict("pooled"), "refuted");
+  assert.equal(reachVerdict("unresolved"), "inconclusive");
+  assert.equal(reachVerdict("confounded"), "inconclusive");
+  assert.equal(stayLevel([1, 2, 3], () => false), null);
+  assert.equal(stayLevel([1, 2, 4], (action) => action !== 1), 2.5);
+  const reached = runReachEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const chained = runChainEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(reached.path, chained.path);
+  assert.equal(reached.foods, chained.foods);
+  assert.equal(reached.lives, chained.lives);
+  assert.equal(reached.distractorFrac, chained.distractorFrac);
+  assert.equal(reached.samples, chained.samples);
+  assert.equal(reached.scoreSteps, chained.scoreSteps);
+  assert.equal(reached.scoreGap, chained.scoreGap);
+  assert.equal(reached.rhoHat, chained.rhoHat);
+  assert.equal(reached.east.n, chained.east.n);
+  assert.equal(reached.east.rectifiedMean, chained.east.rectifiedMean);
+  assert.ok(Math.abs(reached.doorBonus + reached.doorDrop2 + reached.doorDrop3 - reached.rhoHat) < 1e-6);
+  const quiet = runReachEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(quiet.doorBonus, 0);
+  assert.equal(quiet.doorDrop2, 0);
+  assert.equal(quiet.doorDrop3, 0);
+  assert.equal(quiet.roomBonus, 0);
+  assert.equal(quiet.roomDrop2, 0);
+  assert.equal(quiet.roomDrop3, 0);
+  assert.equal(quiet.rhoHat, 0);
+  const counted = runReachEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
+  assert.equal(counted.doorDrop2, 0);
+  assert.equal(counted.doorDrop3, 0);
+  assert.equal(counted.roomDrop2, 0);
+  assert.equal(counted.roomDrop3, 0);
+  const plain = new Kernel("field", 3);
+  assert.equal(plain.rhoHatParts, null);
 });
