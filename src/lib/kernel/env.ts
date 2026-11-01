@@ -58,6 +58,15 @@ export type EnvParams = {
    * Omitted is the historical map. Death and food cannot impose a period.
    */
   cycleWorld?: boolean;
+  /**
+   * Learnable channel inside a stationary-noise room. Measurement only.
+   * Omitted is the historical room. `all` paints every open region-1 cell
+   * with the held low-frequency pattern. `third` paints the cells whose
+   * rank in scan order is divisible by 3. The noise coin is still drawn
+   * and then discarded on a painted cell, so a walk that ignores
+   * observations stays paired with the omitted room.
+   */
+  patternChannel?: "third" | "all";
 };
 
 /** East-room glow scale. Absent when the historical 0/1 bit is in force. */

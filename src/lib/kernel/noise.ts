@@ -451,3 +451,295 @@ function slopeCall(lo: number, hi: number, nWindows: number, nBoot: number, iter
   if (containsHalf) return "inconclusive";
   return "refuted";
 }
+
+export type DoorwaySummary = "confirmed" | "refuted" | "inconclusive";
+
+/**
+ * Doorway deficit, drift minus held, at the adaptation rate and at the fast rate.
+ * Both arguments are `repulsionCall`: confirmed means the interval lies entirely below 0.
+ * Confirmed: the fast rate repels and the adaptation rate does not resolve.
+ * Refuted: either rate prefers the drifting room, both rates repel, or only the
+ * adaptation rate repels. Otherwise the choice did not resolve a repulsion.
+ */
+export function doorwaySummary(atTau: Call, atFast: Call): DoorwaySummary {
+  if (atTau === "refuted" || atFast === "refuted") return "refuted";
+  if (atFast === "confirmed" && atTau === "inconclusive") return "confirmed";
+  if (atFast === "confirmed" && atTau === "confirmed") return "refuted";
+  if (atTau === "confirmed") return "refuted";
+  return "inconclusive";
+}
+
+export type CompeteMixed = "attracted" | "repelled" | "null-with-sensitivity" | "inconclusive";
+
+export type CompeteSummary = "swamped" | "found" | "pure-miss" | "unresolved" | "confounded";
+
+/**
+ * Pattern-channel occupancy, pattern minus matched noise.
+ * `pure` is greaterCall when every open cell is the pattern.
+ * `mixed` is the third-of-cells class, using δ from the pure lower end
+ * only when `pure` is confirmed.
+ * Found: the third still attracts, so noise did not hide the channel.
+ * Swamped: the pure room attracts and the third is a sensitive null or a repulsion.
+ * Pure-miss: the pure room does not attract and the third does not either.
+ * Unresolved: the pure room attracts and the third includes 0 outside δ.
+ * Confounded: random's excess excludes 0.
+ */
+export function competeSummary(randomExcludesZero: boolean, pure: Call, mixed: CompeteMixed): CompeteSummary {
+  if (randomExcludesZero) return "confounded";
+  if (mixed === "attracted") return "found";
+  if (pure !== "confirmed") return "pure-miss";
+  if (mixed === "null-with-sensitivity" || mixed === "repelled") return "swamped";
+  return "unresolved";
+}
+
+/**
+ * Confirmed is the swamped failure. Refuted is a third that still attracts,
+ * or a pure room rho prefers less than noise. Anything else is inconclusive.
+ */
+export function competeVerdict(summary: CompeteSummary, pure: Call): Call {
+  if (summary === "swamped") return "confirmed";
+  if (summary === "found") return "refuted";
+  if (summary === "pure-miss" && pure === "refuted") return "refuted";
+  return "inconclusive";
+}
+
+/**
+ * Half-width target for the pattern doorway contrast at 800 seeds.
+ * The adaptation-rate doorway interval was 0.0079 [−0.0269, 0.0435], n = 199,
+ * half-width 0.0352, seed SD about 0.253. At 800 seeds the normal half-width
+ * is about 0.0176. A planted-bonus lower end at or above this bar is wider
+ * than twice that half-width, so a content interval that includes 0 is a
+ * sensitive null. The class still uses the instrument's own lower end.
+ */
+export const CREDIT_POWER_DELTA = 0.036;
+
+export type CreditSummary = "blind" | "against" | "offered" | "unresolved" | "no-instrument" | "confounded";
+
+export type CreditClass = "attracted" | "repelled" | "null-with-sensitivity" | "inconclusive";
+
+/** Planted doorway gap. Too few eligible seeds is inconclusive and does not call a sign. */
+export function creditInstrumentCall(excess: Ends, n: number, nSeeds: number): Call {
+  if (!(n * 2 > nSeeds)) return "inconclusive";
+  return greaterCall(excess);
+}
+
+/**
+ * Pattern minus noise, same majority rule, then the phase-diagram class.
+ * Sign comes before the null. δ is the instrument's lower end, or null
+ * when the planted bonus did not clear.
+ */
+export function creditContentClass(excess: Ends, n: number, nSeeds: number, delta: number | null): CreditClass {
+  if (!(n * 2 > nSeeds)) return "inconclusive";
+  if (excess.lo > 0) return "attracted";
+  if (excess.hi < 0) return "repelled";
+  if (delta != null && delta > 0 && excess.lo > -delta && excess.hi < delta) return "null-with-sensitivity";
+  return "inconclusive";
+}
+
+/**
+ * Doorway score of the pure pattern against matched noise, once a planted
+ * bonus of 0.0169 has been shown to move that score.
+ * Blind: the choice does not resolve a preference inside δ.
+ * Against: the choice prefers the noise room.
+ * Offered: the choice prefers the pattern.
+ * Unresolved: the interval is too wide to class.
+ * No-instrument: the planted bonus did not clear, so δ is unavailable.
+ * Confounded: random's content gap or the planted gap excludes 0.
+ */
+export function creditSummary(randomExcludesZero: boolean, instrument: Call, content: CreditClass): CreditSummary {
+  if (randomExcludesZero) return "confounded";
+  if (instrument !== "confirmed") return "no-instrument";
+  if (content === "null-with-sensitivity") return "blind";
+  if (content === "repelled") return "against";
+  if (content === "attracted") return "offered";
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the pattern is not offered at the choice.
+ * Refuted: the choice prefers the pattern.
+ * Otherwise inconclusive.
+ */
+export function creditVerdict(summary: CreditSummary): Call {
+  if (summary === "blind" || summary === "against") return "confirmed";
+  if (summary === "offered") return "refuted";
+  return "inconclusive";
+}
+
+export type ChainLink =
+  | "absent"
+  | "gated"
+  | "cancelled"
+  | "offered"
+  | "reversed"
+  | "elsewhere"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * A score term carries a plant-sized doorway gap when its interval excludes 0
+ * and is not strictly inside (−δ, δ). A sign that stays inside δ does not carry.
+ */
+export function chainCarry(excess: Ends, delta: number): boolean {
+  if (!(delta > 0)) return false;
+  if (excess.lo > 0 && excess.hi >= delta) return true;
+  if (excess.hi < 0 && excess.lo <= -delta) return true;
+  return false;
+}
+
+/**
+ * Where the pattern's progress edge is lost on the way into the doorway score.
+ * `rho` is the action-conditional progress term in score units.
+ * `raw` is max(0, ρ̂) before that term multiplies by explore.
+ * The other four are the remaining additive pieces of the score.
+ * Classes are `creditContentClass`. `carry` is `chainCarry` on that piece.
+ * Absent: ρ̂ and its score term are sensitive nulls, and no other piece carries.
+ * Gated: raw ρ̂ prefers the pattern and the score term does not resolve.
+ * Cancelled: the progress term and another piece resolve opposite signs.
+ * Offered: the progress term prefers the pattern and nothing opposes it.
+ * Reversed: the progress term, or raw ρ̂, prefers the noise room.
+ * Elsewhere: the progress pieces are sensitive nulls and another piece carries.
+ * Confounded: random's gap excludes 0.
+ */
+export function chainSummary(
+  randomExcludesZero: boolean,
+  rho: CreditClass,
+  raw: CreditClass,
+  uncertainty: CreditClass,
+  global: CreditClass,
+  extrinsic: CreditClass,
+  follow: CreditClass,
+  carry: { uncertainty: boolean; global: boolean; extrinsic: boolean; follow: boolean },
+): ChainLink {
+  if (randomExcludesZero) return "confounded";
+  const others: CreditClass[] = [uncertainty, global, extrinsic, follow];
+  const rhoAttracted = rho === "attracted";
+  const rhoRepelled = rho === "repelled";
+  const opposed =
+    (rhoAttracted && others.some((klass) => klass === "repelled")) ||
+    (rhoRepelled && others.some((klass) => klass === "attracted"));
+  if (opposed) return "cancelled";
+  if (rhoAttracted) return "offered";
+  if (rhoRepelled || raw === "repelled") return "reversed";
+  if (raw === "attracted" && rho === "null-with-sensitivity") return "gated";
+  const progressNull = rho === "null-with-sensitivity" && raw === "null-with-sensitivity";
+  const carried = carry.uncertainty || carry.global || carry.extrinsic || carry.follow;
+  if (progressNull && carried) return "elsewhere";
+  const settled = (klass: CreditClass, didCarry: boolean) =>
+    klass === "null-with-sensitivity" || ((klass === "attracted" || klass === "repelled") && !didCarry);
+  if (
+    progressNull &&
+    settled(uncertainty, carry.uncertainty) &&
+    settled(global, carry.global) &&
+    settled(extrinsic, carry.extrinsic) &&
+    settled(follow, carry.follow)
+  ) {
+    return "absent";
+  }
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the in-room edge is absent from ρ̂ and from every plant-sized
+ * piece of the doorway score. Refuted: the edge is gated, cancelled, offered,
+ * reversed, or sitting in another piece. Otherwise inconclusive.
+ */
+export function chainVerdict(summary: ChainLink): Call {
+  if (summary === "absent") return "confirmed";
+  if (
+    summary === "gated" ||
+    summary === "cancelled" ||
+    summary === "offered" ||
+    summary === "reversed" ||
+    summary === "elsewhere"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}
+
+export type ReachLink =
+  | "absent"
+  | "credit"
+  | "cancelled"
+  | "reached"
+  | "reversed"
+  | "flipped"
+  | "opposed"
+  | "pooled"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Where the retrospective edge is lost before ρ̂ is formed.
+ * The six piece classes are the scent/bonus slot, the horizon-2 drop, and
+ * the horizon-3 drop, first as a doorway preference and then as an in-room
+ * level. The two sums are those three pieces added, at the same two places.
+ * Sign comes before size. A class of attracted or repelled is a sign,
+ * including one that stays inside δ. `chainCarry` is reported and is not
+ * this summary.
+ * Absent: all eight are sensitive nulls. The edge is not in any piece and
+ * not in the sum, in the room or at the door.
+ * Cancelled: the doorway pieces resolve both signs.
+ * Reached: a doorway piece prefers the pattern and none prefers the noise.
+ * Reversed: a doorway piece prefers the noise and none prefers the pattern.
+ * Opposed: the doorway pieces are sensitive nulls and the in-room pieces
+ * resolve both signs.
+ * Credit: the doorway pieces are sensitive nulls and an in-room piece
+ * prefers the pattern.
+ * Flipped: the doorway pieces are sensitive nulls and an in-room piece
+ * prefers the noise.
+ * Pooled: every piece is a sensitive null and a sum is not.
+ * Confounded: random's gap excludes 0.
+ */
+export function reachSummary(
+  randomExcludesZero: boolean,
+  doorBonus: CreditClass,
+  doorDrop2: CreditClass,
+  doorDrop3: CreditClass,
+  roomBonus: CreditClass,
+  roomDrop2: CreditClass,
+  roomDrop3: CreditClass,
+  doorSum: CreditClass,
+  roomSum: CreditClass,
+): ReachLink {
+  if (randomExcludesZero) return "confounded";
+  const door = [doorBonus, doorDrop2, doorDrop3];
+  const room = [roomBonus, roomDrop2, roomDrop3];
+  const attracted = (klass: CreditClass[]) => klass.some((item) => item === "attracted");
+  const repelled = (klass: CreditClass[]) => klass.some((item) => item === "repelled");
+  if (attracted(door) && repelled(door)) return "cancelled";
+  if (attracted(door)) return "reached";
+  if (repelled(door)) return "reversed";
+  const doorNull = door.every((item) => item === "null-with-sensitivity");
+  if (doorNull && attracted(room) && repelled(room)) return "opposed";
+  if (doorNull && attracted(room)) return "credit";
+  if (doorNull && repelled(room)) return "flipped";
+  const piecesNull = doorNull && room.every((item) => item === "null-with-sensitivity");
+  if (piecesNull && (doorSum === "attracted" || doorSum === "repelled" || roomSum === "attracted" || roomSum === "repelled")) {
+    return "pooled";
+  }
+  if (piecesNull && doorSum === "null-with-sensitivity" && roomSum === "null-with-sensitivity") return "absent";
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the retrospective edge is a sensitive null in every piece of
+ * ρ̂ and in both sums. Refuted: a piece or a sum resolves, or the doorway
+ * pieces cancel. Otherwise inconclusive.
+ */
+export function reachVerdict(summary: ReachLink): Call {
+  if (summary === "absent") return "confirmed";
+  if (
+    summary === "credit" ||
+    summary === "cancelled" ||
+    summary === "reached" ||
+    summary === "reversed" ||
+    summary === "flipped" ||
+    summary === "opposed" ||
+    summary === "pooled"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

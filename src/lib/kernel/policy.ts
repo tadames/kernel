@@ -69,6 +69,63 @@ export function expectedResidual(pred: Float32Array, weightAt?: (i: number) => n
   return (s / den) * 4;
 }
 
+/**
+ * Weight of action-conditional ρ̂ inside the progress channel.
+ * `prog = max(0, learning) + progExtra + RHO_HAT_PROG_WEIGHT * max(0, ρ̂)`.
+ */
+export const RHO_HAT_PROG_WEIGHT = 0.55;
+
+/** Additive pieces of one action's score. Present only when a sweep asks. */
+export type ScoreParts = {
+  /** `curiosity * explore * 0.75 * 12 * RHO_HAT_PROG_WEIGHT * max(0, ρ̂)`. */
+  rho: Float32Array;
+  /** `curiosity * explore * 0.75 * 12 * max(0, learning)`. Global progress, gated by explore. */
+  global: Float32Array;
+  /** `curiosity * (0.75 * explore * 0.35 + 0.2 * explore)`. No progress. */
+  uncertainty: Float32Array;
+  /** `curiosity * explore * 0.75 * 12 * progExtra`. Zero unless a place bonus is on. */
+  extra: Float32Array;
+  /** Goal minus cost on this first action. */
+  extrinsic: Float32Array;
+  /** Discounted follow-up value. Zero when imagination is one step. */
+  follow: Float32Array;
+  /** `max(0, ρ̂)` that entered the progress channel, before the explore weight. */
+  rhoHat: Float32Array;
+};
+
+/**
+ * Additive pieces of ρ̂. Each is already rectified, so they sum to the
+ * `max(0, ρ̂)` that enters the score. Omitted from the score path.
+ */
+export type RhoHatParts = {
+  /** `max(0, progressBonus)`. For rho this is the scent residual drop. */
+  bonus: Float32Array;
+  /** `max(0, res1 − bestRes2)` when the horizon drop is on, else 0. */
+  drop2: Float32Array;
+  /** `max(0, bestRes2 − bestRes3)` when the third step runs, else 0. */
+  drop3: Float32Array;
+};
+
+export function emptyRhoHatParts(acts: number): RhoHatParts {
+  return {
+    bonus: new Float32Array(acts),
+    drop2: new Float32Array(acts),
+    drop3: new Float32Array(acts),
+  };
+}
+
+export function emptyScoreParts(acts: number): ScoreParts {
+  return {
+    rho: new Float32Array(acts),
+    global: new Float32Array(acts),
+    uncertainty: new Float32Array(acts),
+    extra: new Float32Array(acts),
+    extrinsic: new Float32Array(acts),
+    follow: new Float32Array(acts),
+    rhoHat: new Float32Array(acts),
+  };
+}
+
 function valueOf(
   v: PredRead,
   pred: Float32Array,
@@ -80,16 +137,31 @@ function valueOf(
   residualWeight?: (i: number) => number,
   uncertainty = true,
   progExtra = 0,
+  sink?: { parts: ScoreParts; action: number },
 ): number {
   // Uncertainty is the Bernoulli residual. Off leaves visit-scent as the only explore term.
   const residual = uncertainty ? expectedResidual(pred, residualWeight) : 0;
   const explore = 0.7 * residual + 0.3 * v.novelty;
   // progExtra is a measurement hook. Zero is the shipped progress channel.
-  const prog = Math.max(0, learning) + progExtra + 0.55 * Math.max(0, rhoHat);
+  const learned = Math.max(0, learning);
+  const hat = Math.max(0, rhoHat);
+  const prog = learned + progExtra + RHO_HAT_PROG_WEIGHT * hat;
   const curious =
     curiosity * (0.75 * explore * (0.35 + 12 * prog) + 0.2 * explore);
   const g = goal * v.reward * (0.2 + 0.8 * confidence);
   const cost = v.cost * (0.15 + 0.85 * confidence);
+  if (sink) {
+    const c = curiosity;
+    const e = explore;
+    const parts = sink.parts;
+    const action = sink.action;
+    parts.rho[action] = c * e * 0.75 * 12 * RHO_HAT_PROG_WEIGHT * hat;
+    parts.global[action] = c * e * 0.75 * 12 * learned;
+    parts.uncertainty[action] = c * (0.75 * e * 0.35 + 0.2 * e);
+    parts.extra[action] = c * e * 0.75 * 12 * progExtra;
+    parts.extrinsic[action] = g - cost;
+    parts.rhoHat[action] = hat;
+  }
   return curious + g - cost;
 }
 
@@ -129,6 +201,25 @@ export function imagineScores(opts: {
    * receive it: imagined steps have no grid region.
    */
   progExtra?: (action: number) => number;
+  /**
+   * Horizon-2 follow-up for each first action. Written only when passed.
+   * The index is the first `a1` whose value strictly won, the same `s2 > best2`
+   * comparison that enters the score. A tie keeps the earlier index. Omitted
+   * writes nothing and leaves the score path unchanged.
+   */
+  follow?: Int32Array;
+  /**
+   * Additive split of each action's score. Omitted writes nothing and leaves
+   * the score path unchanged. The pieces sum to `scores`.
+   */
+  parts?: ScoreParts;
+  /**
+   * Split of ρ̂ into the bonus slot and the two horizon drops. Omitted
+   * writes nothing. The three are already rectified and sum to the ρ̂ that
+   * enters the score. The split does not draw a random number and does not
+   * change the score.
+   */
+  hatParts?: RhoHatParts;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -143,8 +234,12 @@ export function imagineScores(opts: {
     const pred = opts.predict(a, opts.imagined[a]);
     const v = opts.read(pred, a);
     const res1 = expectedResidual(pred, opts.residualWeight);
-    let rhoHat = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
+    const bonus = opts.progressBonus ? Math.max(0, opts.progressBonus(a, pred)) : 0;
+    let rhoHat = bonus;
+    let drop2 = 0;
+    let drop3 = 0;
     const extra = opts.progExtra ? opts.progExtra(a) : 0;
+    if (opts.follow) opts.follow[a] = a;
 
     if (twoStep) {
       let best2 = -Infinity;
@@ -158,13 +253,17 @@ export function imagineScores(opts: {
         if (s2 > best2) {
           best2 = s2;
           bestRes2 = expectedResidual(pred2, opts.residualWeight);
+          if (opts.follow) opts.follow[a] = a1;
           if (threeStep) {
             if (!bestPred2 || bestPred2 === into2) bestPred2 = pred2.slice();
             else bestPred2.set(pred2);
           }
         }
       }
-      if (horizonRho) rhoHat += Math.max(0, res1 - bestRes2);
+      if (horizonRho) {
+        drop2 = Math.max(0, res1 - bestRes2);
+        rhoHat += drop2;
+      }
       let best3 = 0;
       if (threeStep && bestPred2) {
         let best3v = -Infinity;
@@ -180,12 +279,59 @@ export function imagineScores(opts: {
           }
         }
         best3 = best3v;
-        if (horizonRho) rhoHat += Math.max(0, bestRes2 - bestRes3);
+        if (horizonRho) {
+          drop3 = Math.max(0, bestRes2 - bestRes3);
+          rhoHat += drop3;
+        }
       }
-      const score1 = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty, extra);
+      const score1 = valueOf(
+        v,
+        pred,
+        opts.curiosity,
+        opts.goal,
+        learning,
+        confidence,
+        rhoHat,
+        opts.residualWeight,
+        uncertainty,
+        extra,
+        opts.parts ? { parts: opts.parts, action: a } : undefined,
+      );
       opts.scores[a] = score1 + disc * confidence * best2 + disc * disc * confidence * best3;
+      if (opts.parts) opts.parts.follow[a] = opts.scores[a] - score1;
     } else {
-      opts.scores[a] = valueOf(v, pred, opts.curiosity, opts.goal, learning, confidence, rhoHat, opts.residualWeight, uncertainty, extra);
+      opts.scores[a] = valueOf(
+        v,
+        pred,
+        opts.curiosity,
+        opts.goal,
+        learning,
+        confidence,
+        rhoHat,
+        opts.residualWeight,
+        uncertainty,
+        extra,
+        opts.parts ? { parts: opts.parts, action: a } : undefined,
+      );
+      if (opts.parts) opts.parts.follow[a] = 0;
+    }
+    if (opts.parts) {
+      const parts = opts.parts;
+      const sum =
+        parts.rho[a]! +
+        parts.global[a]! +
+        parts.uncertainty[a]! +
+        parts.extra[a]! +
+        parts.extrinsic[a]! +
+        parts.follow[a]!;
+      if (Math.abs(sum - opts.scores[a]!) > 1e-6) {
+        throw new Error(`score parts ${sum} do not add up to ${opts.scores[a]}`);
+      }
+    }
+    if (opts.hatParts) {
+      opts.hatParts.bonus[a] = bonus;
+      opts.hatParts.drop2[a] = drop2;
+      opts.hatParts.drop3[a] = drop3;
     }
   }
   return opts.scores;
