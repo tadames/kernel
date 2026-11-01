@@ -14,6 +14,7 @@ import { doorwayDelta, runDoorwayEpisode } from "./doorway-run.ts";
 import { CREDIT_DOSE, runCreditEpisode } from "./credit-run.ts";
 import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain-run.ts";
 import { runReachEpisode, stayLevel } from "./reach-run.ts";
+import { INVERT_SCALE_EPS, runInvertEpisode } from "./invert-run.ts";
 import { imagineScores, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
@@ -41,6 +42,8 @@ import {
   chainSummary,
   reachSummary,
   reachVerdict,
+  invertSummary,
+  invertVerdict,
   chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
@@ -788,4 +791,64 @@ test("reach is confirmed only when every rho-hat piece is a sensitive null", () 
   assert.equal(counted.roomDrop3, 0);
   const plain = new Kernel("field", 3);
   assert.equal(plain.rhoHatParts, null);
+  assert.equal(plain.rhoDrop, null);
+});
+
+test("the sign inversion is confirmed only when dividing by the first residual restores it", () => {
+  const nil = "null-with-sensitivity" as const;
+  const rep = "repelled" as const;
+  const att = "attracted" as const;
+  assert.equal(INVERT_SCALE_EPS, 1e-6);
+  assert.equal(invertSummary(true, rep, rep, rep, nil, rep, rep, att, att), "confounded");
+  assert.equal(invertSummary(false, "inconclusive", rep, rep, nil, rep, rep, att, att), "unresolved");
+  assert.equal(invertSummary(false, nil, rep, rep, nil, rep, rep, att, att), "unreproduced");
+  assert.equal(invertSummary(false, att, rep, rep, nil, rep, rep, att, att), "unreproduced");
+  assert.equal(invertSummary(false, rep, nil, rep, rep, rep, rep, att, att), "variance");
+  assert.equal(invertSummary(false, rep, nil, rep, rep, rep, "inconclusive", att, att), "unresolved");
+  assert.equal(invertSummary(false, rep, nil, rep, rep, rep, nil, att, att), "rectified");
+  assert.equal(invertSummary(false, rep, att, rep, rep, rep, rep, att, att), "rectified");
+  assert.equal(invertSummary(false, rep, rep, att, rep, rep, rep, att, att), "selected");
+  assert.equal(invertSummary(false, rep, rep, nil, rep, rep, rep, att, att), "selected");
+  assert.equal(invertSummary(false, rep, rep, rep, nil, rep, rep, att, att), "scale");
+  assert.equal(invertSummary(false, rep, rep, rep, att, rep, rep, att, att), "scale");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, nil, rep, att, att), "lag");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, att, rep, att, att), "lag");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, nil, att), "window");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, "inconclusive", att), "unresolved");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, att, att), "intrinsic");
+  assert.equal(invertSummary(false, rep, rep, rep, rep, rep, rep, att, nil), "intrinsic");
+  assert.equal(invertVerdict("scale"), "confirmed");
+  assert.equal(invertVerdict("rectified"), "refuted");
+  assert.equal(invertVerdict("selected"), "refuted");
+  assert.equal(invertVerdict("variance"), "refuted");
+  assert.equal(invertVerdict("lag"), "refuted");
+  assert.equal(invertVerdict("window"), "refuted");
+  assert.equal(invertVerdict("intrinsic"), "refuted");
+  assert.equal(invertVerdict("unreproduced"), "inconclusive");
+  assert.equal(invertVerdict("unresolved"), "inconclusive");
+  assert.equal(invertVerdict("confounded"), "inconclusive");
+  const inverted = runInvertEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const reached = runReachEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(inverted.path, reached.path);
+  assert.equal(inverted.foods, reached.foods);
+  assert.equal(inverted.lives, reached.lives);
+  assert.equal(inverted.distractorFrac, reached.distractorFrac);
+  assert.equal(inverted.samples, reached.samples);
+  assert.equal(inverted.scoreSteps, reached.scoreSteps);
+  assert.equal(inverted.scoreGap, reached.scoreGap);
+  assert.equal(inverted.east.n, reached.east.n);
+  assert.equal(inverted.east.rectifiedMean, reached.east.rectifiedMean);
+  assert.equal(inverted.roomSteps, reached.roomSteps);
+  assert.equal(inverted.drop2, reached.roomDrop2);
+  assert.ok(inverted.earlySteps + inverted.lateSteps === inverted.roomSteps);
+  const quiet = runInvertEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(quiet.drop2, 0);
+  assert.equal(quiet.signed, 0);
+  assert.equal(quiet.mean, 0);
+  assert.equal(quiet.scale, 0);
+  assert.equal(quiet.order, 0);
+  assert.equal(quiet.spread, 0);
+  assert.equal(quiet.res1, 0);
+  const counted = runInvertEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
+  assert.equal(counted.drop2, 0);
 });

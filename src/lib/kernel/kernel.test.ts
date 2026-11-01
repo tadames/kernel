@@ -10,7 +10,7 @@ Math.random = mulberry32(20261015);
 import { Kernel, OPTION_SPAN } from "./kernel.ts";
 import { StreamKernel, runStream } from "./stream.ts";
 import { c2Pass, evaluateClaims } from "./experiments.ts";
-import { emptyScoreParts, expectedResidual, imagineScores } from "./policy.ts";
+import { emptyRhoDropTrace, emptyRhoHatParts, emptyScoreParts, expectedResidual, imagineScores } from "./policy.ts";
 import { C2_BRANCH_HI, C2_BRANCH_LO, branching, edgeIndex, entropyNorm, participation } from "./complexity.ts";
 
 // existing suite preserved in repo history through 19 prior tests; this file is the full suite.
@@ -225,6 +225,61 @@ test("score parts add up to the shipped score and a place bonus stays in the ext
   assert.equal(boosted.parts.extra[1], 0);
   assert.equal(boosted.parts.rho[0], base.parts.rho[0]);
   assert.ok(Math.abs(boosted.scores[0]! - base.scores[0]! - boosted.parts.extra[0]!) < 1e-9);
+});
+
+test("a horizon residual trace does not change the score, and its rectified drop matches", () => {
+  const predict = (a: number, into: Float32Array) => {
+    into[0] = a === 0 ? 0.5 : 0.2;
+    into[1] = a === 0 ? 0.5 : 0.8;
+    return into;
+  };
+  const predictFrom = (_pred: Float32Array, a1: number, into: Float32Array) => {
+    into[0] = a1 === 0 ? 0.9 : 0.4;
+    into[1] = a1 === 0 ? 0.1 : 0.6;
+    return into;
+  };
+  const read = () => ({ reward: 0.2, cost: 0.1, novelty: 0.4 });
+  const shared = {
+    acts: 2,
+    curiosity: 1,
+    goal: 1,
+    progressEma: 0.02,
+    ema: 0.05,
+    horizonRho: true,
+    predict,
+    predictFrom,
+    read,
+    readPred: () => ({ reward: 0, cost: 0, novelty: 0.2 }),
+    progressBonus: (a: number) => (a === 0 ? 0.03 : 0),
+  };
+  const plain = new Float32Array(2);
+  imagineScores({
+    ...shared,
+    imagined: [new Float32Array(2), new Float32Array(2)],
+    imagined2: [new Float32Array(2), new Float32Array(2)],
+    scores: plain,
+  });
+  const scores = new Float32Array(2);
+  const trace = emptyRhoDropTrace(2);
+  const parts = emptyScoreParts(2);
+  const hat = emptyRhoHatParts(2);
+  imagineScores({
+    ...shared,
+    imagined: [new Float32Array(2), new Float32Array(2)],
+    imagined2: [new Float32Array(2), new Float32Array(2)],
+    scores,
+    parts,
+    hatParts: hat,
+    hatTrace: trace,
+  });
+  assert.equal(scores[0], plain[0]);
+  assert.equal(scores[1], plain[1]);
+  for (let a = 0; a < 2; a++) {
+    const rect = Math.max(0, trace.res1[a]! - trace.best[a]!);
+    assert.ok(Math.abs(rect - hat.drop2[a]!) < 1e-6, `action ${a} rect ${rect} drop ${hat.drop2[a]}`);
+    assert.ok(trace.min[a]! <= trace.mean[a]! && trace.mean[a]! <= trace.max[a]!);
+    assert.ok(trace.min[a]! <= trace.best[a]! && trace.best[a]! <= trace.max[a]!);
+  }
 });
 
 test("horizon residual drop can be removed without changing a flat residual", () => {

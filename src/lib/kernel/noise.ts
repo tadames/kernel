@@ -743,3 +743,99 @@ export function reachVerdict(summary: ReachLink): Call {
   }
   return "inconclusive";
 }
+
+export type InvertLink =
+  | "scale"
+  | "rectified"
+  | "selected"
+  | "variance"
+  | "lag"
+  | "window"
+  | "intrinsic"
+  | "unreproduced"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Why the in-room horizon-2 drop prefers noise while retrospective progress
+ * prefers the pattern. Every class is pattern minus matched noise.
+ * `rect` is the shipped `max(0, res1 − res2*)`.
+ * `signed` removes that rectification.
+ * `mean` replaces the score-winning follow-up with the unweighted mean.
+ * `scale` divides the shipped drop by the first-window residual.
+ * `early` keeps the shipped drop on the first half of the episode.
+ * `spread` is the cross-action range of the follow-up residual.
+ * `step` is rectified one-step surprise drop on the same ticks.
+ * `ema` is rectified 50-step progress on the same ticks.
+ * A correction restores the sign when its class is not repelled.
+ * The first match wins.
+ * Variance: the raw score-selected drop is a sensitive null and the noise
+ * room has the wider follow-up range, so the clip of that range is the sign.
+ * Rectified: removing the clip restores the sign and variance does not apply.
+ * Selected: the raw drop prefers noise and the mean follow-up does not.
+ * Scale: the raw drop and the mean follow-up prefer noise, and dividing by
+ * the first-window residual does not.
+ * Lag: the early half does not prefer noise, and the corrections above do.
+ * Window: every forward correction prefers noise, 50-step progress on the
+ * same ticks prefers the pattern, and one-step progress does not.
+ * Intrinsic: every forward correction prefers noise and the window case does not.
+ * Unreproduced: the shipped drop does not prefer noise.
+ * Confounded: random's shipped drop excludes 0.
+ */
+export function invertSummary(
+  randomExcludesZero: boolean,
+  rect: CreditClass,
+  signed: CreditClass,
+  mean: CreditClass,
+  scale: CreditClass,
+  early: CreditClass,
+  spread: CreditClass,
+  step: CreditClass,
+  ema: CreditClass,
+): InvertLink {
+  if (randomExcludesZero) return "confounded";
+  if (
+    rect === "inconclusive" ||
+    signed === "inconclusive" ||
+    mean === "inconclusive" ||
+    scale === "inconclusive" ||
+    early === "inconclusive"
+  ) {
+    return "unresolved";
+  }
+  if (rect !== "repelled") return "unreproduced";
+  if (signed === "null-with-sensitivity") {
+    if (spread === "inconclusive") return "unresolved";
+    if (spread === "repelled") return "variance";
+    return "rectified";
+  }
+  if (signed !== "repelled") return "rectified";
+  if (mean !== "repelled") return "selected";
+  if (scale !== "repelled") return "scale";
+  if (early !== "repelled") return "lag";
+  if (step === "inconclusive" || ema === "inconclusive") return "unresolved";
+  if (ema === "attracted" && step !== "attracted") return "window";
+  return "intrinsic";
+}
+
+/**
+ * Confirmed: the inversion is the scale class. The absolute drop prefers
+ * noise and dividing by the first-window residual does not.
+ * Refuted: rectification, selection, variance, lag, the window, or the
+ * imagined residual itself produces the sign.
+ * Otherwise inconclusive.
+ */
+export function invertVerdict(summary: InvertLink): Call {
+  if (summary === "scale") return "confirmed";
+  if (
+    summary === "rectified" ||
+    summary === "selected" ||
+    summary === "variance" ||
+    summary === "lag" ||
+    summary === "window" ||
+    summary === "intrinsic"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

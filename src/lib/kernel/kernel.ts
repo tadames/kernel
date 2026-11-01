@@ -1,6 +1,15 @@
 import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
-import { emptyRhoHatParts, emptyScoreParts, imagineScores, softmaxSample, type RhoHatParts, type ScoreParts } from "./policy.ts";
+import {
+  emptyRhoDropTrace,
+  emptyRhoHatParts,
+  emptyScoreParts,
+  imagineScores,
+  softmaxSample,
+  type RhoDropTrace,
+  type RhoHatParts,
+  type ScoreParts,
+} from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
   generateWorld,
@@ -146,6 +155,13 @@ export type KernelOptions = {
    * bonus.
    */
   traceRho?: boolean;
+  /**
+   * Measurement-only residuals behind the horizon-2 drop. Omitted does not
+   * allocate the buffers and does not pass them into imagination. Not a
+   * Loop feature flag. The default agent does not change. The trace does
+   * not draw a random number and does not enter the bonus.
+   */
+  traceDrop?: boolean;
 };
 
 /**
@@ -229,6 +245,12 @@ export class Kernel {
    * not refresh it. The default agent does not allocate it.
    */
   readonly rhoHatParts: RhoHatParts | null;
+  /**
+   * Residuals behind the last sampled horizon-2 drop. Null unless
+   * `traceDrop`. A held tick does not refresh it. The default agent does
+   * not allocate it.
+   */
+  readonly rhoDrop: RhoDropTrace | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -321,6 +343,7 @@ export class Kernel {
       : null;
     this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
     this.rhoHatParts = options?.traceRho ? emptyRhoHatParts(ACTS) : null;
+    this.rhoDrop = options?.traceDrop ? emptyRhoDropTrace(ACTS) : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
@@ -758,6 +781,7 @@ export class Kernel {
       this.scores.fill(0);
       this.zeroScoreParts();
       this.zeroRhoHatParts();
+      this.zeroRhoDrop();
       this.policyEntropy = 1;
       this.branching = ACTS;
       this.edge = edgeIndex(1);
@@ -832,6 +856,7 @@ export class Kernel {
       follow: this.features.rollout ? this.followBuf : undefined,
       parts: this.scoreParts ?? undefined,
       hatParts: this.rhoHatParts ?? undefined,
+      hatTrace: this.rhoDrop ?? undefined,
     });
     if (this.features.rollout) this.followReady = true;
     let temp = this.loop.policyTemperature(this.params.temperature);
@@ -861,6 +886,16 @@ export class Kernel {
     parts.bonus.fill(0);
     parts.drop2.fill(0);
     parts.drop3.fill(0);
+  }
+
+  private zeroRhoDrop() {
+    const trace = this.rhoDrop;
+    if (!trace) return;
+    trace.res1.fill(0);
+    trace.best.fill(0);
+    trace.mean.fill(0);
+    trace.min.fill(0);
+    trace.max.fill(0);
   }
 
   private note(text: string) {

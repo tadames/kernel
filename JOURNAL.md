@@ -1,5 +1,98 @@
 # Journal
 
+## 2026-11-01 invert (UTC)
+
+Written before `npm run invert`. No correction gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. `echo` stays off. The pure pattern pays more rectified progress than matched noise, 0.0214 [0.0206, 0.0222]. Inside the room the horizon-2 drop prefers the noise, −0.0174 [−0.0186, −0.0163], the opposite sign, and it does not carry against δ 0.0307. The doorway sum of ρ̂ stays the published sensitive null, 0.0002 [−0.0004, 0.0008]. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not rerun the doorway split, the planted bonus, another dose, another temperature, or the third mask. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+The loss left open is why that in-room horizon-2 drop has the opposite sign of the retrospective edge. The shipped drop is `max(0, res1 − res2*)`, where `res` is the Bernoulli residual `4 · mean(p(1 − p))` and `res2*` is the follow-up action whose score strictly won. Retrospective progress is `ema − surprise` on squared error, rectified, with the ema at rate 0.02. Those are not the same estimator. This run removes one piece at a time, on the same in-room ticks, and asks which removal restores the sign of the retrospective edge.
+
+### Preregister invert
+
+Hypothesis. On the shipped learner, the in-room sign inversion is a scale effect. The shipped rectified drop prefers matched noise. The raw score-selected drop prefers noise too, and so does the mean follow-up. Dividing the shipped drop by the first-window residual does not prefer noise. The comparison is pattern minus matched noise. The predicted class is `scale`.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The pattern arm paints `patternChannel` `all`. The noise arm omits it and still draws the noise coin, so the episode RNG matches. No boost arm. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are a harness and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceRho` and `traceDrop` allocate the splits. Neither is a Loop flag. The off path, which is every other sweep and the default agent, does not allocate them and does not pass them. The splits do not draw a random number and do not enter the bonus. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Ticks. A tick counts only when `optionHeld` does not change during the step. That is a sample. A held tick is dropped. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts. The destination rule is the policy's: a blocked step, a step off the map, or wait stays in the current region. A sample tick counts for the call only when the body began the step in region 1. The number is the unweighted mean over actions whose destination is region 1. A tick with no such action aborts. Wait stays, so a body already in the room has one. A seed's number is the mean of the ticks that remain. A seed with no counted tick on either arm is dropped from that quantity. Paired 95% percentile bootstrap, 2000 resamples. Pattern minus noise.
+
+Quantities, locked here. `res1` is the Bernoulli residual of the first imagined window. `res2*` is the residual of the follow-up whose score strictly won, the same comparison that enters the shipped drop. `mean`, `min`, and `max` are the unweighted follow-up residuals. The scale floor is `INVERT_SCALE_EPS` = 1e-6. It is not a learned parameter.
+
+- `rect` is the shipped `max(0, res1 − res2*)`. It is read from the rho-hat piece, not from the trace. For rho the trace's rectified drop must match it within 1e-6 on every counted tick. A miss aborts.
+- `signed` is `res1 − res2*`, with no rectification.
+- `mean` is `res1 − mean follow-up`. Signed.
+- `scale` is `max(0, res1 − res2*) / max(res1, 1e-6)`.
+- `early` is `rect` on sample ticks with step index `t < steps / 2` that began in the room. A seed with no such tick on either arm is dropped from `early` only.
+- `spread` is `max follow-up − min follow-up`. It enters the summary only to separate variance from plain rectification.
+- `step` is `max(0, surprise before the assimilate − surprise after)`, on the same in-room sample ticks. One step, not the ema.
+- `ema` is `max(0, progress)` on those same ticks. Progress is the shipped `ema − surprise`.
+
+Reported, and they do not flip the summary: `meanRect` = `max(0, res1 − mean follow-up)`, `order` = `res1 − min follow-up`, `late` = `rect` on the remaining in-room sample ticks, and the `res1` level. δ does not move.
+
+δ is `CHAIN_RHO_HAT_DELTA` = 0.0169 / 0.55. A sign inside δ is still a sign. The plant is not run. No other dose is run. No other temperature is run. The third mask is not a cell. The doorway split is not rerun.
+
+Classes. Each call uses `creditContentClass` with this δ. Sign comes before the null. Summary, `invertSummary`, from rho only. The first match wins. Confounded when random's shipped in-room drop excludes 0. The sweep aborts in that case, before a verdict. Unresolved when `rect`, `signed`, `mean`, `scale`, or `early` is inconclusive, when a sensitive-null `signed` meets an inconclusive `spread`, or when every forward correction is repelled and `step` or `ema` is inconclusive. Unreproduced when `rect` is not repelled. Variance when `signed` is a sensitive null and `spread` is repelled. Rectified when `signed` is not repelled and the variance case does not apply. Selected when `signed` is repelled and `mean` is not. Scale when `signed` and `mean` are repelled and `scale` is not. Lag when those three are repelled and `early` is not. Window when every forward correction is repelled, `ema` is attracted, and `step` is not attracted. Intrinsic when every forward correction is repelled and the window case does not apply. Count, surprise, and RND do not flip the summary.
+
+Verdict, `invertVerdict`. Confirmed when the summary is scale. Refuted when the summary is rectified, selected, variance, lag, window, or intrinsic. Otherwise inconclusive.
+
+Harness, not a call. The census is 52 open cells, all kept. A runner that does not get that count throws before any episode. Random's path, target-room fraction, meals, and lives match across the two arms. A mismatch aborts. Rho's occupancy excess on seeds 1–800 matches the published credit mean 0.0023718750000000038 within 1e-12, and the published interval. Rho's rectified gap matches n = 703 and mean 0.021385533643288657 within 1e-12, and the published interval. Rho's doorway score matches n = 766 and mean −0.00792605777551224 within 1e-12. Rho's shipped in-room drop matches n = 745 and mean −0.017389538705750777 within 1e-12, and the published interval −0.018575258067774096 to −0.01628763588135163. A mismatch aborts. Random's shipped drop, signed drop, mean drop, scaled drop, order drop, spread, and first residual are a point mass at 0. An interval on the shipped drop that excludes 0 aborts. Fewer than a majority of random seeds in the room aborts. A shipped horizon drop on count, surprise, RND, or random aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. Confirmed: the inversion is the scale of an absolute residual drop. Refuted: rectification, selection, a noise-driven range, the late half, the 50-step window, or the imagined residual itself produces the sign. Inconclusive: the shipped inversion is not reproduced, or an interval is too wide to class. The third mask is not run. The plant is not run. A restored sign is not a license to change the score in this run.
+
+Figure: `bench/invert/invert-gap.png`. The bars are rho's paired gaps. The drop panel is in residual units, with zero as the vertical line and δ as the gold lines. The level panel and the progress panel are scaled on their own. Source: `bench/invert/invert.json`. The sweep is `npm run invert`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `9e1b378`. The row is the reach learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`. This run's bench is filled in with the results. A row that does not match is a learner that moved, and the sweep is void.
+
+### Results
+
+The prediction is refuted. The summary is intrinsic. Every forward correction prefers the noise room, and one-step progress on the same ticks prefers the pattern, so the 50-step window is not what the forward drop is disagreeing with. Rectification makes the inversion smaller. The score's choice of follow-up is not required. Dividing by the first-window residual does not restore the sign. The early half already prefers the noise. No term was added. The temperature stays 0.45. `option` stays on.
+
+8000 episodes, 400 steps, 4 workers, 223.9 seconds. Source: `bench/invert/invert.json`. The random walk is the same path on both arms, meals and lives included. Every episode sampled half its steps. The census is 52 open cells, all kept. Rho's occupancy mean, rectified mean, doorway-score mean, and in-room horizon-2 mean match the published runs. The harness does not fail. Random's shipped drop, signed drop, mean drop, scaled drop, order drop, spread, and first residual are a point mass at 0, on 691 in-room seeds. That is a majority. The shipped-drop interval does not exclude 0. Count, surprise, and RND write no horizon drop.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is pattern minus matched noise. δ is 0.0307. `invertSummary` is intrinsic. `invertVerdict` is refuted.
+
+| quantity | rho | n | class |
+|---|---|---:|---|
+| shipped rectified drop | −0.0174 [−0.0186, −0.0163] | 745 | repelled |
+| signed score-selected | −0.0265 [−0.0279, −0.0251] | 745 | repelled |
+| mean follow-up, signed | −0.0239 [−0.0253, −0.0226] | 745 | repelled |
+| drop / first residual | −0.0264 [−0.0281, −0.0247] | 745 | repelled |
+| early half, shipped drop | −0.0167 [−0.0184, −0.0150] | 635 | repelled |
+| one-step progress | 0.0026 [0.0022, 0.0030] | 745 | attracted |
+| 50-step progress, same ticks | 0.0219 [0.0210, 0.0228] | 745 | attracted |
+
+The shipped row is the reach in-room horizon-2 drop. The mean matches −0.017389538705750777 and the interval matches. It lies entirely below 0 and strictly inside (−0.0307, 0.0307). It does not carry. The signed drop lies further below 0, still inside δ. Rectification clips the pattern's negative drops and moves the gap from −0.0265 toward zero. The clip does not create the sign. The mean follow-up is −0.0239, entirely below 0, so the score's argmax is not required. The order statistic, not a call, is −0.0217 [−0.0231, −0.0204], n = 745, also repelled. The cross-action residual range is wider in the pattern room, 0.0049 [0.0044, 0.0054], n = 745, attracted. The inversion is not an order statistic of a noisier follow-up set.
+
+The scaled drop lies entirely below 0 and inside δ. The first-window residual, not a call, is −0.0624 [−0.0671, −0.0581], n = 745. That level lies entirely below −δ. The pattern's first imagined window is more certain by a plant-sized margin, and the fraction of that residual the second window removes still prefers the noise. Scale is not the inversion.
+
+The early half is repelled, n = 635, a majority. The late half, not a call, is −0.0211 [−0.0229, −0.0193], n = 558, also a majority, also repelled. The sign is present before the second half of the episode. A seed's in-room mean is about 49 sample ticks: 48.98 on the pattern arm and 48.48 on the noise arm. The early mean is 25.30 and 24.03. The late mean is 23.68 and 24.45.
+
+One-step rectified progress on the same ticks lies entirely above 0 and inside δ. The 50-step progress on those ticks lies entirely above 0 and inside δ, and it matches the all-steps retrospective edge in size. The window changes the magnitude. It does not change the sign. The forward drop disagrees with both.
+
+Rectified progress, the credit checksum, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05.
+
+| quantity | gap | n |
+|---|---|---:|
+| rectified | 0.0214 [0.0206, 0.0222] | 703 |
+
+Occupancy, not a call. Target-room fraction, pattern minus noise, rho, 0.0024 [−0.0080, 0.0125], n = 800. The interval includes 0. The mean matches the credit run.
+
+The mean follow-up after rectification, not a call, is −0.0184 [−0.0197, −0.0172], n = 745, repelled, and inside δ. It sits next to the shipped drop.
+
+Figure: `bench/invert/invert-gap.png`. Every forward bar sits left of zero, inside the gold lines on the drop panel. The first-window residual sits left of zero. One-step progress and 50-step progress sit right of zero.
+
+No mechanism was added. `traceDrop` omitted allocates nothing. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `9e1b378`. The row matches the reach learner, before the trace and after it. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The traces are not defaults, so the probe gate is not required to keep one. It was run anyway, because `policy.ts` and `kernel.ts` grew an omitted trace. `npm run gate -- --flags option,transition --seeds 20` passes. Option off minus on is 0.0107 [0.0032, 0.0179]. Transition off minus on is 0.1347 [0.1255, 0.1416]. The score path is the shipped score: the five-seed row matches, and rho's in-room drop on this sweep matches the reach mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not replace the horizon-2 drop with its signed value, the mean follow-up, or the drop divided by the first residual. Each still prefers noise, and the signed gap is the larger one, −0.0265 [−0.0279, −0.0251]. Do not rerun this split at another dose, another temperature, or on the third mask. The inversion is not rectification, not the argmax, not the absolute scale, not the late half, and not the 50-step window. One-step progress on the same ticks prefers the pattern, 0.0026 [0.0022, 0.0030], and 50-step progress there is 0.0219 [0.0210, 0.0228]. The forward Bernoulli drop anti-predicts both. The pattern's first imagined window is more certain by more than δ, −0.0624 [−0.0671, −0.0581], and the drop away from that window still points at the noise. None of the forward gaps carries against δ 0.0307. The cross-action range is wider in the pattern room, so a noise order statistic is not the source. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-11-01 reach (UTC)
 
 Written before `npm run reach`. No rho-hat piece from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

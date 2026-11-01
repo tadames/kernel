@@ -114,6 +114,34 @@ export function emptyRhoHatParts(acts: number): RhoHatParts {
   };
 }
 
+/**
+ * Residuals behind the horizon-2 drop. Omitted from the score path.
+ * `best` is the follow-up whose score strictly won. `mean`, `min`, and
+ * `max` are that same follow-up set, unweighted.
+ */
+export type RhoDropTrace = {
+  /** Bernoulli residual of the first imagined window. */
+  res1: Float32Array;
+  /** Residual of the score-winning follow-up. Equals `res1` when horizon 2 is off. */
+  best: Float32Array;
+  /** Unweighted mean residual across follow-up actions. */
+  mean: Float32Array;
+  /** Lowest follow-up residual. */
+  min: Float32Array;
+  /** Highest follow-up residual. */
+  max: Float32Array;
+};
+
+export function emptyRhoDropTrace(acts: number): RhoDropTrace {
+  return {
+    res1: new Float32Array(acts),
+    best: new Float32Array(acts),
+    mean: new Float32Array(acts),
+    min: new Float32Array(acts),
+    max: new Float32Array(acts),
+  };
+}
+
 export function emptyScoreParts(acts: number): ScoreParts {
   return {
     rho: new Float32Array(acts),
@@ -220,6 +248,12 @@ export function imagineScores(opts: {
    * change the score.
    */
   hatParts?: RhoHatParts;
+  /**
+   * Residuals of the horizon-2 drop. Omitted writes nothing and leaves the
+   * score path unchanged. The trace does not draw a random number and does
+   * not enter the bonus.
+   */
+  hatTrace?: RhoDropTrace;
 }): Float32Array {
   const confidence = Math.max(0, Math.min(1, 1 - opts.ema / 0.4));
   const learning = Math.max(0, opts.progressEma);
@@ -240,12 +274,18 @@ export function imagineScores(opts: {
     let drop3 = 0;
     const extra = opts.progExtra ? opts.progExtra(a) : 0;
     if (opts.follow) opts.follow[a] = a;
+    let bestRes2 = res1;
+    let meanRes2 = res1;
+    let minRes2 = res1;
+    let maxRes2 = res1;
 
     if (twoStep) {
       let best2 = -Infinity;
-      let bestRes2 = res1;
       let bestPred2: Float32Array | null = null;
       const into2 = opts.imagined2![a];
+      let sumRes = 0;
+      let loRes = Infinity;
+      let hiRes = -Infinity;
       for (let a1 = 0; a1 < opts.acts; a1++) {
         const pred2 = opts.predictFrom!(pred, a1, into2);
         const v2 = opts.readPred!(pred2, a1);
@@ -259,6 +299,17 @@ export function imagineScores(opts: {
             else bestPred2.set(pred2);
           }
         }
+        if (opts.hatTrace) {
+          const res2 = expectedResidual(pred2, opts.residualWeight);
+          sumRes += res2;
+          if (res2 < loRes) loRes = res2;
+          if (res2 > hiRes) hiRes = res2;
+        }
+      }
+      if (opts.hatTrace) {
+        meanRes2 = sumRes / opts.acts;
+        minRes2 = loRes;
+        maxRes2 = hiRes;
       }
       if (horizonRho) {
         drop2 = Math.max(0, res1 - bestRes2);
@@ -332,6 +383,14 @@ export function imagineScores(opts: {
       opts.hatParts.bonus[a] = bonus;
       opts.hatParts.drop2[a] = drop2;
       opts.hatParts.drop3[a] = drop3;
+    }
+    if (opts.hatTrace) {
+      const trace = opts.hatTrace;
+      trace.res1[a] = res1;
+      trace.best[a] = bestRes2;
+      trace.mean[a] = meanRes2;
+      trace.min[a] = minRes2;
+      trace.max[a] = maxRes2;
     }
   }
   return opts.scores;
