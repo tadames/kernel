@@ -839,3 +839,88 @@ export function invertVerdict(summary: InvertLink): Call {
   }
   return "inconclusive";
 }
+
+export type SourceLink =
+  | "false"
+  | "accurate"
+  | "soft"
+  | "shift"
+  | "joint"
+  | "residual"
+  | "unreproduced"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Why the imagined Bernoulli drop prefers noise while retrospective
+ * progress prefers the pattern. Every class is pattern minus matched noise.
+ * `rect` is the shipped `max(0, res1 − res2*)`.
+ * `error` is the drop in expected squared error of those same two windows
+ * under the room's generative model, `err1 − err2*`. Positive means the
+ * second window is more accurate.
+ * `hard` is `res1 − resHard`, the second window replayed from a hard
+ * threshold of the first prediction, same follow-up.
+ * `stay` is `res1 − resWait`, the second window replayed from the soft
+ * prediction with the wait action.
+ * The first match wins.
+ * False: the shipped drop prefers noise and the expected-error drop
+ * prefers the pattern. Confidence and accuracy disagree.
+ * Accurate: the expected-error drop prefers noise too.
+ * Soft: the error drop does not prefer the pattern, and the hard replay
+ * does not prefer noise, while wait still does.
+ * Shift: the error drop does not prefer the pattern, and wait does not
+ * prefer noise, while the hard replay still does.
+ * Joint: neither the hard replay nor wait prefers noise, and the error
+ * drop does not prefer the pattern.
+ * Residual: the hard replay and wait both still prefer noise, and the
+ * error drop does not prefer the pattern.
+ * Unreproduced: the shipped drop does not prefer noise.
+ * Confounded: random's shipped drop excludes 0.
+ */
+export function sourceSummary(
+  randomExcludesZero: boolean,
+  rect: CreditClass,
+  error: CreditClass,
+  hard: CreditClass,
+  stay: CreditClass,
+): SourceLink {
+  if (randomExcludesZero) return "confounded";
+  if (
+    rect === "inconclusive" ||
+    error === "inconclusive" ||
+    hard === "inconclusive" ||
+    stay === "inconclusive"
+  ) {
+    return "unresolved";
+  }
+  if (rect !== "repelled") return "unreproduced";
+  if (error === "attracted") return "false";
+  if (error === "repelled") return "accurate";
+  if (hard !== "repelled" && stay === "repelled") return "soft";
+  if (stay !== "repelled" && hard === "repelled") return "shift";
+  if (hard !== "repelled" && stay !== "repelled") return "joint";
+  if (hard === "repelled" && stay === "repelled") return "residual";
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the inversion is false certainty. The Bernoulli drop prefers
+ * noise and the expected-error drop prefers the pattern.
+ * Refuted: expected error prefers noise, or it is a sensitive null and a
+ * replay control removes the Bernoulli inversion, or both controls leave
+ * the inversion in place.
+ * Otherwise inconclusive.
+ */
+export function sourceVerdict(summary: SourceLink): Call {
+  if (summary === "false") return "confirmed";
+  if (
+    summary === "accurate" ||
+    summary === "soft" ||
+    summary === "shift" ||
+    summary === "joint" ||
+    summary === "residual"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

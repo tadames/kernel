@@ -5,6 +5,7 @@ import {
   emptyRhoHatParts,
   emptyScoreParts,
   imagineScores,
+  REPLAY_HARD_AT,
   softmaxSample,
   type RhoDropTrace,
   type RhoHatParts,
@@ -304,6 +305,8 @@ export class Kernel {
   imagined: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   imagined2: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   imagined3: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
+  /** Scratch for a hard replay. The score path does not read it. */
+  private replaySrc = new Float32Array(OBS);
   thoughts: Thought[] = [];
   thought = "I begin with no model of this place.";
   params: Params = { lr: 0.035, curiosity: 1, goal: 1, temperature: 0.45 };
@@ -660,6 +663,22 @@ export class Kernel {
     return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null, this.glowGain(), this.family?.decoy ?? null);
   }
 
+  /**
+   * One imagined step from a stored prediction. Measurement only.
+   * `hard` thresholds every coordinate at one half before the forward.
+   * Scent is muted, the same as the score's second window. `energy` is
+   * the body's energy at the choose that wrote `pred`. Does not learn
+   * and does not draw a random number. The score path does not call it.
+   */
+  replayImagination(pred: Float32Array, action: number, hard: boolean, energy: number, into: Float32Array): Float32Array {
+    const src = hard ? this.replaySrc : pred;
+    if (hard) {
+      const n = Math.min(pred.length, src.length);
+      for (let i = 0; i < n; i++) src[i] = pred[i]! >= REPLAY_HARD_AT ? 1 : 0;
+    }
+    return this.loop.imagine(this.encode(src, action, true, energy), into);
+  }
+
   private encode(obs: Float32Array, action = this.lastAction, muteNoise = false, energy = this.energy): Float32Array {
     const x = new Float32Array(IN);
     if (muteNoise) this.loop.muteFamilies(obs, x);
@@ -896,6 +915,7 @@ export class Kernel {
     trace.mean.fill(0);
     trace.min.fill(0);
     trace.max.fill(0);
+    trace.follow.fill(0);
   }
 
   private note(text: string) {

@@ -1,5 +1,99 @@
 # Journal
 
+## 2026-11-01 source (UTC)
+
+Written before `npm run source`. No expected-error gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. `echo` stays off. The pure pattern pays more rectified progress than matched noise, 0.0214 [0.0206, 0.0222]. Inside the room the horizon-2 drop prefers the noise, −0.0174 [−0.0186, −0.0163], and every algebraic correction of that drop still prefers the noise. One-step progress on the same ticks prefers the pattern, 0.0026 [0.0022, 0.0030]. The summary of that run was intrinsic: the imagined residual itself carries the sign. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not replace the horizon-2 drop with its signed value, the mean follow-up, or the drop divided by the first residual. It does not rerun that split at another dose, another temperature, or on the third mask. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+The loss left open is the mechanism inside that residual. Retrospective progress is `ema − surprise` on squared error. The forward drop is `res1 − res2*`, and `res` is the Bernoulli residual `4 · mean(p(1 − p))`, which is one minus squared distance from one half. It scores confidence, not error. The second window is a forward pass on the first window's soft probabilities. A room can get more confident while getting less accurate, and the pattern room is already confident, so it has less residual left to shed. This run asks whether that disagreement is the inversion.
+
+### Preregister source
+
+Hypothesis. On the shipped learner, the in-room sign inversion is false certainty. The shipped rectified Bernoulli drop prefers matched noise. The drop in expected squared error of the same two windows, under the room's generative model, prefers the pattern. The comparison is pattern minus matched noise. The predicted class is `false`.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The pattern arm paints `patternChannel` `all`. The noise arm omits it and still draws the noise coin, so the episode RNG matches. No boost arm. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are a harness and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceRho` and `traceDrop` allocate the splits. Neither is a Loop flag. The off path, which is every other sweep and the default agent, does not allocate them and does not pass them. The splits do not draw a random number and do not enter the bonus. The follow index is written only into the drop trace, on the same `s2 > best2` comparison the score already makes. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Ticks. A tick counts only when `optionHeld` does not change during the step. That is a sample. A held tick is dropped. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts. The destination rule is the policy's: a blocked step, a step off the map, or wait stays in the current region. A sample tick counts for the call only when the body began the step in region 1. The number is the unweighted mean over actions whose destination is region 1. A tick with no such action aborts. Wait stays, so a body already in the room has one. A seed's number is the mean of the ticks that remain. A seed with no counted tick on either arm is dropped from that quantity. Paired 95% percentile bootstrap, 2000 resamples. Pattern minus noise.
+
+Quantities, locked here. `res1` is the Bernoulli residual of the first imagined window. `res2*` is the residual of the follow-up whose score strictly won. `err` is the mean expected squared error of a window under the generative model, wall and food channels only, the same coordinates the Bernoulli residual weights. Scent is omitted. A pattern-channel cell is `patternBit` of `EAST_HOLD_LATENT`. A region-1 cell without that channel is a fair coin, `p² − p + 0.5`. A region-0 cell is its fixed west bit when it is not stochastic, and a coin when it is. A real wall, the map edge, a decoy, and a meal that is not eaten are fixed. The imagined landing cell is eaten when the move steps onto food. A food spawn during the real step is not in the target. The pre-step cell map is the one the imagination saw. The hard threshold is `REPLAY_HARD_AT` = 0.5. A tie at one half becomes 1. It does not draw.
+
+- `rect` is the shipped `max(0, res1 − res2*)`. It is read from the rho-hat piece, not from the trace. For rho the trace's rectified drop must match it within 1e-6 on every counted tick. A miss aborts.
+- `signed` is `res1 − res2*`. It is a checksum of the invert row, not a new correction.
+- `error` is `err1 − err2*` on that same follow-up. Positive means the second window is more accurate under the generative model.
+- `hard` is `res1 − resHard`. The second window is replayed from the hard threshold of the first prediction, with the same follow-up. It does not enter the score.
+- `stay` is `res1 − resWait`. The second window is replayed from the soft prediction with the wait action. It does not enter the score.
+- `res1` is the first-window residual. Not a call. Checksum of the invert row.
+- `err1` is the expected squared error of the first window. Not a call.
+
+The replay of the soft follow-up must match `res2*` within 1e-6 on every counted rho tick. A miss aborts. The replay uses the energy from before the step, which is the energy the score used. It does not learn and does not draw. Count, surprise, RND, and random do not replay. Their `error`, `hard`, `stay`, and `err1` stay 0 and are not a call.
+
+δ for a Bernoulli quantity is `CHAIN_RHO_HAT_DELTA` = 0.0169 / 0.55. δ for an expected-error quantity is `SOURCE_ERROR_DELTA` = 0.0169, the planted progress dose, because that number is in squared-error units. Neither δ is remeasured. The plant is not run. No other dose is run. No other temperature is run. The third mask is not a cell.
+
+Classes. Each quantity uses `creditContentClass` with its δ. Sign comes before the null. A sign inside δ is still a sign.
+
+Summary, `sourceSummary`, from rho only. The first match wins. Confounded when random's shipped in-room drop excludes 0. The sweep aborts in that case, before a verdict. Unresolved when `rect`, `error`, `hard`, or `stay` is inconclusive. Unreproduced when `rect` is not repelled. False when `error` is attracted: the Bernoulli drop prefers noise and the expected-error drop prefers the pattern. Accurate when `error` is repelled. Soft when `error` is a sensitive null, `hard` is not repelled, and `stay` is repelled. Shift when `error` is a sensitive null, `stay` is not repelled, and `hard` is repelled. Joint when `error` is a sensitive null and neither replay is repelled. Residual when `error` is a sensitive null and both replays are repelled. Count, surprise, and RND do not flip the summary.
+
+Verdict, `sourceVerdict`. Confirmed when the summary is false. Refuted when the summary is accurate, soft, shift, joint, or residual. Otherwise inconclusive.
+
+Harness, not a call. The census is 52 open cells, all kept. A runner that does not get that count throws before any episode. Random's path, target-room fraction, meals, and lives match across the two arms. A mismatch aborts. Rho's occupancy excess on seeds 1–800 matches the published credit mean 0.0023718750000000038 within 1e-12, and the published interval. Rho's rectified gap matches n = 703 and mean 0.021385533643288657 within 1e-12, and the published interval. Rho's doorway score matches n = 766 and mean −0.00792605777551224 within 1e-12. Rho's shipped in-room drop matches n = 745 and mean −0.017389538705750777 within 1e-12, and the published interval. Rho's signed drop matches n = 745 and mean −0.02648417014527407 within 1e-12, and the published interval. Rho's first-window residual matches n = 745 and mean −0.062402946109348906 within 1e-12, and the published interval. A mismatch aborts. Random's shipped drop, signed drop, expected-error drop, hard drop, wait drop, first residual, and first-window expected error are a point mass at 0. An interval on the shipped drop that excludes 0 aborts. Fewer than a majority of random seeds in the room aborts. A shipped horizon drop on count, surprise, RND, or random aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. Confirmed: the inversion is confidence that is not accuracy. The Bernoulli drop prefers noise and the expected-error drop prefers the pattern. Refuted: the expected-error drop prefers noise too, or it is a sensitive null and a replay control names a different locus, or both controls leave the inversion in place. Inconclusive: the shipped inversion is not reproduced, or an interval is too wide to class. The third mask is not run. The plant is not run. A restored sign is not a license to change the score in this run.
+
+Figure: `bench/source/source-gap.png`. The bars are rho's paired gaps. The Bernoulli panel is in residual units, with zero as the vertical line and the residual δ as the gold lines. The expected-error panel uses the squared-error δ. Source: `bench/source/source.json`. The sweep is `npm run source`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `78cd6bf`. The row is the invert learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`. This run's bench is filled in with the results. A row that does not match is a learner that moved, and the sweep is void.
+
+### Results
+
+The prediction is refuted. The summary is accurate. The shipped Bernoulli drop prefers noise, and the expected-error drop of the same two windows prefers noise too. The interval lies entirely below −0.0169, so the accuracy inversion is larger than the planted dose. The pattern's first window is more accurate, and one imagined step spends that advantage. Hard-thresholding the replay and replacing the follow-up with wait both still prefer noise, inside the residual δ. No term was added. The temperature stays 0.45. `option` stays on.
+
+8000 episodes, 400 steps, 4 workers, 220.8 seconds. Source: `bench/source/source.json`. The random walk is the same path on both arms, meals and lives included. Every episode sampled half its steps. The census is 52 open cells, all kept. Rho's occupancy mean, rectified mean, doorway-score mean, shipped in-room drop, signed drop, and first-window residual match the published runs. The harness does not fail. Random's shipped drop, signed drop, expected-error drop, hard drop, wait drop, first residual, and first-window expected error are a point mass at 0. The shipped-drop interval does not exclude 0. Count, surprise, and RND write no horizon drop.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is pattern minus matched noise. Residual δ is 0.0307. Expected-error δ is 0.0169. `sourceSummary` is accurate. `sourceVerdict` is refuted.
+
+| quantity | rho | n | class |
+|---|---|---:|---|
+| shipped rectified drop | −0.0174 [−0.0186, −0.0163] | 745 | repelled |
+| signed score-selected | −0.0265 [−0.0279, −0.0251] | 745 | repelled |
+| expected-error drop | −0.0326 [−0.0338, −0.0313] | 745 | repelled |
+| hard replay drop | −0.0095 [−0.0113, −0.0078] | 745 | repelled |
+| wait replay drop | −0.0235 [−0.0249, −0.0222] | 745 | repelled |
+| first-window residual | −0.0624 [−0.0671, −0.0581] | 745 | repelled |
+| first-window expected error | −0.0382 [−0.0392, −0.0372] | 745 | repelled |
+
+The shipped row is the reach in-room horizon-2 drop. The mean matches −0.017389538705750777 and the interval matches. It lies entirely below 0 and strictly inside (−0.0307, 0.0307). It does not carry. The signed row matches the invert run. It lies entirely below 0 and inside the residual δ.
+
+The expected-error drop lies entirely below 0 and entirely below −0.0169. It carries. The second window reduces expected squared error more in the noise room than in the pattern room, by more than the planted progress dose. This is the opposite of false certainty. Confidence and accuracy agree on the sign. The noise room's imagined step is the larger accuracy gain.
+
+The first window is more accurate in the pattern. That gap lies entirely below 0 and entirely below −0.0169. It carries. The difference of the two means, first-window advantage minus the drop, is −0.0056. That difference was not bootstrapped and is not a call. Most of the pattern's accuracy advantage is gone after one imagined step.
+
+The hard replay still prefers noise. The interval lies entirely below 0 and strictly inside (−0.0307, 0.0307). It does not carry. Thresholding the soft prediction at one half shrinks the signed gap from −0.0265 to −0.0095 and does not restore the pattern. The soft bits are not required for the sign.
+
+The wait replay still prefers noise. The interval lies entirely below 0 and strictly inside (−0.0307, 0.0307). It does not carry. It sits next to the signed drop. Removing the spatial shift does not restore the pattern. A second forward pass on the same pose is enough.
+
+Rectified progress, the credit checksum, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05.
+
+| quantity | gap | n |
+|---|---|---:|
+| rectified | 0.0214 [0.0206, 0.0222] | 703 |
+
+Occupancy, not a call. Target-room fraction, pattern minus noise, rho, 0.0024 [−0.0080, 0.0125], n = 800. The interval includes 0. The mean matches the credit run. A seed's in-room mean is about 49 sample ticks: 48.98 on the pattern arm and 48.48 on the noise arm.
+
+Figure: `bench/source/source-gap.png`. The Bernoulli bars sit left of zero. The hard replay is the one closest to zero, still left of it, inside the gold lines. The first-window residual sits further left and crosses the gold line. The expected-error drop and the first-window expected error sit left of zero and cross the squared-error gold line.
+
+No mechanism was added. `traceDrop` omitted allocates nothing. `replayImagination` is not called by the score. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `78cd6bf`. The row matches the invert learner, before the follow index and after it. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The traces are not defaults, so the probe gate is not required to keep one. It was run anyway, because `policy.ts` and `kernel.ts` grew an omitted trace and a replay that the score does not call. `npm run gate -- --flags option,transition --seeds 20` passes. Option off minus on is 0.0107 [0.0032, 0.0179]. Transition off minus on is 0.1347 [0.1255, 0.1416]. The score path is the shipped score: the five-seed row matches, and rho's in-room drop on this sweep matches the reach mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not replace the horizon-2 drop with expected squared error. That gap is −0.0326 [−0.0338, −0.0313], entirely below −0.0169, so it prefers noise by more than the planted dose. Do not rerun the hard replay or the wait replay. Both still prefer noise, and neither carries against δ 0.0307. The hard gap is −0.0095 [−0.0113, −0.0078]. The wait gap is −0.0235 [−0.0249, −0.0222]. Do not rerun this contrast at another dose, another temperature, or on the third mask. The inversion is not false certainty. The first window is more accurate in the pattern, −0.0382 [−0.0392, −0.0372], and one imagined step spends that advantage. The unread split is which coordinates pay the expected-error drop: the fixed channels, walls and food and the west pattern, versus the east glow. That split is a measurement. It is not a license to change the score. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-11-01 invert (UTC)
 
 Written before `npm run invert`. No correction gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

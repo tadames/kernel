@@ -279,6 +279,7 @@ test("a horizon residual trace does not change the score, and its rectified drop
     assert.ok(Math.abs(rect - hat.drop2[a]!) < 1e-6, `action ${a} rect ${rect} drop ${hat.drop2[a]}`);
     assert.ok(trace.min[a]! <= trace.mean[a]! && trace.mean[a]! <= trace.max[a]!);
     assert.ok(trace.min[a]! <= trace.best[a]! && trace.best[a]! <= trace.max[a]!);
+    assert.ok(trace.follow[a] === 0 || trace.follow[a] === 1);
   }
 });
 

@@ -52,6 +52,12 @@ export type PredRead = {
 };
 
 /**
+ * Hard replay maps each predicted coordinate with `p >= REPLAY_HARD_AT`.
+ * Ties at one half become 1. The threshold does not draw a random number.
+ */
+export const REPLAY_HARD_AT = 0.5;
+
+/**
  * Expected residual under a Bernoulli reading of sigmoid outputs.
  * Peaks when the model is uncertain (p ≈ 0.5). This is the model-based
  * stand-in for "how much could I still learn here" before a true ρ̂.
@@ -130,6 +136,12 @@ export type RhoDropTrace = {
   min: Float32Array;
   /** Highest follow-up residual. */
   max: Float32Array;
+  /**
+   * Follow-up whose score strictly won. The same `s2 > best2` comparison
+   * that selects `best`. A tie keeps the earlier index. Equals the first
+   * action when horizon 2 is off.
+   */
+  follow: Int32Array;
 };
 
 export function emptyRhoDropTrace(acts: number): RhoDropTrace {
@@ -139,6 +151,7 @@ export function emptyRhoDropTrace(acts: number): RhoDropTrace {
     mean: new Float32Array(acts),
     min: new Float32Array(acts),
     max: new Float32Array(acts),
+    follow: new Int32Array(acts),
   };
 }
 
@@ -274,6 +287,7 @@ export function imagineScores(opts: {
     let drop3 = 0;
     const extra = opts.progExtra ? opts.progExtra(a) : 0;
     if (opts.follow) opts.follow[a] = a;
+    let bestA1 = a;
     let bestRes2 = res1;
     let meanRes2 = res1;
     let minRes2 = res1;
@@ -292,6 +306,7 @@ export function imagineScores(opts: {
         const s2 = valueOf(v2, pred2, opts.curiosity, opts.goal, learning, confidence, 0, opts.residualWeight, uncertainty);
         if (s2 > best2) {
           best2 = s2;
+          bestA1 = a1;
           bestRes2 = expectedResidual(pred2, opts.residualWeight);
           if (opts.follow) opts.follow[a] = a1;
           if (threeStep) {
@@ -391,6 +406,7 @@ export function imagineScores(opts: {
       trace.mean[a] = meanRes2;
       trace.min[a] = minRes2;
       trace.max[a] = maxRes2;
+      trace.follow[a] = bestA1;
     }
   }
   return opts.scores;

@@ -29,6 +29,7 @@
     "chain": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/chain.ts",
     "reach": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/reach.ts",
     "invert": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/invert.ts",
+    "source": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/source.ts",
     "boost-room": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/boost.ts",
     "sharp": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/sharp.ts",
     "timescale": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/timescale.ts",

@@ -15,7 +15,8 @@ import { CREDIT_DOSE, runCreditEpisode } from "./credit-run.ts";
 import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain-run.ts";
 import { runReachEpisode, stayLevel } from "./reach-run.ts";
 import { INVERT_SCALE_EPS, runInvertEpisode } from "./invert-run.ts";
-import { imagineScores, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
+import { expectedSquaredError, expectedWindowError, runSourceEpisode, SOURCE_ERROR_DELTA } from "./source-run.ts";
+import { imagineScores, REPLAY_HARD_AT, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
   boostSummary,
@@ -44,6 +45,8 @@ import {
   reachVerdict,
   invertSummary,
   invertVerdict,
+  sourceSummary,
+  sourceVerdict,
   chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
@@ -851,4 +854,86 @@ test("the sign inversion is confirmed only when dividing by the first residual r
   assert.equal(quiet.res1, 0);
   const counted = runInvertEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
   assert.equal(counted.drop2, 0);
+});
+
+test("the imagined residual is false certainty only when expected error prefers the pattern", () => {
+  const nil = "null-with-sensitivity" as const;
+  const rep = "repelled" as const;
+  const att = "attracted" as const;
+  assert.equal(expectedSquaredError(0.5, "coin"), 0.25);
+  assert.equal(expectedSquaredError(0, "coin"), 0.5);
+  assert.equal(expectedSquaredError(1, "coin"), 0.5);
+  assert.equal(expectedSquaredError(0, "fixed", 0), 0);
+  assert.equal(expectedSquaredError(1, "fixed", 0), 1);
+  assert.equal(expectedSquaredError(0.5, "fixed", 1), 0.25);
+  assert.equal(SOURCE_ERROR_DELTA, CREDIT_DOSE);
+  assert.equal(REPLAY_HARD_AT, 0.5);
+  const spec = distractorSpec({ learnability: 1, driftRate: 0, distractorRelevance: 0, patternChannel: "all" });
+  const built = createFamily("distractor", SIZE, FAMILY_LAYOUT_SEED, spec.params, false);
+  const flat = new Float32Array(SIZE ? 75 : 0);
+  flat.fill(0.5);
+  const flatErr = expectedWindowError(flat, 10, 7, built.cells, built.family, -1);
+  assert.ok(Math.abs(flatErr - 0.25) < 1e-12, `flat prediction error ${flatErr}`);
+  assert.equal(sourceSummary(true, rep, att, rep, rep), "confounded");
+  assert.equal(sourceSummary(false, "inconclusive", att, rep, rep), "unresolved");
+  assert.equal(sourceSummary(false, nil, att, rep, rep), "unreproduced");
+  assert.equal(sourceSummary(false, att, att, rep, rep), "unreproduced");
+  assert.equal(sourceSummary(false, rep, att, rep, rep), "false");
+  assert.equal(sourceSummary(false, rep, att, att, nil), "false");
+  assert.equal(sourceSummary(false, rep, rep, att, rep), "accurate");
+  assert.equal(sourceSummary(false, rep, nil, att, rep), "soft");
+  assert.equal(sourceSummary(false, rep, nil, nil, rep), "soft");
+  assert.equal(sourceSummary(false, rep, nil, rep, att), "shift");
+  assert.equal(sourceSummary(false, rep, nil, rep, nil), "shift");
+  assert.equal(sourceSummary(false, rep, nil, att, att), "joint");
+  assert.equal(sourceSummary(false, rep, nil, nil, nil), "joint");
+  assert.equal(sourceSummary(false, rep, nil, rep, rep), "residual");
+  assert.equal(sourceSummary(false, rep, "inconclusive", rep, rep), "unresolved");
+  assert.equal(sourceVerdict("false"), "confirmed");
+  assert.equal(sourceVerdict("accurate"), "refuted");
+  assert.equal(sourceVerdict("soft"), "refuted");
+  assert.equal(sourceVerdict("shift"), "refuted");
+  assert.equal(sourceVerdict("joint"), "refuted");
+  assert.equal(sourceVerdict("residual"), "refuted");
+  assert.equal(sourceVerdict("unreproduced"), "inconclusive");
+  assert.equal(sourceVerdict("unresolved"), "inconclusive");
+  assert.equal(sourceVerdict("confounded"), "inconclusive");
+  const k = new Kernel("field", 1);
+  const pred = new Float32Array(75);
+  pred[0] = 0.2;
+  pred[1] = 0.8;
+  const into = new Float32Array(75);
+  const prev = Math.random;
+  Math.random = () => {
+    throw new Error("replay drew");
+  };
+  try {
+    k.replayImagination(pred, 1, true, k.energy, into);
+    const again = new Float32Array(75);
+    k.replayImagination(pred, 1, true, k.energy, again);
+    for (let i = 0; i < into.length; i++) assert.equal(into[i], again[i]);
+    k.replayImagination(pred, 1, false, k.energy, again);
+  } finally {
+    Math.random = prev;
+  }
+  const sourced = runSourceEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const inverted = runInvertEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(sourced.path, inverted.path);
+  assert.equal(sourced.foods, inverted.foods);
+  assert.equal(sourced.lives, inverted.lives);
+  assert.equal(sourced.distractorFrac, inverted.distractorFrac);
+  assert.equal(sourced.samples, inverted.samples);
+  assert.equal(sourced.drop2, inverted.drop2);
+  assert.equal(sourced.signed, inverted.signed);
+  assert.equal(sourced.res1, inverted.res1);
+  assert.equal(sourced.roomSteps, inverted.roomSteps);
+  assert.equal(sourced.scoreGap, inverted.scoreGap);
+  const quiet = runSourceEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(quiet.drop2, 0);
+  assert.equal(quiet.signed, 0);
+  assert.equal(quiet.error, 0);
+  assert.equal(quiet.hard, 0);
+  assert.equal(quiet.stay, 0);
+  assert.equal(quiet.res1, 0);
+  assert.equal(quiet.err1, 0);
 });
