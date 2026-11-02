@@ -924,3 +924,90 @@ export function sourceVerdict(summary: SourceLink): Call {
   }
   return "inconclusive";
 }
+
+export type OnsetLink =
+  | "onset"
+  | "prior"
+  | "quiet"
+  | "saturated"
+  | "fast-quiet"
+  | "early-edge"
+  | "front"
+  | "unreproduced"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Whether the expected-error inversion is a saturation effect.
+ * Every class is pattern minus matched noise on the exposure clock.
+ * `errorAll` and `err1All` are the source rows, every in-room sample.
+ * `errorOpen` and `err1Open` are sample ticks with exposure at most 2.
+ * `errorLate` and `err1Late` are sample ticks with exposure above 32.
+ * Exposure counts steps that began in region 1, held ticks included.
+ * The first match wins.
+ * Onset: the early window is not yet more accurate in the pattern, its
+ * expected-error drop prefers the pattern, and the late window has both
+ * the accuracy advantage and the drop that prefers noise.
+ * Prior: the early window is not yet more accurate, and the drop already
+ * prefers noise.
+ * Quiet: the early window is not yet more accurate, and the drop is a
+ * sensitive null.
+ * Saturated: the early window is already more accurate in the pattern,
+ * and the drop already prefers noise.
+ * Fast-quiet: the early window is already more accurate, and the drop
+ * is a sensitive null.
+ * Early-edge: the early window is already more accurate, and the drop
+ * prefers the pattern anyway.
+ * Front: the early drop prefers the pattern before the accuracy
+ * advantage, and the late window does not carry both source signs.
+ * Unreproduced: the episode-average source rows are not both repelled.
+ * Confounded: random's gap excludes 0.
+ */
+export function onsetSummary(
+  randomExcludesZero: boolean,
+  errorAll: CreditClass,
+  err1All: CreditClass,
+  errorOpen: CreditClass,
+  err1Open: CreditClass,
+  errorLate: CreditClass,
+  err1Late: CreditClass,
+): OnsetLink {
+  if (randomExcludesZero) return "confounded";
+  const calls = [errorAll, err1All, errorOpen, err1Open, errorLate, err1Late];
+  if (calls.some((klass) => klass === "inconclusive")) return "unresolved";
+  if (errorAll !== "repelled" || err1All !== "repelled") return "unreproduced";
+  if (err1Open === "repelled") {
+    if (errorOpen === "attracted") return "early-edge";
+    if (errorOpen === "null-with-sensitivity") return "fast-quiet";
+    return "saturated";
+  }
+  if (errorOpen === "repelled") return "prior";
+  if (errorOpen === "null-with-sensitivity") return "quiet";
+  if (errorOpen === "attracted") {
+    if (errorLate === "repelled" && err1Late === "repelled") return "onset";
+    return "front";
+  }
+  return "unresolved";
+}
+
+/**
+ * Confirmed: the inversion is timing. Before the pattern is the more
+ * accurate window, the expected-error drop prefers it, and after exposure
+ * 32 the source signs are back.
+ * Refuted: the early drop prefers noise, is a sensitive null, or the
+ * accuracy advantage is already present inside the first two in-room steps
+ * and the early drop does not prefer the pattern.
+ * Otherwise inconclusive.
+ */
+export function onsetVerdict(summary: OnsetLink): Call {
+  if (summary === "onset") return "confirmed";
+  if (
+    summary === "prior" ||
+    summary === "quiet" ||
+    summary === "saturated" ||
+    summary === "fast-quiet"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

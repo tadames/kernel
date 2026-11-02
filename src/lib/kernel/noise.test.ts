@@ -16,6 +16,7 @@ import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain
 import { runReachEpisode, stayLevel } from "./reach-run.ts";
 import { INVERT_SCALE_EPS, runInvertEpisode } from "./invert-run.ts";
 import { expectedSquaredError, expectedWindowError, runSourceEpisode, SOURCE_ERROR_DELTA } from "./source-run.ts";
+import { ONSET_BIN_EDGES, ONSET_LATE, ONSET_OPEN, onsetBin, runOnsetEpisode } from "./onset-run.ts";
 import { imagineScores, REPLAY_HARD_AT, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
@@ -47,6 +48,8 @@ import {
   invertVerdict,
   sourceSummary,
   sourceVerdict,
+  onsetSummary,
+  onsetVerdict,
   chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
@@ -936,4 +939,87 @@ test("the imagined residual is false certainty only when expected error prefers 
   assert.equal(quiet.stay, 0);
   assert.equal(quiet.res1, 0);
   assert.equal(quiet.err1, 0);
+});
+
+test("the expected-error inversion is a timing effect only before the pattern is more accurate", () => {
+  const nil = "null-with-sensitivity" as const;
+  const rep = "repelled" as const;
+  const att = "attracted" as const;
+  const inc = "inconclusive" as const;
+  assert.equal(ONSET_OPEN, 2);
+  assert.equal(ONSET_LATE, 32);
+  assert.deepEqual([...ONSET_BIN_EDGES], [2, 8, 16, 32]);
+  assert.equal(onsetBin(1), 0);
+  assert.equal(onsetBin(2), 0);
+  assert.equal(onsetBin(3), 1);
+  assert.equal(onsetBin(8), 1);
+  assert.equal(onsetBin(9), 2);
+  assert.equal(onsetBin(16), 2);
+  assert.equal(onsetBin(17), 3);
+  assert.equal(onsetBin(32), 3);
+  assert.equal(onsetBin(33), 4);
+  assert.equal(onsetSummary(true, rep, rep, att, nil, rep, rep), "confounded");
+  assert.equal(onsetSummary(false, inc, rep, att, nil, rep, rep), "unresolved");
+  assert.equal(onsetSummary(false, rep, rep, att, nil, rep, inc), "unresolved");
+  assert.equal(onsetSummary(false, nil, rep, att, nil, rep, rep), "unreproduced");
+  assert.equal(onsetSummary(false, att, rep, att, nil, rep, rep), "unreproduced");
+  assert.equal(onsetSummary(false, rep, nil, att, nil, rep, rep), "unreproduced");
+  assert.equal(onsetSummary(false, rep, att, att, nil, rep, rep), "unreproduced");
+  assert.equal(onsetSummary(false, rep, rep, rep, rep, rep, rep), "saturated");
+  assert.equal(onsetSummary(false, rep, rep, nil, rep, rep, rep), "fast-quiet");
+  assert.equal(onsetSummary(false, rep, rep, att, rep, rep, rep), "early-edge");
+  assert.equal(onsetSummary(false, rep, rep, att, rep, nil, nil), "early-edge");
+  assert.equal(onsetSummary(false, rep, rep, rep, nil, rep, rep), "prior");
+  assert.equal(onsetSummary(false, rep, rep, rep, att, rep, rep), "prior");
+  assert.equal(onsetSummary(false, rep, rep, nil, nil, rep, rep), "quiet");
+  assert.equal(onsetSummary(false, rep, rep, nil, att, rep, rep), "quiet");
+  assert.equal(onsetSummary(false, rep, rep, att, nil, rep, rep), "onset");
+  assert.equal(onsetSummary(false, rep, rep, att, att, rep, rep), "onset");
+  assert.equal(onsetSummary(false, rep, rep, att, nil, nil, rep), "front");
+  assert.equal(onsetSummary(false, rep, rep, att, nil, rep, nil), "front");
+  assert.equal(onsetSummary(false, rep, rep, att, nil, att, att), "front");
+  assert.equal(onsetVerdict("onset"), "confirmed");
+  assert.equal(onsetVerdict("prior"), "refuted");
+  assert.equal(onsetVerdict("quiet"), "refuted");
+  assert.equal(onsetVerdict("saturated"), "refuted");
+  assert.equal(onsetVerdict("fast-quiet"), "refuted");
+  assert.equal(onsetVerdict("early-edge"), "inconclusive");
+  assert.equal(onsetVerdict("front"), "inconclusive");
+  assert.equal(onsetVerdict("unreproduced"), "inconclusive");
+  assert.equal(onsetVerdict("unresolved"), "inconclusive");
+  assert.equal(onsetVerdict("confounded"), "inconclusive");
+  const started = runOnsetEpisode({ id: 0, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  const sourced = runSourceEpisode({ id: 1, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(started.path, sourced.path);
+  assert.equal(started.foods, sourced.foods);
+  assert.equal(started.lives, sourced.lives);
+  assert.equal(started.distractorFrac, sourced.distractorFrac);
+  assert.equal(started.samples, sourced.samples);
+  assert.equal(started.drop2, sourced.drop2);
+  assert.equal(started.signed, sourced.signed);
+  assert.equal(started.res1, sourced.res1);
+  assert.equal(started.error, sourced.error);
+  assert.equal(started.err1, sourced.err1);
+  assert.equal(started.roomSteps, sourced.roomSteps);
+  assert.equal(started.scoreGap, sourced.scoreGap);
+  assert.equal(started.binSteps.reduce((s, n) => s + n, 0), started.roomSteps);
+  if (started.roomSteps > 0) {
+    let errorMass = 0;
+    let err1Mass = 0;
+    for (let i = 0; i < started.binSteps.length; i++) {
+      errorMass += started.binError[i]! * started.binSteps[i]!;
+      err1Mass += started.binErr1[i]! * started.binSteps[i]!;
+    }
+    assert.ok(Math.abs(errorMass - started.error * started.roomSteps) < 1e-9);
+    assert.ok(Math.abs(err1Mass - started.err1 * started.roomSteps) < 1e-9);
+  }
+  const still = runOnsetEpisode({ id: 2, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  assert.equal(still.drop2, 0);
+  assert.equal(still.error, 0);
+  assert.equal(still.err1, 0);
+  assert.equal(still.signed, 0);
+  assert.equal(still.res1, 0);
+  const counted = runOnsetEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
+  assert.equal(counted.drop2, 0);
+  assert.equal(counted.error, 0);
 });

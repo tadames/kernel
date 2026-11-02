@@ -1,5 +1,100 @@
 # Journal
 
+## 2026-11-02 onset (UTC)
+
+Written before `npm run onset`. No exposure gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. `echo` stays off. The source run left the inversion as real accuracy. The expected-error drop is −0.0326 [−0.0338, −0.0313], entirely below −0.0169, and the first window is already more accurate in the pattern, −0.0382 [−0.0392, −0.0372]. One imagined step spends most of that advantage. The writeup of that run says the pattern is already mostly learned, so the next step gains more accuracy in the noise room. That sentence was not a measurement. This run asks whether the sign is absent on the exposures where the pattern is not yet the more accurate window.
+
+The coordinate split of the episode-average drop, fixed channels against the east glow, stays unread. It would locate a gap whose sign is already known. It cannot say whether that sign was absent before the pattern was learned. A world in which the pattern stays partly unlearned would change the target. Drift, the dose curve, and the third mask stay closed, and this run does not open them. The invert early half is the Bernoulli drop on the first half of the episode, already repelled at −0.0167 [−0.0184, −0.0150]. It is not repeated. The cell step is `TRANSITION_LR` 4, so half an episode is not the unsaturated regime. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not replace the horizon-2 drop with expected squared error. It does not rerun the hard replay or the wait replay. It does not rerun the contrast at another dose, another temperature, or on the third mask. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+### Preregister onset
+
+Hypothesis. On the shipped learner, the episode-average expected-error inversion is a saturation effect. On in-room sample ticks with exposure at most 2, the first window is not yet more accurate in the pattern, and the expected-error drop prefers the pattern. On in-room sample ticks with exposure above 32, the first window is more accurate in the pattern and the expected-error drop prefers noise. The comparison is pattern minus matched noise. The predicted class is `onset`.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The pattern arm paints `patternChannel` `all`. The noise arm omits it and still draws the noise coin, so the episode RNG matches. No boost arm. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are a harness and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceRho` and `traceDrop` allocate the splits. Neither is a Loop flag. The off path, which is every other sweep and the default agent, does not allocate them and does not pass them. The splits do not draw a random number and do not enter the bonus. The soft follow-up is replayed so its expected error can be read. The hard replay and the wait replay are not run. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Exposure. A step counts when the body began it in region 1. Held ticks count. Assimilate runs on them before the score, at learning rate 4. A tick is a sample when `optionHeld` does not change during the step. A held tick is dropped from every mean and still counts as exposure. On an even-length episode with the shipped span of 2, the sample count is half the steps. A count that is not half aborts. The open band is exposure at most `ONSET_OPEN` = 2. That is one sample, or a held entry and the sample after it. The late band is exposure above `ONSET_LATE` = 32. The descriptive bins are exposure 1–2, 3–8, 9–16, 17–32, and 33 and above. The middle three do not flip the summary. The cuts are locked here. They are not searched. A seed's number in a bin is the mean of the sample ticks that land in it. A seed with no such tick on either arm is dropped from that bin only. Paired 95% percentile bootstrap, 2000 resamples. Pattern minus noise.
+
+Quantities, locked here. `err1` and `err2*` are the expected squared errors from the source run, on the same score-winning follow-up, wall and food only. The drop is `err1 − err2*`. Positive means the second window is more accurate under the generative model.
+
+- `errorAll` is that drop on every in-room sample tick. It is the source row.
+- `err1All` is the first-window expected error on those same ticks. It is the source row.
+- `errorOpen` and `err1Open` are the same two numbers on the open band.
+- `errorLate` and `err1Late` are the same two numbers on the late band.
+
+The shipped rectified drop, the signed drop, and the first-window residual are checksums. They do not flip the summary. δ is `SOURCE_ERROR_DELTA` = 0.0169, the planted progress dose, because these numbers are in squared-error units. It is not remeasured. The plant is not run. No other dose is run. No other temperature is run. The third mask is not a cell.
+
+Classes. Each call uses `creditContentClass` with this δ. Sign comes before the null. A sign inside δ is still a sign. Too few eligible seeds, meaning the kept seeds are not a majority of 800, is inconclusive.
+
+Summary, `onsetSummary`, from rho only. The first match wins. Confounded when random's gap on a call excludes 0. The sweep aborts in that case, before a verdict. Unresolved when any call is inconclusive. Unreproduced when `errorAll` or `err1All` is not repelled. Saturated when the open first window is repelled and the open drop is repelled. Fast-quiet when the open first window is repelled and the open drop is a sensitive null. Early-edge when the open first window is repelled and the open drop is attracted. Prior when the open first window is not repelled and the open drop is repelled. Quiet when the open first window is not repelled and the open drop is a sensitive null. Onset when the open first window is not repelled, the open drop is attracted, and the late drop and the late first window are both repelled. Front when the open drop is attracted before the accuracy advantage and the late pair is not both repelled. Count, surprise, and RND do not flip the summary. The middle bins do not flip it.
+
+Verdict, `onsetVerdict`. Confirmed when the summary is onset. Refuted when the summary is prior, quiet, saturated, or fast-quiet. Otherwise inconclusive.
+
+Harness, not a call. The census is 52 open cells, all kept. A runner that does not get that count throws before any episode. Random's path, target-room fraction, meals, and lives match across the two arms. A mismatch aborts. Rho's occupancy excess on seeds 1–800 matches the published credit mean 0.0023718750000000038 within 1e-12, and the published interval. Rho's rectified gap matches n = 703 and mean 0.021385533643288657 within 1e-12, and the published interval. Rho's doorway score matches n = 766 and mean −0.00792605777551224 within 1e-12. Rho's shipped in-room drop matches n = 745 and mean −0.017389538705750777 within 1e-12, and the published interval. Rho's signed drop matches n = 745 and mean −0.02648417014527407 within 1e-12, and the published interval. Rho's first-window residual matches n = 745 and mean −0.062402946109348906 within 1e-12, and the published interval. Rho's expected-error drop matches n = 745 and mean −0.03257988930857322 within 1e-12, and the published interval. Rho's first-window expected error matches n = 745 and mean −0.038216306138155805 within 1e-12, and the published interval. A mismatch aborts. Random's shipped drop and random's six call quantities are a point mass at 0. An interval that excludes 0 aborts. Fewer than a majority of random seeds on a call aborts. A shipped horizon drop or a nonzero expected error on count, surprise, RND, or random aborts. Bin counts sum to the in-room sample count. A miss aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. The score is not replaced by the expected-error drop. Confirmed: the inversion is timing. The early window has not yet made the pattern more accurate, the drop there prefers the pattern, and the late window carries both source signs. Refuted: the early drop prefers noise, the early drop is a sensitive null, or the pattern is already more accurate inside two in-room steps and the early drop does not prefer the pattern. Inconclusive: the early drop prefers the pattern even though that window is already more accurate, the late window does not carry both signs, an interval is too wide to class, or the source rows are not reproduced. The third mask is not run. The plant is not run. A restored early sign is not a license to change the score in this run.
+
+Figure: `bench/onset/onset-gap.png`. The bars are rho's paired gaps by exposure. The top panel is the expected-error drop. The bottom panel is the first-window expected error. Zero is the vertical line. δ is the pair of gold lines. Source: `bench/onset/onset.json`. The sweep is `npm run onset`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `c161d21`. The row is the source learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`. A row that does not match is a learner that moved, and the sweep is void.
+
+### Results
+
+The prediction is refuted. The summary is saturated. Inside the first two in-room steps the pattern's first window is already more accurate, and the expected-error drop already prefers noise. There is no open band in which the pattern is still the less accurate window. The late band carries both source signs, and it carries them by more than the planted dose. No term was added. The temperature stays 0.45. `option` stays on.
+
+8000 episodes, 400 steps, 4 workers, 213.9 seconds. Source: `bench/onset/onset.json`. The random walk is the same path on both arms, meals and lives included. Every episode sampled half its steps. The census is 52 open cells, all kept. Rho's occupancy mean, rectified mean, doorway-score mean, shipped in-room drop, signed drop, first-window residual, expected-error drop, and first-window expected error match the published runs. The harness does not fail. Random's shipped drop and random's six call quantities are a point mass at 0. No random interval excludes 0. Count, surprise, and RND write no horizon drop and no expected error.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is pattern minus matched noise. δ is 0.0169. `onsetSummary` is saturated. `onsetVerdict` is refuted.
+
+| quantity | rho | n | class |
+|---|---|---:|---|
+| expected-error drop, all samples | −0.0326 [−0.0338, −0.0313] | 745 | repelled |
+| first-window error, all samples | −0.0382 [−0.0392, −0.0372] | 745 | repelled |
+| expected-error drop, exposure 1–2 | −0.0113 [−0.0128, −0.0097] | 745 | repelled |
+| first-window error, exposure 1–2 | −0.0159 [−0.0177, −0.0141] | 745 | repelled |
+| expected-error drop, exposure 33+ | −0.0387 [−0.0404, −0.0372] | 599 | repelled |
+| first-window error, exposure 33+ | −0.0413 [−0.0422, −0.0404] | 599 | repelled |
+
+The all-sample rows are the source rows. The means and the intervals match. Both lie entirely below 0 and entirely below −0.0169. The open drop lies entirely below 0 and strictly inside (−0.0169, 0.0169). It prefers noise, and it does not clear the dose. The open first-window error lies entirely below 0. Its lower end, −0.0177, is past −0.0169, and its upper end, −0.0141, is not, so the interval is neither a sensitive null nor entirely past the dose. The class is still repelled. The pattern is already the more accurate window on the first in-room sample. A seed's open band is about one sample tick: 1.03 on the pattern arm and 1.03 on the noise arm. The kept seeds are the same 745 as the source row.
+
+The late drop and the late first-window error both lie entirely below 0 and entirely below −0.0169. Both carry. n = 599 is a majority of 800. A seed's late band is about 35 sample ticks: 34.81 on the pattern arm and 34.51 on the noise arm.
+
+The middle bins do not flip the summary. Every one is repelled on both quantities, and every one of those intervals lies entirely below −0.0169.
+
+| exposure | drop | err1 | n | mean sample ticks |
+|---|---|---|---:|---|
+| 1–2 | −0.0113 [−0.0128, −0.0097] | −0.0159 [−0.0177, −0.0141] | 745 | 1.03 / 1.03 |
+| 3–8 | −0.0207 [−0.0223, −0.0192] | −0.0338 [−0.0351, −0.0326] | 727 | 2.76 / 2.73 |
+| 9–16 | −0.0226 [−0.0245, −0.0209] | −0.0316 [−0.0329, −0.0303] | 697 | 3.57 / 3.52 |
+| 17–32 | −0.0254 [−0.0273, −0.0236] | −0.0332 [−0.0343, −0.0321] | 674 | 6.81 / 6.69 |
+| 33+ | −0.0387 [−0.0404, −0.0372] | −0.0413 [−0.0422, −0.0404] | 599 | 34.81 / 34.51 |
+
+The five drop means, in that order, are −0.0113, −0.0207, −0.0226, −0.0254, −0.0387. The open drop is the smallest. It is already negative. The late drop is the largest. The first-window means are not in that order: exposure 3–8 is −0.0338, and exposure 9–16 is −0.0316. Both still prefer the pattern, past the dose.
+
+Rectified progress, the credit checksum, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05.
+
+| quantity | gap | n |
+|---|---|---:|
+| rectified | 0.0214 [0.0206, 0.0222] | 703 |
+
+Occupancy, not a call. Target-room fraction, pattern minus noise, rho, 0.0024 [−0.0080, 0.0125], n = 800. The interval includes 0. The mean matches the credit run. A seed's in-room mean is 48.98 sample ticks on the pattern arm and 48.48 on the noise arm.
+
+Figure: `bench/onset/onset-gap.png`. Every bar sits left of zero. The exposure 1–2 drop is the one closest to zero, inside the gold lines. The exposure 1–2 first-window error sits on the left gold line. The exposure 33+ bars sit further left and cross it.
+
+No mechanism was added. The hard replay and the wait replay were not run. `traceDrop` omitted allocates nothing. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `c161d21`. The row matches the source learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The traces are not defaults, so the probe gate is not required to keep one. The score path is the shipped score: the five-seed row matches, and rho's episode-average expected-error drop on this sweep matches the source mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not replace the horizon-2 drop with expected squared error. Do not rerun this exposure split at another cut. The open band was the first two in-room steps, about one sample tick, and both the drop and the first-window error are already repelled there. A finer sample does not exist. Do not rerun the half-episode Bernoulli split. The inversion is not an average over a long saturated tail. The first in-room sample already prefers noise on the true error, −0.0113 [−0.0128, −0.0097], inside δ 0.0169, and the pattern is already more accurate there, −0.0159 [−0.0177, −0.0141]. The late band clears the dose, −0.0387 [−0.0404, −0.0372] for the drop and −0.0413 [−0.0422, −0.0404] for the first window. The unread split is which coordinates pay that expected-error drop, on the open band and on the episode average: the fixed channels, walls and food and the west pattern, versus the east glow. An advantage after one or two gradient steps has not had a tour of the room, so those coordinates say whether the early accuracy is the glow just seen or the shared structure. That split is a measurement. It is not a license to change the score. A world that keeps the pattern unlearned stays closed. Drift and dose stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
+
 ## 2026-11-01 source (UTC)
 
 Written before `npm run source`. No expected-error gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
