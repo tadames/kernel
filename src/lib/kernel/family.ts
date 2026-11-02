@@ -29,6 +29,8 @@
  * is still drawn on the painted cells. Omitted leaves the historical room.
  * It does not combine with drift, a frozen fair-bit picture, a matched
  * pattern, the cycle world, an edible room, food markers, or a mirror.
+ * patternLatent chooses that paint. Omitted is the stripe code. The block
+ * code is the other locked latent. No other latent is defined.
  *
  * The glow is drawn in the wall channel and does not block motion. Real food
  * stays in the food channel. On this family the policy's extrinsic term reads
@@ -85,6 +87,11 @@ export type FamilyMemory = {
    * room.
    */
   channel: Uint8Array;
+  /**
+   * Latent a pattern channel paints. The historical stripes when the
+   * channel is off, so a zero mask does not read it.
+   */
+  channelLatent: number;
 };
 
 export type PatternChannel = "third" | "all";
@@ -107,6 +114,12 @@ export const PATTERN_CHANNEL_THIRD = 18;
  * manipulation of the same room, is refused before the shell is built.
  */
 export function rejectPatternChannel(kind: FamilyKind, params: EnvParams) {
+  if (params.patternLatent != null) {
+    if (params.patternLatent !== EAST_HOLD_LATENT && params.patternLatent !== CYCLE_EAST_LATENT) {
+      throw new Error(`patternLatent ${params.patternLatent} is not locked`);
+    }
+    if (params.patternChannel == null) throw new Error("patternLatent requires a pattern channel");
+  }
   if (params.patternChannel == null) return;
   if (params.patternChannel !== "third" && params.patternChannel !== "all") {
     throw new Error(`patternChannel ${String(params.patternChannel)} is not locked`);
@@ -268,6 +281,7 @@ export function createFamily(
   }
 
   const channel = new Uint8Array(size * size);
+  const channelLatent = params.patternLatent ?? EAST_HOLD_LATENT;
   if (params.patternChannel === "third" || params.patternChannel === "all") {
     let rank = 0;
     for (let i = 0; i < cells.length; i++) {
@@ -291,6 +305,7 @@ export function createFamily(
     mirrored: false,
     burnDrift: false,
     channel,
+    channelLatent,
   };
   applyFamily(cells, family, params, mulberry32((layoutSeed ^ 0x51ed) >>> 0));
   if (params.mirrorRooms) reflectFamily(cells, family);
@@ -387,7 +402,7 @@ export function applyFamily(cells: Uint8Array, family: FamilyMemory, params: Env
         const drawn = rand() < 0.5 ? 1 : 0;
         bit = family.freezeTarget ? family.glow[i]! : drawn;
         // The coin was drawn. A channel cell discards it and shows the pattern.
-        if (!family.freezeTarget && family.channel[i]) bit = patternBit(x, y, EAST_HOLD_LATENT);
+        if (!family.freezeTarget && family.channel[i]) bit = patternBit(x, y, family.channelLatent);
       } else bit = patternBit(x, y, family.eastLatent);
       if (edible) {
         cells[i] = bit ? 2 : 0;

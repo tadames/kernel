@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Loop } from "./loop.ts";
-import { Kernel, CENTER, R, SIZE } from "./kernel.ts";
+import { Kernel, CENTER, CH, OBS, R, SIZE } from "./kernel.ts";
 import { senseGrid } from "./env.ts";
-import { createFamily, distractorSpec, FAMILY_LAYOUT_SEED } from "./family.ts";
+import { createFamily, CYCLE_EAST_LATENT, distractorSpec, EAST_HOLD_LATENT, FAMILY_LAYOUT_SEED, patternBit } from "./family.ts";
 import { runPhaseEpisode } from "./phase-run.ts";
 import { runNoiseEpisode } from "./noise-run.ts";
 import { BOOST_ADDS, BOOST_FAR, BOOST_GAP, PUBLISHED_RANDOM_FRACTION, runBoostEpisode } from "./boost-run.ts";
@@ -16,7 +16,7 @@ import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain
 import { runReachEpisode, stayLevel } from "./reach-run.ts";
 import { INVERT_SCALE_EPS, runInvertEpisode } from "./invert-run.ts";
 import { expectedSquaredError, expectedWindowError, runSourceEpisode, SOURCE_ERROR_DELTA } from "./source-run.ts";
-import { ONSET_BIN_EDGES, ONSET_LATE, ONSET_OPEN, onsetBin, runOnsetEpisode } from "./onset-run.ts";
+import { ONSET_BIN_EDGES, ONSET_LATE, ONSET_OPEN, onsetBin, patternCodeSpec, runOnsetEpisode } from "./onset-run.ts";
 import { imagineScores, REPLAY_HARD_AT, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
@@ -50,6 +50,8 @@ import {
   sourceVerdict,
   onsetSummary,
   onsetVerdict,
+  hardSummary,
+  hardVerdict,
   chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
@@ -1022,4 +1024,116 @@ test("the expected-error inversion is a timing effect only before the pattern is
   const counted = runOnsetEpisode({ id: 3, seed: 3, signal: "count", steps: 40, arm: "pattern" });
   assert.equal(counted.drop2, 0);
   assert.equal(counted.error, 0);
+});
+
+test("the open-band inversion is specific to an easy rule only when the frozen picture prefers itself", () => {
+  const nil = "null-with-sensitivity" as const;
+  const rep = "repelled" as const;
+  const att = "attracted" as const;
+  const inc = "inconclusive" as const;
+  assert.equal(hardSummary(true, rep, rep, rep, att, nil), "confounded");
+  assert.equal(hardSummary(false, inc, rep, rep, att, nil), "unresolved");
+  assert.equal(hardSummary(false, rep, rep, inc, att, nil), "unresolved");
+  assert.equal(hardSummary(false, rep, rep, rep, inc, nil), "unresolved");
+  assert.equal(hardSummary(false, rep, nil, rep, att, nil), "unreproduced");
+  assert.equal(hardSummary(false, att, rep, rep, att, nil), "unreproduced");
+  assert.equal(hardSummary(false, nil, rep, rep, att, nil), "unreproduced");
+  assert.equal(hardSummary(false, rep, rep, rep, att, nil), "ease");
+  assert.equal(hardSummary(false, rep, rep, rep, att, rep), "ease");
+  assert.equal(hardSummary(false, rep, rep, rep, att, att), "ease");
+  assert.equal(hardSummary(false, rep, rep, rep, nil, nil), "quiet");
+  assert.equal(hardSummary(false, rep, rep, rep, nil, rep), "quiet");
+  assert.equal(hardSummary(false, rep, rep, att, att, nil), "transfer");
+  assert.equal(hardSummary(false, rep, rep, nil, nil, rep), "transfer");
+  assert.equal(hardSummary(false, rep, rep, att, nil, nil), "transfer");
+  assert.equal(hardSummary(false, rep, rep, rep, rep, rep), "universal");
+  assert.equal(hardSummary(false, rep, rep, rep, rep, nil), "headroom");
+  assert.equal(hardSummary(false, rep, rep, rep, rep, att), "headroom");
+  assert.equal(hardSummary(false, rep, rep, att, rep, rep), "nonmonotone");
+  assert.equal(hardSummary(false, rep, rep, nil, rep, nil), "nonmonotone");
+  assert.equal(hardVerdict("ease"), "confirmed");
+  assert.equal(hardVerdict("quiet"), "refuted");
+  assert.equal(hardVerdict("transfer"), "refuted");
+  assert.equal(hardVerdict("universal"), "refuted");
+  assert.equal(hardVerdict("headroom"), "refuted");
+  assert.equal(hardVerdict("nonmonotone"), "inconclusive");
+  assert.equal(hardVerdict("unreproduced"), "inconclusive");
+  assert.equal(hardVerdict("unresolved"), "inconclusive");
+  assert.equal(hardVerdict("confounded"), "inconclusive");
+
+  const named = runOnsetEpisode({ id: 4, seed: 3, signal: "rho", steps: 40, arm: "pattern", code: "stripes" });
+  const omitted = runOnsetEpisode({ id: 5, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(named.code, "stripes");
+  assert.equal(named.path, omitted.path);
+  assert.equal(named.error, omitted.error);
+  assert.equal(named.err1, omitted.err1);
+  assert.equal(named.drop2, omitted.drop2);
+  const noise = runOnsetEpisode({ id: 6, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  const stripeWalk = runOnsetEpisode({ id: 7, seed: 3, signal: "random", steps: 40, arm: "pattern", code: "stripes" });
+  const blockWalk = runOnsetEpisode({ id: 8, seed: 3, signal: "random", steps: 40, arm: "pattern", code: "blocks" });
+  const staticWalk = runOnsetEpisode({ id: 9, seed: 3, signal: "random", steps: 40, arm: "pattern", code: "static" });
+  assert.equal(stripeWalk.path, noise.path);
+  assert.equal(blockWalk.path, noise.path);
+  assert.equal(staticWalk.path, noise.path);
+  assert.equal(stripeWalk.foods, noise.foods);
+  assert.equal(blockWalk.lives, noise.lives);
+  assert.equal(staticWalk.distractorFrac, noise.distractorFrac);
+  assert.equal(patternCodeSpec("pattern", "blocks", 3).params.patternLatent, CYCLE_EAST_LATENT);
+  assert.equal(patternCodeSpec("noise", "static", 3).params.roomContent, undefined);
+  assert.equal(patternCodeSpec("pattern", "static", 3).params.staticSeed, 3);
+
+  const built = createFamily(
+    "distractor",
+    15,
+    3000,
+    { learnability: 1, driftRate: 0, distractorRelevance: 0, roomContent: "static", staticSeed: 9 },
+    false,
+  );
+  assert.equal(built.family.freezeTarget, true);
+  const ox = 11;
+  const oy = 7;
+  const predGlow = new Float32Array(OBS);
+  const predStripes = new Float32Array(OBS);
+  let k = 0;
+  let differ = 0;
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      const x = ox + dx;
+      const y = oy + dy;
+      const oob = x < 0 || y < 0 || x >= SIZE || y >= SIZE;
+      let wall = 1;
+      let food = 0;
+      let stripeBit = 1;
+      if (!oob) {
+        const idx = y * SIZE + x;
+        const reg = built.family.region[idx] ?? 2;
+        if (built.cells[idx] === 1) {
+          wall = 1;
+          food = 0;
+        } else if (built.family.decoy[idx] === 1 || (built.cells[idx] === 2 && reg !== 1)) {
+          wall = 0;
+          food = 1;
+        } else if (reg === 1) {
+          wall = built.family.glow[idx] ?? 0;
+          if (wall !== patternBit(x, y, EAST_HOLD_LATENT)) differ += 1;
+          food = 0;
+        } else {
+          wall = built.family.glow[idx] ?? 0;
+          food = 0;
+        }
+        stripeBit = reg === 1 && built.cells[idx] !== 1 ? patternBit(x, y, EAST_HOLD_LATENT) : wall;
+      }
+      predGlow[k] = wall;
+      predGlow[k + 1] = food;
+      predStripes[k] = stripeBit;
+      predStripes[k + 1] = food;
+      k += CH;
+    }
+  }
+  assert.equal(k, OBS);
+  assert.ok(differ > 0);
+  const glowErr = expectedWindowError(predGlow, ox, oy, built.cells, built.family, -1);
+  const stripeErr = expectedWindowError(predStripes, ox, oy, built.cells, built.family, -1);
+  assert.equal(glowErr, 0);
+  assert.ok(stripeErr > 0);
 });

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { CENTER, Kernel } from "./kernel.ts";
-import { applyFamily, channelKeeps, createFamily, distractorSpec, driftRatesFromTau, EAST_HOLD_LATENT, forgettingRatesFromTau, PATTERN_CHANNEL_OPEN, PATTERN_CHANNEL_THIRD, patternBit, patternChannelCensus, splitSpec } from "./family.ts";
+import { applyFamily, channelKeeps, createFamily, CYCLE_EAST_LATENT, distractorSpec, driftRatesFromTau, EAST_HOLD_LATENT, forgettingRatesFromTau, PATTERN_CHANNEL_OPEN, PATTERN_CHANNEL_THIRD, patternBit, patternChannelCensus, splitSpec } from "./family.ts";
 import { runCompeteEpisode } from "./compete-run.ts";
 import { applyDrift, DEFAULT_ENV_PARAMS, senseGrid, stepGrid } from "./env.ts";
 import { LOCKED_DRIFT_TAU } from "./drift-run.ts";
@@ -490,6 +490,36 @@ test("a pattern channel discards the noise coin on kept cells and draws it on ev
   assert.ok(differed > 0);
   assert.throws(() => createFamily("distractor", 15, 3000, { ...base, patternChannel: "all", driftRate: 0.1 }, false));
   assert.throws(() => createFamily("distractor", 15, 3000, { ...base, patternChannel: "third", mirrorRooms: true }, false));
+  assert.throws(() => createFamily("distractor", 15, 3000, { ...base, patternLatent: 7 }, false));
+  assert.throws(() => createFamily("distractor", 15, 3000, { ...base, patternLatent: CYCLE_EAST_LATENT }, false));
+  const blocks = createFamily(
+    "distractor",
+    15,
+    3000,
+    { ...base, patternChannel: "all", patternLatent: CYCLE_EAST_LATENT },
+    false,
+  );
+  const same = createFamily(
+    "distractor",
+    15,
+    3000,
+    { ...base, patternChannel: "all", patternLatent: EAST_HOLD_LATENT },
+    false,
+  );
+  applyFamily(blocks.cells, blocks.family, { ...base, patternChannel: "all", patternLatent: CYCLE_EAST_LATENT }, mulberry32(9));
+  applyFamily(same.cells, same.family, { ...base, patternChannel: "all", patternLatent: EAST_HOLD_LATENT }, mulberry32(9));
+  let blockDiffer = 0;
+  for (let y = 0; y < 15; y++) {
+    for (let x = 0; x < 15; x++) {
+      const i = y * 15 + x;
+      if (all.family.region[i] !== 1 || all.cells[i] === 1) continue;
+      assert.equal(same.family.glow[i], all.family.glow[i]);
+      assert.equal(blocks.family.glow[i], patternBit(x, y, CYCLE_EAST_LATENT));
+      if (blocks.family.glow[i] !== all.family.glow[i]) blockDiffer += 1;
+    }
+  }
+  assert.ok(blockDiffer > 0);
+  assert.equal((CYCLE_EAST_LATENT >> 8) & 3, 1);
 
   const episode = { id: 0, seed: 4, signal: "random" as const, steps: 40, level: "all" as const };
   const walk = runCompeteEpisode({ ...episode, arm: "noise" });

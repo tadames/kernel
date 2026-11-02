@@ -6,7 +6,7 @@
  * Workers import this. The sweep is not part of CI.
  */
 import { CH, Kernel, OBS, SIZE } from "./kernel.ts";
-import { distractorSpec, FAMILY_LAYOUT_SEED, type FamilyMemory } from "./family.ts";
+import { CYCLE_EAST_LATENT, distractorSpec, FAMILY_LAYOUT_SEED, type FamilyMemory } from "./family.ts";
 import { doorwayActionRegion, doorwayDelta } from "./doorway-run.ts";
 import { mulberry32 } from "./presets.ts";
 import type { CuriositySignal } from "./signals.ts";
@@ -51,9 +51,48 @@ export const ONSET_BIN_SALT = [29421, 29422, 29423, 29424, 29425] as const;
 
 export const ONSET_BIN_ERR1_SALT = [29431, 29432, 29433, 29434, 29435] as const;
 
+/** Published open-band expected-error drop, pattern minus noise, rho, seeds 1–800. */
+export const ONSET_ERROR_OPEN_MEAN = -0.01129604520649296;
+
+export const ONSET_ERROR_OPEN_LO = -0.012841440246606769;
+
+export const ONSET_ERROR_OPEN_HI = -0.009733342749404074;
+
+export const ONSET_ERROR_OPEN_N = 745;
+
+/** Published open-band first-window expected error, pattern minus noise, rho, seeds 1–800. */
+export const ONSET_ERR1_OPEN_MEAN = -0.015894278371355236;
+
+export const ONSET_ERR1_OPEN_LO = -0.01770256648727083;
+
+export const ONSET_ERR1_OPEN_HI = -0.014121594788131941;
+
+export const ONSET_ERR1_OPEN_N = 745;
+
+/** Published late-band expected-error drop, pattern minus noise, rho, seeds 1–800. */
+export const ONSET_ERROR_LATE_MEAN = -0.03869603445312814;
+
+export const ONSET_ERROR_LATE_LO = -0.040378947498860486;
+
+export const ONSET_ERROR_LATE_HI = -0.037201909539290146;
+
+export const ONSET_ERROR_LATE_N = 599;
+
+/** Published late-band first-window expected error, pattern minus noise, rho, seeds 1–800. */
+export const ONSET_ERR1_LATE_MEAN = -0.041293708305141494;
+
+export const ONSET_ERR1_LATE_LO = -0.04216906399588397;
+
+export const ONSET_ERR1_LATE_HI = -0.04039470774788882;
+
+export const ONSET_ERR1_LATE_N = 599;
+
 export type OnsetBins = [number, number, number, number, number];
 
 export type OnsetArm = "pattern" | "noise";
+
+/** Stripes are the published code. Blocks are the other easy rule. Static is a frozen fair-bit picture. */
+export type PatternCode = "stripes" | "blocks" | "static";
 
 export type OnsetRequest = {
   id: number;
@@ -61,6 +100,8 @@ export type OnsetRequest = {
   signal: CuriositySignal;
   steps: number;
   arm: OnsetArm;
+  /** Omitted is stripes, the published pattern channel. */
+  code?: PatternCode;
 };
 
 export type OnsetResult = {
@@ -69,6 +110,7 @@ export type OnsetResult = {
   signal: CuriositySignal;
   steps: number;
   arm: OnsetArm;
+  code: PatternCode;
   distractorFrac: number;
   foods: number;
   lives: number;
@@ -181,16 +223,27 @@ function replayError(
   return { error: eSum / nStay, err1: e1Sum / nStay };
 }
 
+/**
+ * Pattern arm of one locked code. The noise arm omits the code, so the
+ * episode coin still matches. Omitted on the request is stripes.
+ */
+export function patternCodeSpec(arm: OnsetArm, code: PatternCode, seed: number) {
+  const base = { learnability: 1, driftRate: 0, distractorRelevance: 0 };
+  if (arm === "noise") return distractorSpec(base);
+  if (code === "stripes") return distractorSpec({ ...base, patternChannel: "all" as const });
+  if (code === "blocks") {
+    return distractorSpec({ ...base, patternChannel: "all" as const, patternLatent: CYCLE_EAST_LATENT });
+  }
+  if (code === "static") return distractorSpec({ ...base, roomContent: "static" as const, staticSeed: seed });
+  throw new Error(`pattern code ${String(code)} is not locked`);
+}
+
 export function runOnsetEpisode(req: OnsetRequest): OnsetResult {
   if (ONSET_OPEN !== ONSET_BIN_EDGES[0] || ONSET_LATE !== ONSET_BIN_EDGES[3]) {
     throw new Error("the open and late bands left the exposure grid");
   }
-  const spec = distractorSpec({
-    learnability: 1,
-    driftRate: 0,
-    distractorRelevance: 0,
-    ...(req.arm === "noise" ? {} : { patternChannel: "all" as const }),
-  });
+  const code = req.code ?? "stripes";
+  const spec = patternCodeSpec(req.arm, code, req.seed);
   return withSeed(req.seed * 10007 + COMPETE_STREAM, () => {
     const k = new Kernel("distractor", req.seed, undefined, {
       env: { ...spec, layoutSeed: FAMILY_LAYOUT_SEED },
@@ -324,6 +377,7 @@ export function runOnsetEpisode(req: OnsetRequest): OnsetResult {
       signal: req.signal,
       steps: req.steps,
       arm: req.arm,
+      code,
       distractorFrac: req.steps ? inRoom / req.steps : 0,
       foods: k.foods,
       lives: k.lives,

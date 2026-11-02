@@ -6,13 +6,7 @@
  * The sweep is not part of CI.
  */
 import { ACTS, CH, DIRS, Kernel, OBS, R, SIZE } from "./kernel.ts";
-import {
-  distractorSpec,
-  EAST_HOLD_LATENT,
-  FAMILY_LAYOUT_SEED,
-  patternBit,
-  type FamilyMemory,
-} from "./family.ts";
+import { distractorSpec, FAMILY_LAYOUT_SEED, patternBit, type FamilyMemory } from "./family.ts";
 import { doorwayActionRegion, doorwayDelta } from "./doorway-run.ts";
 import { mulberry32 } from "./presets.ts";
 import type { CuriositySignal } from "./signals.ts";
@@ -142,8 +136,9 @@ function glowTarget(x: number, y: number, idx: number, family: FamilyMemory): { 
     if (family.stochastic[idx]) return { kind: "coin", bit: 0 };
     return { kind: "fixed", bit: family.fixedGlow[idx] ?? 0 };
   }
-  if (family.channel[idx]) return { kind: "fixed", bit: patternBit(x, y, EAST_HOLD_LATENT) };
-  if (family.mode === "noise" && !family.freezeTarget) return { kind: "coin", bit: 0 };
+  if (family.freezeTarget) return { kind: "fixed", bit: family.glow[idx] ?? 0 };
+  if (family.channel[idx]) return { kind: "fixed", bit: patternBit(x, y, family.channelLatent) };
+  if (family.mode === "noise") return { kind: "coin", bit: 0 };
   return { kind: "fixed", bit: patternBit(x, y, family.eastLatent) };
 }
 

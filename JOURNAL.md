@@ -1,5 +1,117 @@
 # Journal
 
+## 2026-11-02 hard (UTC)
+
+Written before `npm run hard`. No pattern-code gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. The phase-locked contrast refuted a forgetting cycle, rho −0.0172 [−0.0300, −0.0041], so priority 3 is not reopened. The coordinate split of the expected-error drop would locate a sign that is already known. It cannot say whether a pattern that stays unlearned removes the inversion. The 2026-10-15 learnability grid varied the west room and scored occupancy. It did not measure this forward sign, and the small-room geometry of that grid stays closed. This run asks whether the open-band noise preference is specific to an easy spatial rule.
+
+The onset run left both signs in place on the first in-room sample. The expected-error drop is −0.0113 [−0.0128, −0.0097] and the first window is already more accurate in the pattern, −0.0159 [−0.0177, −0.0141]. The stripe code is the same family as the west room. One gradient step at learning rate 4 can fit a period-4 rule a 5×5 window can see. A frozen fair-bit picture has no such rule. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not replace the horizon-2 drop with expected squared error. It does not rerun the exposure split at another cut. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+### Preregister hard
+
+Hypothesis. On the shipped learner, the open-band inversion is a property of an easy spatial rule, not of every lower-entropy room. Stripes and blocks, both period-4 rules a 5×5 window can see, keep an open-band expected-error drop that prefers matched noise. A frozen fair-bit picture does not: its open-band drop prefers the picture. The comparison is pattern minus matched noise. The predicted class is `ease`.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are a harness and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceRho` and `traceDrop` allocate the splits. Neither is a Loop flag. `patternLatent` is not a Loop flag. Omitted, a pattern channel still paints `EAST_HOLD_LATENT`. The off path, which is every other sweep and the default agent, does not pass a code. The code does not draw an extra random number and does not enter the bonus. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Codes, locked here. Three worlds. The noise arm of each omits the code and still draws the noise coin, so the episode RNG matches. No other code is run.
+
+- `stripes` paints `patternChannel` `all` with latent 42, mode 0. This is the published room.
+- `blocks` paints `patternChannel` `all` with latent 256, mode 1. A 5×5 window can see the period. The code is not the west stripes.
+- `static` freezes one fair-bit picture. `staticSeed` is the episode seed, so each seed is its own picture. The coin is drawn and then discarded.
+
+Exposure. The open band is exposure at most `ONSET_OPEN` = 2. The late band is exposure above `ONSET_LATE` = 32. A step counts when the body began it in region 1. Held ticks count as exposure and are dropped from every mean. A tick is a sample when `optionHeld` does not change. The cuts are the onset cuts. They are not searched. A seed's number in a band is the mean of the sample ticks that land in it. A seed with no such tick on either arm is dropped from that band only. Paired 95% percentile bootstrap, 2000 resamples. Pattern minus noise.
+
+Quantities. `err1` and the drop are the expected squared errors from the source run, on the score-winning follow-up, wall and food only. A pattern-channel cell is `patternBit` of that code's latent. A frozen cell is the bit in `family.glow`. A noise cell is a fair coin. The drop is `err1 − err2*`. Positive means the second window is more accurate under the generative model.
+
+- `errorOpen` and `err1Open` are the drop and the first-window error on the open band. These are the call.
+- `errorAll` and `err1All` are the same two numbers on every in-room sample. They do not flip the summary. On stripes they are the source rows.
+- `errorLate` and `err1Late` are the late band. They do not flip the summary.
+
+δ is `SOURCE_ERROR_DELTA` = 0.0169. It is not remeasured. The plant is not run. Occupancy and rectified progress are reported and are not a call. On stripes they are checksums of the credit row.
+
+Classes. Each call uses `creditContentClass` with this δ. Sign comes before the null. A sign inside δ is still a sign. Too few eligible seeds, meaning the kept seeds are not a majority of 800, is inconclusive.
+
+Salts, locked here. Stripes reuse the published salts: open drop `29421`, open first window `29431`, episode drop `29301`, episode first window `29304`, late drop `29425`, late first window `29435`, occupancy `26204`, rectified `26304`. Blocks: open drop `31121`, open first window `31131`, episode drop `31101`, episode first window `31104`, late drop `31125`, late first window `31135`, occupancy `31140`, rectified `31141`. Static: open drop `31221`, open first window `31231`, episode drop `31201`, episode first window `31204`, late drop `31225`, late first window `31235`, occupancy `31240`, rectified `31241`. Random's checks use `31300 + 10 × code + slot`, code 0 stripes, 1 blocks, 2 static, slot 1 open drop, 2 open first window, 3 episode drop, 4 episode first window.
+
+Summary, `hardSummary`, from rho's open band only. The first match wins. Confounded when random's gap on a call excludes 0. The sweep aborts in that case, before a verdict. Unresolved when any of the five open-band classes is inconclusive. Unreproduced when the stripe open drop is not repelled or the stripe open first window is not repelled. Universal when stripes, blocks, and the frozen picture all prefer noise on the drop, and the picture's first window is repelled. Headroom when the picture's drop is repelled and its first window is not. Nonmonotone when the picture's drop is repelled and the blocks drop is not. Transfer when the picture's drop is not repelled and the blocks drop is not repelled. Ease when both easy rules prefer noise and the picture's drop is attracted. Quiet when both easy rules prefer noise and the picture's drop is a sensitive null. The episode average and the late band do not flip it. Count, surprise, and RND do not flip it.
+
+Verdict, `hardVerdict`. Confirmed when the summary is ease. Refuted when the summary is quiet, transfer, universal, or headroom. Otherwise inconclusive.
+
+Harness, not a call. Random's path, target-room fraction, meals, and lives match across the two arms of each code, and across the three codes. A mismatch aborts. On stripes, rho's occupancy mean matches `0.0023718750000000038` and the credit interval, the rectified gap matches n = 703 and mean `0.021385533643288657` and the credit interval, and the doorway score matches n = 766 and mean `−0.00792605777551224`. Rho's episode expected-error drop and first-window error match the source row. Rho's open-band and late-band rows match the onset row. Rho's shipped in-room drop, signed drop, and first-window residual match the published runs. A mismatch aborts. Random's six call quantities, on each code, are a point mass at 0. An interval that excludes 0 aborts. Fewer than a majority of random seeds on a call aborts. A shipped horizon drop or a nonzero expected error on count, surprise, RND, or random aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. The score is not replaced by the expected-error drop. Confirmed: both easy rules prefer noise on the first in-room samples, and the frozen picture prefers itself. Refuted: the picture still prefers noise, the noise preference is only the stripe code, or the picture's drop is a sensitive null. Inconclusive: the stripe open band is not reproduced, blocks does not resolve, the picture prefers noise while blocks do not, or an interval is too wide to class. A restored sign is not a license to change the score in this run.
+
+Figure: `bench/hard/hard-gap.png`. The bars are rho's open-band paired gaps, one per code. The top panel is the expected-error drop. The bottom panel is the first-window expected error. Zero is the vertical line. δ is the pair of gold lines. Source: `bench/hard/hard.json`. The sweep is `npm run hard`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `a668b6d`. The row matches the onset learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`. A row that does not match is a learner that moved, and the sweep is void.
+
+### Results
+
+The prediction is refuted. The summary is universal. On the first in-room samples the expected-error drop prefers matched noise for the stripe code, for the block code, and for a frozen fair-bit picture. The picture's first window is already more accurate than the noise room. Making the pattern harder shrinks both gaps and does not flip either one. No term was added. The temperature stays 0.45. `option` stays on.
+
+24000 episodes, 400 steps, 4 workers, 698.8 seconds. Source: `bench/hard/hard.json`. The random walk is the same path on every arm and every code, meals and lives included. The stripe checksums match the published runs: occupancy, rectified progress, doorway score, episode expected-error drop, first-window expected error, open band, late band, shipped in-room drop, signed drop, and first-window residual. The harness does not fail. Random's call quantities are a point mass at 0 on every code. No random interval excludes 0. Count, surprise, and RND write no horizon drop and no expected error.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is pattern minus matched noise. δ is 0.0169. `hardSummary` is universal. `hardVerdict` is refuted.
+
+| code | open drop | open first window | n | class |
+|---|---|---|---:|---|
+| stripes | −0.0113 [−0.0128, −0.0097] | −0.0159 [−0.0177, −0.0141] | 745 | repelled, repelled |
+| blocks | −0.0076 [−0.0083, −0.0069] | −0.0111 [−0.0119, −0.0103] | 753 | repelled, repelled |
+| static | −0.0020 [−0.0028, −0.0012] | −0.0045 [−0.0054, −0.0036] | 745 | repelled, repelled |
+
+The stripe rows are the onset rows. The means and the intervals match. The open drop lies entirely below 0 and strictly inside (−0.0169, 0.0169). The open first window lies entirely below 0. Its lower end, −0.0177, is past −0.0169, and its upper end, −0.0141, is not.
+
+The block drop and the block first window both lie entirely below 0 and strictly inside (−0.0169, 0.0169). Neither carries. n = 753 is a majority of 800. A seed's open band is one sample tick: 1.03 on the pattern arm and 1.03 on the noise arm.
+
+The frozen picture's drop and first window both lie entirely below 0 and strictly inside (−0.0169, 0.0169). Neither carries. n = 745 is a majority of 800, the same count as the stripe row. A seed's open band is about one sample tick: 1.04 on the picture arm and 1.03 on the noise arm. The picture is already the more accurate window, and one imagined step still reduces expected error more in the noise room. The sign is the same sign as the easy rules. The magnitude is smaller.
+
+The three open-drop means, stripes then blocks then static, are −0.0113, −0.0076, −0.0020. The order is the same for the first window: −0.0159, −0.0111, −0.0045. Harder patterns sit closer to zero. None crosses it.
+
+The episode average and the late band do not flip the summary. Every one is repelled.
+
+| code | all drop | all first window | late drop | late first window | n all | n late |
+|---|---|---|---|---|---:|---:|
+| stripes | −0.0326 [−0.0338, −0.0313] | −0.0382 [−0.0392, −0.0372] | −0.0387 [−0.0404, −0.0372] | −0.0413 [−0.0422, −0.0404] | 745 | 599 |
+| blocks | −0.0112 [−0.0117, −0.0106] | −0.0176 [−0.0184, −0.0167] | −0.0131 [−0.0139, −0.0124] | −0.0201 [−0.0209, −0.0192] | 753 | 617 |
+| static | −0.0062 [−0.0067, −0.0056] | −0.0125 [−0.0133, −0.0116] | −0.0071 [−0.0078, −0.0064] | −0.0138 [−0.0146, −0.0130] | 745 | 608 |
+
+The stripe episode and late rows are the source and onset rows. Both lie entirely below −0.0169. The block episode drop and the block late drop sit inside δ. The block episode first window has lower end −0.0184 and upper end −0.0167, so it is neither a sensitive null nor entirely past the dose. The block late first window lies entirely below −0.0169. It carries, and it is not a call. Every frozen-picture interval, open, episode, and late, lies entirely below 0 and strictly inside (−0.0169, 0.0169). The picture never clears the dose. A seed's in-room mean is about 49 sample ticks on every code: 48.98 / 48.48 for stripes, 49.88 / 48.48 for blocks, 48.50 / 48.48 for the picture.
+
+Rectified progress, not a call. Pattern minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. Every gap lies entirely above 0 and entirely below 0.05.
+
+| code | rectified | n |
+|---|---|---:|
+| stripes | 0.0214 [0.0206, 0.0222] | 703 |
+| blocks | 0.0083 [0.0076, 0.0089] | 713 |
+| static | 0.0045 [0.0038, 0.0052] | 702 |
+
+The stripe row is the credit row. The block and picture gaps are smaller and still positive. Experienced progress still prefers the deterministic room. The forward drop does not.
+
+Occupancy, not a call. Target-room fraction, pattern minus noise, rho. Every interval includes 0.
+
+| code | occupancy | n |
+|---|---|---:|
+| stripes | 0.0024 [−0.0080, 0.0125] | 800 |
+| blocks | 0.0068 [−0.0019, 0.0157] | 800 |
+| static | −0.0003 [−0.0093, 0.0080] | 800 |
+
+The stripe mean matches the credit run. None of these gaps is large enough for the dose curve to predict a move. The curve's first detected occupancy dose is 0.05, and every rectified gap here is under that.
+
+Figure: `bench/hard/hard-gap.png`. Every bar sits left of zero. Stripes is the furthest left. The frozen picture is the closest to zero, inside the gold lines. The stripe first-window bar crosses the left gold line. Blocks sits between them.
+
+No mechanism was added. `patternLatent` omitted is still latent 42. `roomContent` omitted is still the noise room. `traceDrop` omitted allocates nothing. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `a668b6d`. The row matches the onset learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The code and the traces are not defaults, so the probe gate is not required to keep one. The score path is the shipped score: the five-seed row matches, and rho's stripe open-band drop on this sweep matches the onset mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not replace the horizon-2 drop with expected squared error. Do not rerun this grid with more seeds or another latent. The open-band drop prefers noise on an easy stripe rule, on a block rule that does not match the west room, and on a frozen fair-bit picture that has no spatial rule. The picture's drop is −0.0020 [−0.0028, −0.0012], entirely below 0 and inside δ 0.0169, and its first window is already more accurate, −0.0045 [−0.0054, −0.0036]. Hardness shrinks the inversion. It does not remove it. The unread split is which coordinates pay that picture's open-band gap: the fixed channels, walls and food and the west pattern, versus the east bits just seen. If the gap is the shared channels, the picture is not the content the estimate is scoring. If the gap is the east bits, one local step makes any deterministic window slightly more accurate than a coin, and the forward drop still prefers the coin. That split is a measurement. It is not a license to change the score. Drift, dose, forgetting, and the third mask stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-11-02 onset (UTC)
 
 Written before `npm run onset`. No exposure gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

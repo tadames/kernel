@@ -1011,3 +1011,69 @@ export function onsetVerdict(summary: OnsetLink): Call {
   }
   return "inconclusive";
 }
+
+export type HardLink =
+  | "ease"
+  | "quiet"
+  | "transfer"
+  | "universal"
+  | "headroom"
+  | "nonmonotone"
+  | "unreproduced"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Whether the open-band inversion is specific to an easy spatial rule.
+ * Every class is pattern minus matched noise, exposure at most 2.
+ * Stripes are the published code. Blocks are the other period-4 rule.
+ * Static is a frozen fair-bit picture. The first match wins.
+ * Ease: both easy rules prefer noise, and the frozen picture prefers
+ * itself.
+ * Quiet: both easy rules prefer noise, and the frozen picture's drop
+ * is a sensitive null.
+ * Transfer: the frozen picture does not prefer noise, and blocks do
+ * not either. Only the stripe code, which matches the west room, inverted.
+ * Universal: both easy rules and the frozen picture prefer noise, and
+ * the picture is already the more accurate window.
+ * Headroom: the frozen picture prefers noise even though it is not yet
+ * the more accurate window.
+ * Nonmonotone: the frozen picture prefers noise and blocks do not.
+ * Unreproduced: the stripe open band is not the published inversion.
+ * Confounded: random's gap excludes 0.
+ */
+export function hardSummary(
+  randomExcludesZero: boolean,
+  stripesDrop: CreditClass,
+  stripesErr1: CreditClass,
+  blocksDrop: CreditClass,
+  staticDrop: CreditClass,
+  staticErr1: CreditClass,
+): HardLink {
+  if (randomExcludesZero) return "confounded";
+  const calls = [stripesDrop, stripesErr1, blocksDrop, staticDrop, staticErr1];
+  if (calls.some((klass) => klass === "inconclusive")) return "unresolved";
+  if (stripesDrop !== "repelled" || stripesErr1 !== "repelled") return "unreproduced";
+  if (staticDrop === "repelled" && blocksDrop === "repelled") {
+    return staticErr1 === "repelled" ? "universal" : "headroom";
+  }
+  if (staticDrop === "repelled") return "nonmonotone";
+  if (blocksDrop !== "repelled") return "transfer";
+  if (staticDrop === "attracted") return "ease";
+  return "quiet";
+}
+
+/**
+ * Confirmed: an easy rule keeps the open-band noise preference, and a
+ * frozen fair-bit picture's open-band drop prefers the picture.
+ * Refuted: the picture still prefers noise, the preference is only the
+ * stripe code, or the picture's drop is a sensitive null.
+ * Otherwise inconclusive.
+ */
+export function hardVerdict(summary: HardLink): Call {
+  if (summary === "ease") return "confirmed";
+  if (summary === "quiet" || summary === "transfer" || summary === "universal" || summary === "headroom") {
+    return "refuted";
+  }
+  return "inconclusive";
+}

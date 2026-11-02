@@ -67,6 +67,12 @@ export type EnvParams = {
    * observations stays paired with the omitted room.
    */
   patternChannel?: "third" | "all";
+  /**
+   * Latent painted by a pattern channel. Omitted is the historical
+   * stripes. The block code is the other locked latent. Measurement
+   * only. It does nothing unless a pattern channel is on.
+   */
+  patternLatent?: number;
 };
 
 /** East-room glow scale. Absent when the historical 0/1 bit is in force. */
