@@ -1077,3 +1077,66 @@ export function hardVerdict(summary: HardLink): Call {
   }
   return "inconclusive";
 }
+
+export type SplitLink =
+  | "cancelled"
+  | "shared"
+  | "local"
+  | "both"
+  | "opposed"
+  | "pooled"
+  | "unreproduced"
+  | "unresolved"
+  | "confounded";
+
+/**
+ * Which coordinates pay the frozen picture's open-band noise preference.
+ * The gap is picture minus matched noise. The total is that published
+ * drop. Fixed channels are walls, food, and the west pattern. East bits
+ * are the region-1 glow. The first match wins.
+ * Cancelled: the fixed channels prefer noise and the east bits prefer
+ * the picture. The published sign is the remainder.
+ * Shared: the fixed channels prefer noise and the east bits do not resolve.
+ * Local: the east bits prefer noise and the fixed channels do not resolve.
+ * Both: both pieces prefer noise.
+ * Opposed: the east bits prefer noise and the fixed channels prefer the picture.
+ * Pooled: neither piece prefers noise, and the total does.
+ * Unreproduced: the total is not the published noise preference.
+ * Confounded: random's gap excludes 0.
+ */
+export function splitSummary(
+  randomExcludesZero: boolean,
+  total: CreditClass,
+  fixed: CreditClass,
+  east: CreditClass,
+): SplitLink {
+  if (randomExcludesZero) return "confounded";
+  if (total === "inconclusive" || fixed === "inconclusive" || east === "inconclusive") return "unresolved";
+  if (total !== "repelled") return "unreproduced";
+  if (fixed === "repelled" && east === "attracted") return "cancelled";
+  if (fixed === "repelled" && east === "repelled") return "both";
+  if (fixed === "repelled") return "shared";
+  if (east === "repelled" && fixed === "attracted") return "opposed";
+  if (east === "repelled") return "local";
+  return "pooled";
+}
+
+/**
+ * Confirmed: the open-band noise preference is the remainder of a
+ * picture-preferring east piece and a noise-preferring fixed piece.
+ * Refuted: the pieces do not oppose that way.
+ * Otherwise inconclusive.
+ */
+export function splitVerdict(summary: SplitLink): Call {
+  if (summary === "cancelled") return "confirmed";
+  if (
+    summary === "shared" ||
+    summary === "local" ||
+    summary === "both" ||
+    summary === "opposed" ||
+    summary === "pooled"
+  ) {
+    return "refuted";
+  }
+  return "inconclusive";
+}

@@ -15,8 +15,9 @@ import { CREDIT_DOSE, runCreditEpisode } from "./credit-run.ts";
 import { CHAIN_RHO_HAT_DELTA, CHAIN_SCORE_DELTA, runChainEpisode } from "./chain-run.ts";
 import { runReachEpisode, stayLevel } from "./reach-run.ts";
 import { INVERT_SCALE_EPS, runInvertEpisode } from "./invert-run.ts";
-import { expectedSquaredError, expectedWindowError, runSourceEpisode, SOURCE_ERROR_DELTA } from "./source-run.ts";
+import { expectedSquaredError, expectedWindowError, expectedWindowParts, runSourceEpisode, SOURCE_ERROR_DELTA } from "./source-run.ts";
 import { ONSET_BIN_EDGES, ONSET_LATE, ONSET_OPEN, onsetBin, patternCodeSpec, runOnsetEpisode } from "./onset-run.ts";
+import { runSplitEpisode } from "./split-run.ts";
 import { imagineScores, REPLAY_HARD_AT, RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import {
   amplitudeCall,
@@ -52,6 +53,8 @@ import {
   onsetVerdict,
   hardSummary,
   hardVerdict,
+  splitSummary,
+  splitVerdict,
   chainVerdict,
   CREDIT_POWER_DELTA,
   doorwaySummary,
@@ -1136,4 +1139,94 @@ test("the open-band inversion is specific to an easy rule only when the frozen p
   const stripeErr = expectedWindowError(predStripes, ox, oy, built.cells, built.family, -1);
   assert.equal(glowErr, 0);
   assert.ok(stripeErr > 0);
+  const glowParts = expectedWindowParts(predGlow, ox, oy, built.cells, built.family, -1);
+  assert.equal(glowParts.total, 0);
+  assert.equal(glowParts.fixed, 0);
+  assert.equal(glowParts.east, 0);
+  const missEast = predGlow.slice();
+  let eastCoords = 0;
+  let cursor = 0;
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      const x = ox + dx;
+      const y = oy + dy;
+      const oob = x < 0 || y < 0 || x >= SIZE || y >= SIZE;
+      let eastWall = false;
+      if (!oob) {
+        const idx = y * SIZE + x;
+        const reg = built.family.region[idx] ?? 2;
+        eastWall = built.cells[idx] !== 1 && built.family.decoy[idx] !== 1 && reg === 1;
+      }
+      if (eastWall) {
+        missEast[cursor] = 1 - (missEast[cursor] ?? 0);
+        eastCoords += 1;
+      }
+      cursor += CH;
+    }
+  }
+  assert.ok(eastCoords > 0);
+  const missed = expectedWindowParts(missEast, ox, oy, built.cells, built.family, -1);
+  assert.equal(missed.fixed, 0);
+  assert.ok(missed.east > 0);
+  assert.equal(missed.total, missed.fixed + missed.east);
+  assert.equal(missed.total, expectedWindowError(missEast, ox, oy, built.cells, built.family, -1));
+});
+
+test("coordinate split classes and the frozen-picture episode", () => {
+  const rep = "repelled" as const;
+  const att = "attracted" as const;
+  const nil = "null-with-sensitivity" as const;
+  const inc = "inconclusive" as const;
+  assert.equal(splitSummary(true, rep, rep, att), "confounded");
+  assert.equal(splitSummary(false, inc, rep, att), "unresolved");
+  assert.equal(splitSummary(false, rep, inc, att), "unresolved");
+  assert.equal(splitSummary(false, rep, rep, inc), "unresolved");
+  assert.equal(splitSummary(false, att, rep, att), "unreproduced");
+  assert.equal(splitSummary(false, nil, rep, att), "unreproduced");
+  assert.equal(splitSummary(false, rep, rep, att), "cancelled");
+  assert.equal(splitSummary(false, rep, rep, rep), "both");
+  assert.equal(splitSummary(false, rep, rep, nil), "shared");
+  assert.equal(splitSummary(false, rep, att, rep), "opposed");
+  assert.equal(splitSummary(false, rep, nil, rep), "local");
+  assert.equal(splitSummary(false, rep, nil, nil), "pooled");
+  assert.equal(splitSummary(false, rep, att, nil), "pooled");
+  assert.equal(splitSummary(false, rep, att, att), "pooled");
+  assert.equal(splitVerdict("cancelled"), "confirmed");
+  assert.equal(splitVerdict("shared"), "refuted");
+  assert.equal(splitVerdict("local"), "refuted");
+  assert.equal(splitVerdict("both"), "refuted");
+  assert.equal(splitVerdict("opposed"), "refuted");
+  assert.equal(splitVerdict("pooled"), "refuted");
+  assert.equal(splitVerdict("unreproduced"), "inconclusive");
+  assert.equal(splitVerdict("unresolved"), "inconclusive");
+  assert.equal(splitVerdict("confounded"), "inconclusive");
+
+  assert.throws(() => runSplitEpisode({ id: 1, seed: 1, signal: "rho", steps: 4, arm: "pattern", code: "stripes" }));
+  const plain = runOnsetEpisode({ id: 2, seed: 3, signal: "rho", steps: 40, arm: "pattern", code: "static" });
+  const traced = runSplitEpisode({ id: 3, seed: 3, signal: "rho", steps: 40, arm: "pattern" });
+  assert.equal(traced.code, "static");
+  assert.equal(traced.path, plain.path);
+  assert.equal(traced.foods, plain.foods);
+  assert.equal(traced.lives, plain.lives);
+  assert.equal(traced.error, plain.error);
+  assert.equal(traced.err1, plain.err1);
+  assert.equal(traced.drop2, plain.drop2);
+  assert.equal(plain.fixedDrop, 0);
+  assert.equal(plain.eastDrop, 0);
+  if (traced.roomSteps > 0) {
+    assert.ok(Math.abs(traced.fixedDrop + traced.eastDrop - traced.error) < 1e-9);
+    assert.ok(Math.abs(traced.fixedErr1 + traced.eastErr1 - traced.err1) < 1e-9);
+    for (let i = 0; i < 5; i++) {
+      if (traced.binSteps[i]! === 0) continue;
+      assert.ok(Math.abs(traced.binFixedDrop[i]! + traced.binEastDrop[i]! - traced.binError[i]!) < 1e-9);
+      assert.ok(Math.abs(traced.binFixedErr1[i]! + traced.binEastErr1[i]! - traced.binErr1[i]!) < 1e-9);
+    }
+  }
+  const noise = runSplitEpisode({ id: 4, seed: 3, signal: "random", steps: 40, arm: "noise" });
+  const picture = runSplitEpisode({ id: 5, seed: 3, signal: "random", steps: 40, arm: "pattern", code: "static" });
+  assert.equal(picture.path, noise.path);
+  assert.equal(picture.foods, noise.foods);
+  assert.equal(picture.fixedDrop, 0);
+  assert.equal(picture.eastDrop, 0);
+  assert.equal(picture.error, 0);
 });

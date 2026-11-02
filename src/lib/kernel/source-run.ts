@@ -143,21 +143,32 @@ function glowTarget(x: number, y: number, idx: number, family: FamilyMemory): { 
 }
 
 /**
+ * Wall and food coordinates of one window, split by what they score.
+ * `east` is the wall channel of a region-1 glow cell: the frozen picture
+ * bit, or the coin. `fixed` is everything else the residual weights: walls,
+ * food, out-of-bounds, and the west pattern, including the food channel of
+ * an east cell. Both are divided by the full denominator, so they add to
+ * `total`. The split does not draw a random number.
+ */
+export type WindowParts = { fixed: number; east: number; total: number };
+
+/**
  * Mean expected squared error of a predicted window. Wall and food only,
  * the same coordinates the Bernoulli residual weights. Scent is omitted.
  * `eaten` is a cell index the imagined move consumes, or -1. A fresh food
  * spawn is not in the target. The pre-step cell map is `cells`.
  */
-export function expectedWindowError(
+export function expectedWindowParts(
   pred: ArrayLike<number>,
   ox: number,
   oy: number,
   cells: Uint8Array,
   family: FamilyMemory,
   eaten: number,
-): number {
+): WindowParts {
   const size = family.size;
   let sum = 0;
+  let eastSum = 0;
   let den = 0;
   let k = 0;
   for (let dy = -R; dy <= R; dy++) {
@@ -171,6 +182,7 @@ export function expectedWindowError(
       let wallKind: "fixed" | "coin" = "fixed";
       let wallBit = 1;
       let foodBit = 0;
+      let eastWall = false;
       if (!oob) {
         const idx = wy * size + wx;
         const emptied = idx === eaten;
@@ -188,15 +200,32 @@ export function expectedWindowError(
           wallKind = glow.kind;
           wallBit = glow.bit;
           foodBit = 0;
+          eastWall = (family.region[idx] ?? 2) === 1;
         }
       }
-      sum += expectedSquaredError(pWall, wallKind, wallBit);
+      const wallErr = expectedSquaredError(pWall, wallKind, wallBit);
+      sum += wallErr;
       sum += expectedSquaredError(pFood, "fixed", foodBit);
+      if (eastWall) eastSum += wallErr;
       den += 2;
     }
   }
   if (k !== OBS) throw new Error(`expected window read ${k}, not ${OBS}`);
-  return den ? sum / den : 0;
+  const total = den ? sum / den : 0;
+  const east = den ? eastSum / den : 0;
+  return { fixed: total - east, east, total };
+}
+
+/** Mean expected squared error. The coordinate split adds to this number. */
+export function expectedWindowError(
+  pred: ArrayLike<number>,
+  ox: number,
+  oy: number,
+  cells: Uint8Array,
+  family: FamilyMemory,
+  eaten: number,
+): number {
+  return expectedWindowParts(pred, ox, oy, cells, family, eaten).total;
 }
 
 /** Destination of one action on a frozen cell map. A blocked step stays. */

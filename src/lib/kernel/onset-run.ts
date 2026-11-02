@@ -15,7 +15,7 @@ import { SHIPPED_POLICY_TEMPERATURE } from "./noise.ts";
 import { COMPETE_STREAM } from "./compete-run.ts";
 import { stayLevel } from "./reach-run.ts";
 import { expectedResidual } from "./policy.ts";
-import { bodyAfter, expectedWindowError } from "./source-run.ts";
+import { bodyAfter, expectedWindowParts } from "./source-run.ts";
 
 /** Published expected-error drop, pattern minus noise, rho, seeds 1–800. */
 export const SOURCE_ERROR_MEAN = -0.03257988930857322;
@@ -102,6 +102,12 @@ export type OnsetRequest = {
   arm: OnsetArm;
   /** Omitted is stripes, the published pattern channel. */
   code?: PatternCode;
+  /**
+   * Partition the expected-error drop into fixed channels and east bits.
+   * Omitted leaves those fields at 0. It does not draw a random number and
+   * it does not enter the bonus.
+   */
+  traceSplit?: boolean;
 };
 
 export type OnsetResult = {
@@ -136,6 +142,21 @@ export type OnsetResult = {
   binSteps: OnsetBins;
   binError: OnsetBins;
   binErr1: OnsetBins;
+  /**
+   * Fixed-channel share of `error`. Walls, food, and the west pattern.
+   * Zero unless `traceSplit`.
+   */
+  fixedDrop: number;
+  /** East-bit share of `error`. Region-1 glow. Zero unless `traceSplit`. */
+  eastDrop: number;
+  /** Fixed-channel share of `err1`. Zero unless `traceSplit`. */
+  fixedErr1: number;
+  /** East-bit share of `err1`. Zero unless `traceSplit`. */
+  eastErr1: number;
+  binFixedDrop: OnsetBins;
+  binEastDrop: OnsetBins;
+  binFixedErr1: OnsetBins;
+  binEastErr1: OnsetBins;
 };
 
 /** 0 is exposure 1–2. 4 is exposure 33 and above. */
@@ -198,6 +219,10 @@ function replayError(
 ) {
   let eSum = 0;
   let e1Sum = 0;
+  let fSum = 0;
+  let f1Sum = 0;
+  let aSum = 0;
+  let a1Sum = 0;
   let nStay = 0;
   for (let action = 0; action < nAct; action++) {
     if (!into(action)) continue;
@@ -213,14 +238,25 @@ function replayError(
     if (Math.abs(res2 - best[action]!) > 1e-6) {
       throw new Error(`seed ${seed} ${arm} replay ${res2} does not match ${best[action]}`);
     }
-    const err1 = expectedWindowError(pred1, first.x, first.y, cellsSnap, family, first.eaten);
-    const err2 = expectedWindowError(pred2, second.x, second.y, cellsSnap, family, second.eaten);
-    eSum += err1 - err2;
-    e1Sum += err1;
+    const err1 = expectedWindowParts(pred1, first.x, first.y, cellsSnap, family, first.eaten);
+    const err2 = expectedWindowParts(pred2, second.x, second.y, cellsSnap, family, second.eaten);
+    eSum += err1.total - err2.total;
+    e1Sum += err1.total;
+    fSum += err1.fixed - err2.fixed;
+    f1Sum += err1.fixed;
+    aSum += err1.east - err2.east;
+    a1Sum += err1.east;
     nStay += 1;
   }
   if (nStay === 0) throw new Error(`seed ${seed} ${arm} lost an in-room replay`);
-  return { error: eSum / nStay, err1: e1Sum / nStay };
+  return {
+    error: eSum / nStay,
+    err1: e1Sum / nStay,
+    fixed: fSum / nStay,
+    east: aSum / nStay,
+    fixedErr1: f1Sum / nStay,
+    eastErr1: a1Sum / nStay,
+  };
 }
 
 /**
@@ -286,9 +322,18 @@ export function runOnsetEpisode(req: OnsetRequest): OnsetResult {
     let errorSum = 0;
     let resSum = 0;
     let err1Sum = 0;
+    const traceSplit = req.traceSplit === true;
     const binSteps = emptyBins();
     const binErrorSum = emptyBins();
     const binErr1Sum = emptyBins();
+    const binFixedSum = emptyBins();
+    const binEastSum = emptyBins();
+    const binFixedErr1Sum = emptyBins();
+    const binEastErr1Sum = emptyBins();
+    let fixedSum = 0;
+    let eastSum = 0;
+    let fixedErr1Sum = 0;
+    let eastErr1Sum = 0;
     const eastAcc = emptyAccum();
     const buf = new Float32Array(OBS);
     for (let t = 0; t < req.steps; t++) {
@@ -332,6 +377,7 @@ export function runOnsetEpisode(req: OnsetRequest): OnsetResult {
       }
       let errorLevel = 0;
       let err1Level = 0;
+      const bin = onsetBin(exposure);
       if (rho) {
         if (!cellsSnap) throw new Error(`seed ${req.seed} ${req.arm} lost the pre-step map`);
         const replayed = replayError(
@@ -351,8 +397,23 @@ export function runOnsetEpisode(req: OnsetRequest): OnsetResult {
         );
         errorLevel = replayed.error;
         err1Level = replayed.err1;
+        if (traceSplit) {
+          if (Math.abs(replayed.fixed + replayed.east - replayed.error) > 1e-9) {
+            throw new Error(`seed ${req.seed} ${req.arm} split does not add to the drop`);
+          }
+          if (Math.abs(replayed.fixedErr1 + replayed.eastErr1 - replayed.err1) > 1e-9) {
+            throw new Error(`seed ${req.seed} ${req.arm} split does not add to the first window`);
+          }
+          fixedSum += replayed.fixed;
+          eastSum += replayed.east;
+          fixedErr1Sum += replayed.fixedErr1;
+          eastErr1Sum += replayed.eastErr1;
+          binFixedSum[bin] += replayed.fixed;
+          binEastSum[bin] += replayed.east;
+          binFixedErr1Sum[bin] += replayed.fixedErr1;
+          binEastErr1Sum[bin] += replayed.eastErr1;
+        }
       }
-      const bin = onsetBin(exposure);
       dropSum += dropLevel;
       signedSum += signedLevel;
       errorSum += errorLevel;
@@ -395,6 +456,14 @@ export function runOnsetEpisode(req: OnsetRequest): OnsetResult {
       binSteps,
       binError: finishBins(binErrorSum, binSteps),
       binErr1: finishBins(binErr1Sum, binSteps),
+      fixedDrop: fixedSum / denom,
+      eastDrop: eastSum / denom,
+      fixedErr1: fixedErr1Sum / denom,
+      eastErr1: eastErr1Sum / denom,
+      binFixedDrop: finishBins(binFixedSum, binSteps),
+      binEastDrop: finishBins(binEastSum, binSteps),
+      binFixedErr1: finishBins(binFixedErr1Sum, binSteps),
+      binEastErr1: finishBins(binEastErr1Sum, binSteps),
     };
   });
 }

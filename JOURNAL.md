@@ -1,5 +1,94 @@
 # Journal
 
+## 2026-11-02 split (UTC)
+
+Written before `npm run split`. No coordinate gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+Priorities 1, 2, and 3 stay closed and are not remeasured. The rectified-progress gap under matched drift, the dose response, and the forgetting cycle are already journaled. The hard run left the open-band noise preference in place for stripes, for blocks, and for a frozen fair-bit picture. The picture's open-band drop is −0.0020 [−0.0028, −0.0012] and its first window is already more accurate, −0.0045 [−0.0054, −0.0036]. Hardness shrinks the inversion. It does not remove it. This run asks which coordinates pay that picture's open-band drop. Drift, dose, forgetting, and the third mask stay closed. This run does not retune the softmax, does not turn `option` off, does not turn `echo` on, and does not add a curiosity term. It does not replace the horizon-2 drop with expected squared error. It does not rerun the hard grid, and it does not try another latent. `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. `option` stays on. `transition` stays on. Open problems 1 through 6 stay closed.
+
+### Preregister split
+
+Hypothesis. On the shipped learner, the frozen picture's open-band noise preference is a remainder, not a score of the east bits. One imagined step lowers expected error on a stationary bit and raises it on a coin, so the east bits prefer the picture. The fixed channels, walls and food and the west pattern, prefer noise, and by more, so the sum stays the published negative drop. The comparison is picture minus matched noise. The predicted class is `cancelled`.
+
+Instrument. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food markers, no mirror. The picture arm is `roomContent` `static` with `staticSeed` the episode seed. The noise arm omits the code and still draws the noise coin, so the episode RNG matches. No stripes arm. No blocks arm. Temperature is omitted, so it stays 0.45. Episodes are 400 steps. Seeds 1–800. The seed stream is `seed * 10007 + 24001`, the credit episode's stream. Explorers are random, count, surprise, RND, and rho. Rho is the call. The other four are a harness and do not flip it. No explorer is retuned. The default agent stays window-50 rho with both curiosity terms on, option on, transition on, and every other flag off. `traceRho` and `traceDrop` allocate the splits. Neither is a Loop flag. `traceSplit` is not a Loop flag. Omitted, the fixed and east fields stay 0. The off path, which is every other sweep and the default agent, does not pass it. The split does not draw an extra random number and does not enter the bonus. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim.
+
+Coordinates, locked here. The expected squared error is the published window, wall and food only, scent omitted, same denominator on every cell of the 5×5. A coordinate is an east bit when it is the wall channel of an in-bounds region-1 glow cell: not a wall, not a decoy, and not food outside region 1. That is the frozen picture bit, or the coin on the noise arm. Fixed channels are the rest: walls, food, out-of-bounds, the west pattern including the door, and the food channel of an east cell. The two parts are each divided by the full denominator, so they add to the published window error. The drop of a part is that part's `err1 − err2*` on the score-winning follow-up.
+
+Exposure. The open band is exposure at most `ONSET_OPEN` = 2. The late band is exposure above `ONSET_LATE` = 32. A step counts when the body began it in region 1. Held ticks count as exposure and are dropped from every mean. A tick is a sample when `optionHeld` does not change. The cuts are the onset cuts. They are not searched. A seed's number in a band is the mean of the sample ticks that land in it. A seed with no such tick on either arm is dropped from that band only. Paired 95% percentile bootstrap, 2000 resamples. Picture minus noise.
+
+Quantities. `err1` and the drop are the expected squared errors from the source run. The total is their sum of parts and is the published static row.
+
+- `errorOpen` is the open-band drop. It is the checksum.
+- `fixedOpen` and `eastOpen` are that drop's fixed share and east share. These are the call.
+- `err1Open`, `fixedErr1Open`, and `eastErr1Open` are the first window on the same ticks. They do not flip the summary.
+- The episode average and the late band, total and both shares, do not flip the summary.
+
+δ is `SOURCE_ERROR_DELTA` = 0.0169. It is not remeasured. The plant is not run. Occupancy and rectified progress are reported and are not a call. They are checksums of the static row.
+
+Classes. Each call uses `creditContentClass` with this δ. Sign comes before the null. A sign inside δ is still a sign. Too few eligible seeds, meaning the kept seeds are not a majority of 800, is inconclusive.
+
+Salts, locked here. Totals reuse the static hard salts: open drop `31221`, open first window `31231`, episode drop `31201`, episode first window `31204`, late drop `31225`, late first window `31235`, occupancy `31240`, rectified `31241`. Pieces: open fixed drop `32121`, open east drop `32122`, open fixed first window `32131`, open east first window `32132`, episode fixed drop `32101`, episode east drop `32102`, episode fixed first window `32104`, episode east first window `32105`, late fixed drop `32125`, late east drop `32126`, late fixed first window `32135`, late east first window `32136`. Random's checks use `32301` through `32318`, in the order open drop, open first window, episode drop, episode first window, late drop, late first window, then the same six for the fixed share and the same six for the east share.
+
+Summary, `splitSummary`, from rho's open band only. The first match wins. Confounded when random's gap on a reported quantity excludes 0. The sweep aborts in that case, before a verdict. Unresolved when the total, the fixed share, or the east share is inconclusive. Unreproduced when the total is not repelled. Cancelled when the fixed share is repelled and the east share is attracted. Both when both shares are repelled. Shared when the fixed share is repelled and the east share does not resolve. Opposed when the east share is repelled and the fixed share is attracted. Local when the east share is repelled and the fixed share does not resolve. Pooled when neither share is repelled. The first window, the episode average, and the late band do not flip it. Count, surprise, and RND do not flip it.
+
+Verdict, `splitVerdict`. Confirmed when the summary is cancelled. Refuted when the summary is shared, local, both, opposed, or pooled. Otherwise inconclusive.
+
+Harness, not a call. Random's path, target-room fraction, meals, and lives match across the two arms. A mismatch aborts. Rho's occupancy matches the static mean `−0.0002687500000000011` and the static interval. Rho's rectified gap matches n = 702, mean `0.004513361669810915`, and the static interval. Rho's open-band drop and first window, episode drop and first window, and late drop and first window match the static rows. A mismatch aborts. Random's eighteen reported quantities are a point mass at 0. An interval that excludes 0 aborts. Fewer than a majority of random seeds on a reported quantity aborts. A shipped horizon drop or a nonzero expected error, including either share, on count, surprise, RND, or random aborts.
+
+Decision, locked before the run. No outcome changes the temperature, the window, or a flag. No term is added. The score is not replaced by the expected-error drop, and it is not replaced by either share. Confirmed: the east bits prefer the picture and the fixed channels prefer noise, and the sum is the published noise preference. Refuted: the fixed channels do not prefer noise, the east bits prefer noise, both pieces prefer noise, or neither piece resolves. Inconclusive: the published open-band drop is not reproduced, or an interval is too wide to class. A coordinate that carries the sign is not a license to change the score in this run.
+
+Figure: `bench/split/split-gap.png`. The bars are rho's open-band paired gaps. The top panel is the expected-error drop. The bottom panel is the first-window expected error. Each panel is the fixed share, the east share, and the total. Zero is the vertical line. δ is the pair of gold lines. Source: `bench/split/split.json`. The sweep is `npm run split`. It is not part of CI.
+
+Parent bench, seeds 1–5, sha `a6c9b8b`. The row matches the hard learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`. A row that does not match is a learner that moved, and the sweep is void.
+
+### Results
+
+The prediction is refuted. The summary is local. On the first in-room samples the open-band noise preference is the east bits, and the fixed channels are a sensitive null. The picture is the content the estimate is scoring. One local step leaves those bits more accurate than a coin, and the forward drop on those same bits still prefers the coin. The fixed channels do not oppose that sign. No term was added. The temperature stays 0.45. `option` stays on.
+
+8000 episodes, 400 steps, 4 workers, 223.5 seconds. Source: `bench/split/split.json`. The random walk is the same path on both arms, meals and lives included. The static checksums match the hard run: occupancy, rectified progress, open-band drop, open-band first window, episode drop, episode first window, late drop, and late first window. The harness does not fail. Random's eighteen reported quantities are a point mass at 0. No random interval excludes 0. Count, surprise, and RND write no horizon drop and no expected error.
+
+#### Summary. Refuted.
+
+Temperature 0.45. The gap is picture minus matched noise. δ is 0.0169. `splitSummary` is local. `splitVerdict` is refuted.
+
+| piece | open drop | open first window | n | class |
+|---|---|---|---:|---|
+| fixed | 0.0001 [−0.0007, 0.0009] | 0.0001 [−0.0007, 0.0009] | 745 | null, null |
+| east | −0.0021 [−0.0028, −0.0013] | −0.0046 [−0.0052, −0.0040] | 745 | repelled, repelled |
+| total | −0.0020 [−0.0028, −0.0012] | −0.0045 [−0.0054, −0.0036] | 745 | repelled, repelled |
+
+The total rows are the hard static rows. The means and the intervals match. The open drop lies entirely below 0 and strictly inside (−0.0169, 0.0169). The open first window lies entirely below 0 and strictly inside (−0.0169, 0.0169). n = 745 is a majority of 800. A seed's open band is about one sample tick: 1.04 on the picture arm and 1.03 on the noise arm.
+
+The east drop lies entirely below 0 and strictly inside (−0.0169, 0.0169). It prefers noise, and it does not clear the dose. The east first window lies entirely below 0 and strictly inside (−0.0169, 0.0169). The picture's east bits are already the more accurate coordinates, and one imagined step still reduces expected error more on the coin. The fixed drop and the fixed first window both include 0 and sit strictly inside (−0.0169, 0.0169). Neither resolves. The two shares add to the total. The noise preference is not a remainder, and it is not sitting in the walls, the food, or the west pattern.
+
+The episode average and the late band do not flip the summary. The east share stays repelled. The fixed first window stays a sensitive null. The fixed drop, once the open band is over, is a small noise preference. It lies entirely below 0 and strictly inside (−0.0169, 0.0169). It does not carry, and it is not the call.
+
+| piece | all drop | all first window | late drop | late first window | n all | n late |
+|---|---|---|---|---|---:|---:|
+| fixed | −0.0005 [−0.0009, −0.0002] | 0.0002 [−0.0005, 0.0009] | −0.0005 [−0.0009, −0.0001] | 0.0001 [−0.0005, 0.0007] | 745 | 608 |
+| east | −0.0057 [−0.0062, −0.0051] | −0.0126 [−0.0131, −0.0122] | −0.0066 [−0.0073, −0.0059] | −0.0139 [−0.0145, −0.0133] | 745 | 608 |
+| total | −0.0062 [−0.0067, −0.0056] | −0.0125 [−0.0133, −0.0116] | −0.0071 [−0.0078, −0.0064] | −0.0138 [−0.0146, −0.0130] | 745 | 608 |
+
+The total rows are the hard static rows. Every east interval lies entirely below 0 and strictly inside (−0.0169, 0.0169). Every fixed first-window interval includes 0. The fixed drop intervals lie entirely below 0 and strictly inside (−0.0169, 0.0169). A seed's in-room mean is 48.50 sample ticks on the picture arm and 48.48 on the noise arm.
+
+The east share scored here is every region-1 glow coordinate in the imagined window. It is not restricted to cells that were inside the observation the step just trained. A cell that slides into view on the move is in the east share.
+
+Rectified progress, not a call. Picture minus noise, rho, steps that began in the room, seeds with at least 8 steps on both arms. The gap lies entirely above 0 and entirely below 0.05. It is the hard static row: 0.0045 [0.0038, 0.0052], n = 702.
+
+Occupancy, not a call. Target-room fraction, picture minus noise, rho, −0.0003 [−0.0093, 0.0080], n = 800. The interval includes 0. The mean matches the hard static run. The curve's first detected occupancy dose is 0.05, and the rectified gap is under that.
+
+Figure: `bench/split/split-gap.png`. The total and the east bars sit left of zero, inside the gold lines. The east first-window bar is the furthest left. The fixed bars sit on zero.
+
+No mechanism was added. `traceSplit` omitted leaves the shares at 0. `roomContent` omitted is still the noise room. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on.
+
+Five-seed bench, seeds 1–5, sha `a6c9b8b`. The row matches the hard learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and well above 2 KB. The split is not a default, so the probe gate is not required to keep one. The score path is the shipped score: the five-seed row matches, and rho's open-band total on this sweep matches the hard static mean.
+
+### Next hypothesis
+
+Do not retune the softmax, do not turn `option` off, do not turn `echo` on, and do not add a curiosity term. Do not replace the horizon-2 drop with expected squared error. Do not rerun the hard grid, and do not split this picture again at the same cut. The open-band drop prefers noise because the east bits do, −0.0021 [−0.0028, −0.0013], and the fixed channels do not resolve, 0.0001 [−0.0007, 0.0009]. The east first window is already more accurate, −0.0046 [−0.0052, −0.0040]. The unread split is inside those east bits: cells that were in the observation the step just trained, versus region-1 cells that enter the imagined window on the move. If only the overlapping cells pay the gap, one gradient step is memorizing the stationary sample, and the forward drop prefers the coin because that advantage shrinks. If the cells the step has not seen already prefer the coin, the estimate is not scoring the bits just seen. That split is a measurement. It is not a license to change the score. Drift, dose, forgetting, and the third mask stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe, and this result does not license one.
+
 ## 2026-11-02 hard (UTC)
 
 Written before `npm run hard`. No pattern-code gap from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
