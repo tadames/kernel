@@ -1,0 +1,1009 @@
+{
+  "seeds": 200,
+  "steps": 400,
+  "temperature": 0.15,
+  "stream": "seed * 10007 + 18101",
+  "tau": 53.28471423768756,
+  "dose": 0.0085,
+  "driftLevels": [
+    0,
+    0.001173,
+    0.01877,
+    0.3003
+  ],
+  "forgetLevels": [
+    0,
+    0.003246809718565169,
+    0.012924125031568812,
+    0.025681217055306127
+  ],
+  "delta": 0.016700000000000007,
+  "instrument": "confirmed",
+  "predictions": {
+    "instrument": "confirmed",
+    "noise": "inconclusive",
+    "drift": "inconclusive",
+    "forget": "inconclusive"
+  },
+  "nonzeroCounts": {
+    "attracted": 0,
+    "repelled": 0,
+    "null-with-sensitivity": 1,
+    "inconclusive": 8
+  },
+  "seconds": 885.455,
+  "episodes": 20000,
+  "workers": 4,
+  "rows": [
+    {
+      "axis": "noise",
+      "level": 0,
+      "label": "0",
+      "value": 0,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": "null-with-sensitivity"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "noise",
+      "level": 1,
+      "label": "1/3",
+      "value": 0.3333333333333333,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": 0.010874999999999998,
+          "lo": -0.0064375000000000005,
+          "hi": 0.028924999999999982,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0.012799999999999995,
+          "lo": -0.012074999999999997,
+          "hi": 0.035937499999999976,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.0004249999999999966,
+          "lo": -0.0184,
+          "hi": 0.017775000000000003,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": -0.01004999999999999,
+          "lo": -0.0337375,
+          "hi": 0.014475000000000007,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": -0.01004999999999999,
+          "lo": -0.03336249999999999,
+          "hi": 0.012950000000000012,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": -0.02092499999999999,
+          "lo": -0.05217500000000003,
+          "hi": 0.010924999999999997,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": -0.02284999999999999,
+          "lo": -0.05539999999999996,
+          "hi": 0.009787500000000006,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": -0.009625000000000002,
+          "lo": -0.04026249999999999,
+          "hi": 0.020399999999999995,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "noise",
+      "level": 2,
+      "label": "2/3",
+      "value": 0.6666666666666666,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": -0.0016874999999999985,
+          "lo": -0.018237499999999997,
+          "hi": 0.015812499999999993,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0.006625000000000005,
+          "lo": -0.018549999999999994,
+          "hi": 0.03057500000000001,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": 0.0010374999999999996,
+          "lo": -0.02305,
+          "hi": 0.025275,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": -0.010837500000000002,
+          "lo": -0.035175000000000005,
+          "hi": 0.014000000000000002,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": -0.010837500000000002,
+          "lo": -0.034574999999999995,
+          "hi": 0.013925000000000005,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": -0.009150000000000002,
+          "lo": -0.038037500000000016,
+          "hi": 0.02094999999999999,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": -0.017462500000000002,
+          "lo": -0.052050000000000055,
+          "hi": 0.014987500000000011,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": -0.011875000000000004,
+          "lo": -0.04638750000000002,
+          "hi": 0.02413749999999999,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "noise",
+      "level": 3,
+      "label": "1",
+      "value": 1,
+      "primary": true,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": 0.02042500000000001,
+          "lo": 0.0035624999999999997,
+          "hi": 0.036224999999999966,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0.003562500000000002,
+          "lo": -0.01955,
+          "hi": 0.028787499999999987,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": 0.00038750000000000037,
+          "lo": -0.023499999999999986,
+          "hi": 0.02424999999999999,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": -0.011912499999999998,
+          "lo": -0.03503749999999997,
+          "hi": 0.011087500000000007,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": -0.011912499999999998,
+          "lo": -0.03625,
+          "hi": 0.012925000000000006,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": -0.03233750000000001,
+          "lo": -0.06175000000000001,
+          "hi": -0.0035374999999999946,
+          "n": 200,
+          "contrast": "rho-lower"
+        },
+        "surprise": {
+          "mean": -0.015475000000000011,
+          "lo": -0.04822499999999998,
+          "hi": 0.016675000000000002,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": -0.0123,
+          "lo": -0.046750000000000014,
+          "hi": 0.020325000000000006,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "drift",
+      "level": 0,
+      "label": "0",
+      "value": 0,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": "null-with-sensitivity"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "drift",
+      "level": 1,
+      "label": "below",
+      "value": 0.001173,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": -0.0011499999999999987,
+          "lo": -0.007437499999999999,
+          "hi": 0.005187500000000003,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": -0.0035624999999999997,
+          "lo": -0.013724999999999996,
+          "hi": 0.006162500000000002,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.004049999999999998,
+          "lo": -0.013212499999999999,
+          "hi": 0.005625,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": -0.002075,
+          "lo": -0.011775000000000002,
+          "hi": 0.007100000000000002,
+          "n": 200,
+          "class": "null-with-sensitivity"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": -0.002075,
+          "lo": -0.0119875,
+          "hi": 0.007675000000000003,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": -0.0009249999999999981,
+          "lo": -0.01295,
+          "hi": 0.010399999999999996,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": 0.0014874999999999975,
+          "lo": -0.012562500000000002,
+          "hi": 0.015062500000000001,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0.0019749999999999993,
+          "lo": -0.012262500000000003,
+          "hi": 0.016324999999999996,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "drift",
+      "level": 2,
+      "label": "at",
+      "value": 0.01877,
+      "primary": true,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": -0.005900000000000001,
+          "lo": -0.022137500000000004,
+          "hi": 0.009900000000000003,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": -0.0030625,
+          "lo": -0.02497500000000001,
+          "hi": 0.018425000000000004,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.002274999999999999,
+          "lo": -0.020237500000000005,
+          "hi": 0.016325,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": -0.01925,
+          "lo": -0.04079999999999997,
+          "hi": 0.0028500000000000027,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": -0.01925,
+          "lo": -0.043775,
+          "hi": 0.003287500000000001,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": -0.013349999999999999,
+          "lo": -0.04086249999999999,
+          "hi": 0.013249999999999993,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": -0.0161875,
+          "lo": -0.04942499999999999,
+          "hi": 0.014437500000000002,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": -0.016974999999999997,
+          "lo": -0.04759999999999998,
+          "hi": 0.014262499999999994,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "drift",
+      "level": 3,
+      "label": "above",
+      "value": 0.3003,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": 0.006325000000000001,
+          "lo": -0.0090125,
+          "hi": 0.0212125,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0.010725000000000007,
+          "lo": -0.012625000000000003,
+          "hi": 0.03451249999999998,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.0038124999999999977,
+          "lo": -0.026112499999999997,
+          "hi": 0.019162499999999996,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": -0.006912500000000005,
+          "lo": -0.029025,
+          "hi": 0.01606250000000002,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": -0.006912500000000005,
+          "lo": -0.030225000000000016,
+          "hi": 0.016037499999999996,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": -0.013237500000000003,
+          "lo": -0.038724999999999996,
+          "hi": 0.013837500000000008,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": -0.017637499999999997,
+          "lo": -0.048900000000000034,
+          "hi": 0.016399999999999998,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": -0.003099999999999995,
+          "lo": -0.03342499999999998,
+          "hi": 0.027650000000000022,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "forget",
+      "level": 0,
+      "label": "0",
+      "value": 0,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": "null-with-sensitivity"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "forget",
+      "level": 1,
+      "label": "slow",
+      "value": 0.003246809718565169,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": -0.012924999999999989,
+          "lo": -0.029687499999999995,
+          "hi": 0.004250000000000003,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": 0.011037500000000002,
+          "lo": -0.011774999999999997,
+          "hi": 0.03574999999999997,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.008875000000000008,
+          "lo": -0.028224999999999997,
+          "hi": 0.010712499999999998,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": 0.0026999999999999967,
+          "lo": -0.018787500000000002,
+          "hi": 0.0228125,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": 0.0026999999999999967,
+          "lo": -0.018199999999999997,
+          "hi": 0.023512499999999995,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": 0.015624999999999998,
+          "lo": -0.011275000000000004,
+          "hi": 0.04096250000000001,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": -0.008337499999999996,
+          "lo": -0.040650000000000006,
+          "hi": 0.0219125,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0.011574999999999992,
+          "lo": -0.0156625,
+          "hi": 0.039562500000000035,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "forget",
+      "level": 2,
+      "label": "at",
+      "value": 0.012924125031568812,
+      "primary": true,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": -0.019587499999999997,
+          "lo": -0.0369625,
+          "hi": -0.002037500000000006,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": -0.024150000000000005,
+          "lo": -0.05045,
+          "hi": 0.004399999999999996,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.001574999999999997,
+          "lo": -0.025237499999999996,
+          "hi": 0.02273750000000001,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": 0.004974999999999997,
+          "lo": -0.019399999999999997,
+          "hi": 0.028237499999999985,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": 0.004974999999999997,
+          "lo": -0.01817500000000001,
+          "hi": 0.028224999999999993,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": 0.024562499999999994,
+          "lo": -0.005812499999999994,
+          "hi": 0.0550375,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": 0.029124999999999998,
+          "lo": -0.006362500000000005,
+          "hi": 0.06491249999999998,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0.006549999999999996,
+          "lo": -0.023375000000000007,
+          "hi": 0.03771249999999998,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    },
+    {
+      "axis": "forget",
+      "level": 3,
+      "label": "fast",
+      "value": 0.025681217055306127,
+      "primary": false,
+      "confounded": false,
+      "explorers": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 200,
+          "class": null
+        },
+        "count": {
+          "mean": -0.017275,
+          "lo": -0.03471249999999998,
+          "hi": -0.0011625000000000012,
+          "n": 200,
+          "class": null
+        },
+        "surprise": {
+          "mean": -0.032012500000000006,
+          "lo": -0.059700000000000024,
+          "hi": -0.003875,
+          "n": 200,
+          "class": null
+        },
+        "rnd": {
+          "mean": -0.01119999999999999,
+          "lo": -0.033574999999999994,
+          "hi": 0.012550000000000006,
+          "n": 200,
+          "class": null
+        },
+        "rho": {
+          "mean": 0.0017999999999999982,
+          "lo": -0.023850000000000007,
+          "hi": 0.0253,
+          "n": 200,
+          "class": "inconclusive"
+        }
+      },
+      "baselines": {
+        "random": {
+          "mean": 0.0017999999999999982,
+          "lo": -0.023750000000000014,
+          "hi": 0.02696249999999999,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "count": {
+          "mean": 0.019074999999999995,
+          "lo": -0.008450000000000013,
+          "hi": 0.04801249999999996,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "surprise": {
+          "mean": 0.033812499999999954,
+          "lo": -0.00021250000000000408,
+          "hi": 0.07001249999999998,
+          "n": 200,
+          "contrast": "no-difference"
+        },
+        "rnd": {
+          "mean": 0.013000000000000003,
+          "lo": -0.020374999999999997,
+          "hi": 0.04929999999999998,
+          "n": 200,
+          "contrast": "no-difference"
+        }
+      }
+    }
+  ],
+  "positive": {
+    "dose": 0.0085,
+    "explorers": {
+      "random": {
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "n": 200,
+        "class": null
+      },
+      "count": {
+        "mean": -0.005237499999999998,
+        "lo": -0.02048750000000001,
+        "hi": 0.009475000000000013,
+        "n": 200,
+        "class": null
+      },
+      "surprise": {
+        "mean": 0.04396250000000002,
+        "lo": 0.024575000000000003,
+        "hi": 0.06417500000000001,
+        "n": 200,
+        "class": null
+      },
+      "rnd": {
+        "mean": 0.03923750000000001,
+        "lo": 0.021175000000000003,
+        "hi": 0.05967499999999998,
+        "n": 200,
+        "class": null
+      },
+      "rho": {
+        "mean": 0.036025000000000015,
+        "lo": 0.016700000000000007,
+        "hi": 0.055175000000000016,
+        "n": 200,
+        "class": "attracted"
+      }
+    },
+    "baselines": {
+      "random": {
+        "mean": 0.036025000000000015,
+        "lo": 0.016649999999999995,
+        "hi": 0.05436249999999999,
+        "n": 200,
+        "contrast": "rho-higher"
+      },
+      "count": {
+        "mean": 0.041262500000000014,
+        "lo": 0.016662500000000014,
+        "hi": 0.06726249999999999,
+        "n": 200,
+        "contrast": "rho-higher"
+      },
+      "surprise": {
+        "mean": -0.0079375,
+        "lo": -0.035662500000000014,
+        "hi": 0.020412499999999997,
+        "n": 200,
+        "contrast": "no-difference"
+      },
+      "rnd": {
+        "mean": -0.003212500000000002,
+        "lo": -0.030449999999999994,
+        "hi": 0.024050000000000012,
+        "n": 200,
+        "contrast": "no-difference"
+      }
+    }
+  }
+}
