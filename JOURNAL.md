@@ -1,5 +1,101 @@
 # Journal
 
+## 2026-11-03 relearn (UTC)
+
+Written before `npm run relearn`. No slope, arrival, or doorway number from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The negate entry's next hypothesis is the action-conditional score at a doorway into the east room, erased brain versus mastered brain. That score is this run. The last nine runs did not move the noise-preference null, and this run does not cut it again. Drift, dose, and the east-bit split stay closed. No occupancy episode is run. A period of 594 steps cannot cycle if the score that would feed it does not prefer the erased room, and that preference is the measurement. `negateReplay` stays off. The ema is not pinned to the learned probe. The half bar is not lowered. No curiosity term is added. `cellHidden` omitted stays 32. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+The return in that entry pays less after negation than after holding the mastered brain, raw −0.0254 [−0.0260, −0.0247], while the 20-step probe drop is larger, 0.0374 [0.0362, 0.0386]. Those two facts are the published curve. They do not say whether relearning is a smaller derivative than original learning, and they do not say whether the policy score, as opposed to the raw progress, prefers the room. A lagging ema of a falling surprise is positive. Negative progress while surprise is falling is a level: the true room arrived above the baseline the negated targets wrote. A smaller positive slope would still pay if the baseline tracked it. The slope and the sign are different claims.
+
+### Preregister relearn
+
+Hypothesis. On the shipped 32-unit net, the first 80 true steps after the negated-target erasure have a 20-step probe drop smaller than the first 20 steps of original learning. Online surprise on that return still falls, and it arrives above the ema, so mean raw progress lies entirely below 0. The same estimator on the first 80 steps of original learning lies entirely above 0. At the west lip of the door, realized squared error prefers the erased room over the mastered room. Rho's policy score, the shipped surprise signal, and RND do not. Count is the matched zero. The predicted summary is `level`.
+
+The shipped surprise signal is the Bernoulli residual p(1−p) of the imagined window, a confidence, not the squared error against the true next window. The realized error is that squared error, wall and food only. It is not a signal and it is not a Loop flag. The off path, which is the default agent, does not compute it.
+
+World. The cycle world, the same one as the negation curve. Layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, drift 0, no food, no mirror. West is the stripe pattern. East is the block pattern, latent 256. Width 32 only. The weight stream is `seed * 10007 + 9201`. Learn region 1 for 200 steps at learning rate 4, targets true, stream `seed ^ 0x51c0`. The first 80 of those steps are the original-learning bout. The remaining 120 finish the published learn. The held arm restores that brain and takes 80 true east steps, stream `seed ^ 0x66c1`. The negation arm restores the same brain and trains region 1 for 400 steps on stream `seed ^ 0x71a0` with the open-cell glow flipped, then takes the same 80 true steps. The probe is region 1, 24 states, probe seed 20261018, wall and food. Age stays 0. The continuation arm is not run. It already cleared the ablation.
+
+Checksums, seeds 1–200, means within 1e-9. Learn drop matches `PUBLISHED_LEARN` = 0.1557825436083189. Negation overwrite matches 0.08763105034106822. Raw progress matches 0.005807579870458458 on the held return and −0.01954583792599607 on the erased return. The 20-step probe drop matches 0.000993185790499048 held and 0.038415340640057 erased. Idle absence must not move the probe. A seed with `|held − learn|` above 1e-9 aborts. Seed 1 matches the published row: learn drop 0.1575989905941843, overwrite 0.10552288499697605, raw held 0.005103453659792783, raw erased −0.019637824964059934, drop held 0.0013868295966233263, drop erased 0.05316073884019307. A miss aborts. These numbers are the previous curve. They are not this claim.
+
+Door. The cell is (9, 7), `dividerX(15)` and `doorY(15)`. It is region 0. East lands in region 1. The other four actions do not. The gap is the mean of the action into region 1 minus the mean of the other four. It is read on the mastered brain, before the held bout, and on the erased brain, before the true return. Scoring does not learn and does not draw the policy RNG. The brain is restored before each bout. Temperature is omitted, so the sampler stays 0.45. The score does not use it.
+
+Rho's call is the full logit. That is the policy score, and it is where the progress ema enters. Count, surprise, and RND are the unmixed action bonuses: 1/√(n+1), the Bernoulli residual, and the RND predictor error. The logit multiplies every signal by the imagined residual, so a logit gap on those three is not the signal.
+
+Count and RND. Both train on the true input window of each of the 200 learn steps. The 400 negated steps do not train them. Both doorway scores restore that snapshot, so the visit counts and the RND predictor are the mastered ones on both arms. The world model is the only difference. Count's gap must be exactly 0. A nonzero gap aborts. RND's bonus is the predictor error of the imagined window, the shipped RND term.
+
+Quantities. A seed's bout number is the mean over the 80 steps, except the 20-step probe drop and the arrival. Arrival is surprise minus the ema on the first step, read before the ema updates. Fall is surprise after step 1 minus surprise after step 80. Positive fall means surprise came down. Progress is ema minus surprise, the shipped update. Raw is the mean. Rectified is reported and is not the call.
+
+Calls, paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the call. Confirmed when the interval lies entirely above 0. Refuted when it lies entirely below 0. Otherwise inconclusive.
+
+- Slope, erased 20-step drop minus original 20-step drop, salt 39001. The prediction is refuted: relearning is smaller per step.
+- Origin, raw progress on the original bout, salt 39002. Predicted confirmed.
+- Drop, 20-step probe drop on the erased return, salt 39003. Predicted confirmed.
+- Fall, surprise fall on the erased return, salt 39004. Predicted confirmed.
+- Arrival, surprise minus ema on the first erased step, salt 39005. Predicted confirmed.
+- Progress, raw progress on the erased return, salt 39006. Predicted refuted.
+- Held, raw progress erased minus held, salt 39007. Predicted refuted. This is the published gap.
+- Raw door, realized-error doorway, erased minus mastered, salt 39008. Predicted confirmed.
+- Rho door, salt 39009. Predicted not confirmed.
+- Surprise door, salt 39010. Predicted not confirmed.
+- RND door, salt 39011. Predicted not confirmed.
+- Count door, salt 39012. The harness, not a call.
+
+Summary, `relearnSummary`, first match. `unreproduced` when the held gap is not refuted. `no-origin` when original progress is not confirmed. `no-drop` when the erased probe drop is not confirmed. `not-falling` when surprise does not fall. `no-arrival` when the first step is not above the ema. `paid` when erased raw progress is not refuted. `hidden` when realized error does not prefer the erased room. `shared` when rho and surprise both prefer it. `policy` when rho prefers it. `immune` when surprise prefers it and rho does not. `rnd` when RND prefers it. `level` when the slope is smaller. `level-fast` when the slope is larger. `level-open` when the slope includes 0. The rho pieces, the fraction of positive steps, and the progress ema are reported and do not flip it.
+
+Verdict, `relearnVerdict`. Confirmed when the summary is `level`, `level-fast`, or `level-open`. The slope subclass does not flip the headline. Refuted when the summary is `paid`, `shared`, `policy`, `immune`, or `rnd`. Otherwise inconclusive. The slope's own verdict is confirmed when the slope call is refuted, refuted when the slope call is confirmed, and inconclusive when the interval includes 0.
+
+`scoreActions` and `actionTrueError` are measurement methods. The step path does not call them. They draw no policy random number and they do not enter the bonus. No probe gate is required to keep a default, because the default does not change. Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the negation learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the half bar, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. Confirmed: relearning pays negative progress while the probe and the surprise fall, and the shipped scores miss a room the realized error sees. The slope line says whether that relearning was also smaller per step than the original. Refuted: progress pays, or rho, the confidence signal, or RND prefers the erased room. Inconclusive: the published return is not reproduced, original learning does not pay, the probe or the surprise does not fall, the arrival is not above the ema, or the realized error does not prefer the room. A confirmed headline is not a license to turn `negateReplay` on, and it is not a license to run the occupancy episode in this run.
+
+Figure: `bench/relearn/relearn-gap.png`. The left panel is the 20-step probe drop for original learning, the mastered return, and the erased return. The right panel is the doorway gap, erased minus mastered, for realized error, rho, surprise, RND, and count. Zero is the dark line. Source: `bench/relearn/relearn.json`. Table: `bench/relearn/relearn.csv`. The sweep is `npm run relearn`. It is not part of CI.
+
+### Results
+
+The prediction is confirmed. The summary is `level`. Relearning after the erasure is a smaller 20-step probe drop than original learning, and raw progress on that return is negative while the probe and the online surprise both fall. Realized error at the door prefers the erased room. Rho's logit does not, and neither do the confidence bonus, RND, or count. No occupancy episode was run. No term was added. `negateReplay` stays off.
+
+200 curve episodes, 4 workers, 3.5 seconds. Source: `bench/relearn/relearn.json`. The learn drop, the negation overwrite, the held and erased raw returns, and both 20-step drops match the published negation curve within 1e-9. Idle absence does not move the probe. Count's unmixed doorway gap is 0 on every seed. The harness does not fail.
+
+#### Summary. Confirmed.
+
+`relearnSummary` is `level`. `relearnVerdict` is confirmed. The slope verdict is confirmed: the 20-step drop is smaller, and that call is refuted on erased minus original, which is the predicted direction.
+
+The slope is erased minus original. Arrival is surprise minus the ema on the first step. Fall is the drop in online surprise over the 80 steps. Progress is the raw mean, ema minus surprise. A door gap is erased minus mastered. n = 200 on every row.
+
+| call | estimate | result |
+|---|---|---|
+| slope, 20-step drop | −0.0848 [−0.0863, −0.0832] | smaller |
+| original raw progress | 0.0649 [0.0646, 0.0651] | pays |
+| erased 20-step drop | 0.0384 [0.0371, 0.0396] | falls |
+| erased surprise fall | 0.0649 [0.0551, 0.0748] | falls |
+| erased arrival | 0.0925 [0.0838, 0.1014] | above the ema |
+| erased raw progress | −0.0195 [−0.0201, −0.0190] | negative |
+| erased minus held, raw | −0.0254 [−0.0260, −0.0247] | the published gap |
+| realized-error door | 0.0787 [0.0758, 0.0817] | prefers the room |
+| rho logit | −0.0035 [−0.0095, 0.0032] | includes 0 |
+| surprise bonus | −0.0026 [−0.0042, −0.0010] | prefers it less |
+| RND bonus | −0.0020 [−0.0035, −0.0006] | prefers it less |
+| count bonus | 0 | matched |
+
+The first 20 steps from the prior drop the probe by 0.1232 [0.1222, 0.1242]. The mastered return drops it by 0.0010 [0.0004, 0.0015]. The erased return drops it by 0.0384. Relearning moves the probe, and it moves less than original learning. The slope interval lies entirely below 0.
+
+The smaller slope does not explain a negative return. Online surprise on the erased return falls by 0.0649, and the probe falls, and the raw mean is still −0.0195. The first true step arrives 0.0925 above the ema. That ema is 0.0869 [0.0862, 0.0875], down from the prior 0.2500, because the 400 negated steps trained the baseline on the wrong glow. Surprise on the true room starts at 0.1794 [0.1710, 0.1880]. A lag of a falling surprise is positive only when surprise starts under the baseline. Original learning does: raw progress 0.0649, surprise falls 0.1517 [0.1475, 0.1560], and 0.9639 [0.9613, 0.9664] of the steps are positive. The erased return has 0.3941 [0.3881, 0.4001] of its steps positive. Rectified progress stays positive, 0.0107 [0.0105, 0.0110], under the mastered return's 0.0194 [0.0191, 0.0196] and under original learning's 0.0653 [0.0651, 0.0655]. The raw mean is the call, and it lies entirely below 0. The held gap reproduces the published −0.0254.
+
+At the door, before any true-target step, realized squared error prefers the erased room by 0.0787. Rho's logit is −0.0035 and the interval includes 0. The confidence bonus prefers the room less, and so does RND's error on the imagined window. Count is the same bonus on both arms. The progress ema at that door is still positive on both brains, 0.0113 [0.0106, 0.0120] mastered and 0.0028 [0.0020, 0.0036] erased, because it was written while the negated targets were being fit. The paired gap is −0.0085 [−0.0095, −0.0074]. The global piece of the logit is 0.00017 [0.00003, 0.00031]. The uncertainty piece is −0.00084 [−0.00133, −0.00032]. Neither one carries the sum across zero. The policy does not seek the room the realized error sees. After entry, raw progress pays the wrong sign, so the return does not reinforce staying. The period-594 episode was not run.
+
+Figure: `bench/relearn/relearn-gap.png`. The learn bar is the tall one. The erased bar is about a third of it. The held bar sits on zero. On the right, realized error is the only bar above zero. Rho crosses zero. Surprise and RND sit below it. Count is the line.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on. `scoreActions` and `actionTrueError` are not on the step path.
+
+Five-seed bench, seeds 1–5, sha `bc28a23`, run after the doorway methods were added and before the sweep. The default row matches the negation learner. The means match the previous default row exactly. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. The doorway methods are not defaults, so the probe gate is not required to keep one. The score path is the shipped score: the five-seed row matches.
+
+### Next hypothesis
+
+Do not run the period-594 occupancy episode, do not pin the ema, and do not turn `negateReplay` on. The doorway logit does not prefer the erased room, −0.0035 [−0.0095, 0.0032], so that episode is not fed. Do not add a realized-error bonus. It would be a new term, it would have to beat its own absence on the probe, and this result does not license one. The phase-diagram cell for negated-target forgetting, at the current score, is that rho, confidence, RND, and count do not seek a room whose realized squared error rose by 0.0787 [0.0758, 0.0817]. The raw return is negative because surprise arrives above the ema the wrong targets wrote, not because the probe stopped falling. Drift, dose, and the east-bit split stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-03 negate (UTC)
 
 Written before `npm run negate`. No erasure, return-progress, or amplitude number from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

@@ -593,7 +593,41 @@ export class Kernel {
     const next = new Float32Array(OBS);
     senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow);
     const flipped = negate ? flipOpenGlow(next, body.cells, body.x, body.y) : 0;
-    return { obs, action, next, flipped };
+    return { obs, action, next, flipped, index };
+  }
+
+  /**
+   * Realized squared error of one imagined action against the true next
+   * window. Wall and food only, the same channels as the probe. The step
+   * is simulated on a copy. Does not learn and does not draw the policy RNG.
+   * The step path does not call it.
+   */
+  actionTrueError(action: number): number {
+    if (!this.family) return 0;
+    const obs = this.sense();
+    const into = new Float32Array(OBS);
+    this.loop.imagine(this.encode(obs, action, true), into);
+    const body: GridBody = {
+      cells: this.cells.slice(),
+      scent: this.scent.slice(),
+      x: this.x,
+      y: this.y,
+      energy: this.energy,
+      pulseClock: 0,
+    };
+    const family = cloneFamily(this.family);
+    stepGrid(body, this.worldKind, action, SIZE, mulberry32(0), this.envParams, family);
+    const next = new Float32Array(OBS);
+    senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
+    let s = 0;
+    let n = 0;
+    for (let i = 0; i < OBS; i++) {
+      if (i % CH === 2) continue;
+      const d = into[i]! - next[i]!;
+      s += d * d;
+      n += 1;
+    }
+    return n ? s / n : 0;
   }
 
   /**
@@ -954,6 +988,24 @@ export class Kernel {
     return action;
   }
 
+  /**
+   * Fill `scores` for `signal` at the current cell. Measurement only.
+   * Does not learn, does not sample, and does not draw the policy RNG.
+   * Does not revise temperature or curiosity. The step path does not call it.
+   */
+  scoreActions(signal: CuriositySignal): Float32Array {
+    const obs = this.sense();
+    if (signal === "random") {
+      this.scores.fill(0);
+      this.zeroScoreParts();
+      this.zeroRhoHatParts();
+      this.zeroRhoDrop();
+      return this.scores;
+    }
+    this.fillScores(signal, obs);
+    return this.scores;
+  }
+
   private choose(obs: Float32Array): number {
     this.followReady = false;
     if (this.signal === "random") {
@@ -966,14 +1018,27 @@ export class Kernel {
       this.edge = edgeIndex(1);
       return (this.rand() * ACTS) | 0;
     }
+    this.fillScores(this.signal, obs);
+    if (this.features.rollout) this.followReady = true;
+    let temp = this.loop.policyTemperature(this.params.temperature);
+    if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
+    this.policyEntropy = entropyNorm(this.scores, temp);
+    this.branching = branching(this.scores);
+    this.edge = edgeIndex(this.policyEntropy);
+    this.loop.reviseEdge(this.branching);
+    return softmaxSample(this.scores, temp, this.rand);
+  }
+
+  /** The imagination inside `choose`, for one signal, with no sample. */
+  private fillScores(signal: CuriositySignal, obs: Float32Array) {
     const hunger = Math.max(0, 1 - this.energy / 100);
     const view = this.signalView();
     imagineScores({
       acts: ACTS,
       curiosity: this.loop.curiosityWeight(this.params.curiosity),
       goal: this.params.goal,
-      progressEma: signalProgressEma(this.signal, view),
-      horizonRho: this.signal === "rho" && this.scoreHorizonDrop,
+      progressEma: signalProgressEma(signal, view),
+      horizonRho: signal === "rho" && this.scoreHorizonDrop,
       uncertainty: this.scoreUncertainty,
       ema: this.loop.ema,
       imagined: this.imagined,
@@ -1027,7 +1092,7 @@ export class Kernel {
           novelty: (1 - destScent) * scentW,
         };
       },
-      progressBonus: (a, pred) => signalActionBonus(this.signal, view, a, pred),
+      progressBonus: (a, pred) => signalActionBonus(signal, view, a, pred),
       progExtra:
         this.intrinsicBoost || this.periodicBoost
           ? (a) => this.progressExtra(view.destGrid, a)
@@ -1037,14 +1102,6 @@ export class Kernel {
       hatParts: this.rhoHatParts ?? undefined,
       hatTrace: this.rhoDrop ?? undefined,
     });
-    if (this.features.rollout) this.followReady = true;
-    let temp = this.loop.policyTemperature(this.params.temperature);
-    if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
-    this.policyEntropy = entropyNorm(this.scores, temp);
-    this.branching = branching(this.scores);
-    this.edge = edgeIndex(this.policyEntropy);
-    this.loop.reviseEdge(this.branching);
-    return softmaxSample(this.scores, temp, this.rand);
   }
 
   private zeroScoreParts() {
