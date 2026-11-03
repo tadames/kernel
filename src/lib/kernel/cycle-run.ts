@@ -112,7 +112,16 @@ export type EpisodeResult = {
 
 export type CycleJob =
   | { kind: "curve"; id: number; seed: number; lambda?: number }
-  | { kind: "progress"; id: number; seed: number; lambda: number; progressWindow?: number; boutSteps?: number }
+  | {
+      kind: "progress";
+      id: number;
+      seed: number;
+      lambda: number;
+      progressWindow?: number;
+      boutSteps?: number;
+      /** Weight-init stream. Omitted is the historical progress bout. */
+      salt?: number;
+    }
   | {
       kind: "episode";
       id: number;
@@ -263,8 +272,9 @@ export function runProgressBout(
   lambda: number,
   progressWindow?: number,
   boutSteps: number = BOUT_STEPS,
+  salt = 9601,
 ): ProgressResult {
-  return withSeed(seed * 10007 + 9601, () => {
+  return withSeed(seed * 10007 + salt, () => {
     const window = progressWindow ?? SHIPPED_PROGRESS_WINDOW;
     const k = makeKernel(seed, progressWindow != null ? { progressWindow } : undefined);
     const params = cycleSpec().params;
@@ -411,7 +421,9 @@ export function runCycleEpisode(job: Extract<CycleJob, { kind: "episode" }>): Ep
 
 export function runCycleJob(job: CycleJob): CycleResult {
   if (job.kind === "curve") return runForgettingCurve(job.id, job.seed, job.lambda ?? CYCLE_LAMBDA);
-  if (job.kind === "progress") return runProgressBout(job.id, job.seed, job.lambda, job.progressWindow, job.boutSteps);
+  if (job.kind === "progress") {
+    return runProgressBout(job.id, job.seed, job.lambda, job.progressWindow, job.boutSteps, job.salt);
+  }
   return runCycleEpisode(job);
 }
 
