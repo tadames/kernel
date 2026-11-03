@@ -89,6 +89,13 @@ export type KernelOptions = {
    */
   forgettingRate?: number;
   /**
+   * Cell-net hidden width. Omitted is `HIDDEN` (32). A smaller integer is
+   * the capacity measurement: the same learner, with fewer units, so
+   * training one room can overwrite the other. Not a Loop flag. The
+   * default agent does not pass it.
+   */
+  cellHidden?: number;
+  /**
    * Freeze one learnable pattern in the east room. Used to measure the
    * adaptation timescale. The phase sweep leaves this off, so drift 0 stays
    * stationary white noise.
@@ -223,6 +230,8 @@ export class Kernel {
   readonly envParams: EnvParams;
   /** Cell-net weight decay per step. 0 on Field and Rooms. */
   readonly forgettingRate: number;
+  /** Cell-net hidden width. `HIDDEN` unless a measurement passes `cellHidden`. */
+  readonly cellHidden: number;
   /** East-room state. Null on Field, Rooms, and the other static maps. */
   family: FamilyMemory | null = null;
   private readonly patternHold: boolean;
@@ -320,6 +329,11 @@ export class Kernel {
     this.signal = options?.signal ?? "rho";
     this.envParams = options?.env?.params ?? { ...DEFAULT_ENV_PARAMS };
     this.forgettingRate = options?.forgettingRate ?? 0;
+    const hidden = options?.cellHidden ?? HIDDEN;
+    if (!Number.isInteger(hidden) || hidden < 1 || hidden > HIDDEN) {
+      throw new Error(`cellHidden must be an integer from 1 to ${HIDDEN}`);
+    }
+    this.cellHidden = hidden;
     this.patternHold = options?.patternHold ?? false;
     this.fixedLayout = options?.env ? options.env.layoutSeed : (options?.layoutSeed ?? null);
     if (options?.progressWindow != null && !(options.progressWindow > 0)) {
@@ -352,7 +366,7 @@ export class Kernel {
     }
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
-    this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
+    this.loop = new Loop(IN, this.cellHidden, OUT, ACTS, this.features);
     if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
     if (options?.policyTemperature != null) {
       this.params = { ...this.params, temperature: options.policyTemperature };
@@ -577,7 +591,7 @@ export class Kernel {
   }
 
   resetBrain() {
-    this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
+    this.loop = new Loop(IN, this.cellHidden, OUT, ACTS, this.features);
     if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
     this.loop.commit(this.encode(this.sense()));
     if (this.features.transition) this.loop.prevInput = null;
