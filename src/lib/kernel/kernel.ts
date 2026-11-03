@@ -170,6 +170,13 @@ export type KernelOptions = {
    * not draw a random number and does not enter the bonus.
    */
   traceDrop?: boolean;
+  /**
+   * While the body is in region 0, take one extra cell step on an east-room
+   * transition whose open-cell glow targets are negated. Surprise stays on
+   * the true observation. The stream is not the policy RNG. Omitted is off.
+   * Not a Loop feature flag. The default agent does not pass it.
+   */
+  negateReplay?: boolean;
 };
 
 /**
@@ -183,6 +190,38 @@ export function periodicBoostOn(age: number, period: number, offset = 0) {
   let shifted = age - offset;
   shifted = ((shifted % cycle) + cycle) % cycle;
   return Math.floor(shifted / half) % 2 === 0;
+}
+
+/**
+ * Wall-channel taps whose world cell is open. True walls, food, and
+ * out-of-bounds stay 0. The stride is `CH`: wall, food, scent.
+ */
+export function openGlowMask(cells: Uint8Array, x: number, y: number, size = SIZE, radius = R) {
+  const mask = new Uint8Array((radius * 2 + 1) * (radius * 2 + 1) * CH);
+  let k = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const wx = x + dx;
+      const wy = y + dy;
+      const oob = wx < 0 || wy < 0 || wx >= size || wy >= size;
+      const idx = oob ? -1 : wy * size + wx;
+      mask[k] = !oob && cells[idx] !== 1 && cells[idx] !== 2 ? 1 : 0;
+      k += CH;
+    }
+  }
+  return mask;
+}
+
+/** Flip open-cell glow in the wall channel. Returns how many taps flipped. */
+export function flipOpenGlow(next: Float32Array, cells: Uint8Array, x: number, y: number, size = SIZE, radius = R) {
+  const mask = openGlowMask(cells, x, y, size, radius);
+  let flipped = 0;
+  for (let i = 0; i < next.length; i += CH) {
+    if (!mask[i]) continue;
+    next[i] = 1 - next[i]!;
+    flipped += 1;
+  }
+  return flipped;
 }
 
 export type Thought = { t: number; text: string };
@@ -245,6 +284,12 @@ export class Kernel {
   readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
   /** Square-wave place bonus. Null is the shipped policy. */
   readonly periodicBoost: { add: number; region: 0 | 1; period: number; offset: number } | null;
+  /**
+   * Extra negated east step while the body is in the west room.
+   * Off on the default agent. The stream is not the policy RNG.
+   */
+  readonly negateReplay: boolean;
+  private readonly negateRand: (() => number) | null;
   /**
    * Additive split of the last sampled scores. Null unless `traceScores`.
    * A held tick does not refresh it.
@@ -358,6 +403,7 @@ export class Kernel {
     this.periodicBoost = wave
       ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
       : null;
+    this.negateReplay = options?.negateReplay === true;
     this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
     this.rhoHatParts = options?.traceRho ? emptyRhoHatParts(ACTS) : null;
     this.rhoDrop = options?.traceDrop ? emptyRhoDropTrace(ACTS) : null;
@@ -376,6 +422,7 @@ export class Kernel {
     this.visitCounts = new Uint32Array(SIZE * SIZE);
     this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
     this.setWorld(kind, seed);
+    this.negateRand = this.negateReplay ? mulberry32((seed ^ 0x6e26) >>> 0) : null;
     this.applyProgress();
   }
 
@@ -495,6 +542,61 @@ export class Kernel {
   }
 
   /**
+   * One east-room transition with open-cell glow targets negated.
+   * Weights move. Surprise, the ema, and the policy RNG do not.
+   */
+  private replayNegated() {
+    if (!this.negateRand) return;
+    if (this.features.decode) throw new Error("negate replay does not combine with decode");
+    const pair = this.measurePair(1, this.negateRand, true);
+    this.trainWeights(pair.obs, pair.action, pair.next, TRANSITION_LR);
+  }
+
+  /**
+   * Gradient on one pair. Scent is stop-grad, matching `cellTrainTarget`.
+   * Does not score surprise and does not move the ema.
+   */
+  trainWeights(obs: Float32Array, action: number, next: Float32Array, lr: number) {
+    if (this.features.decode) throw new Error("trainWeights does not combine with decode");
+    const input = this.encode(obs, action, false, 100);
+    this.loop.net.forward(input, this.loop.lastPred);
+    const target = this.loop.cellTrainTarget(next);
+    this.loop.net.train(input, target, lr);
+  }
+
+  /**
+   * One transition drawn from a region, simulated on a copy. `negate` flips
+   * open-cell glow in the target only. The episode map does not move.
+   * `rand` is the caller's stream.
+   */
+  measurePair(region: 0 | 1, rand: () => number, negate: boolean) {
+    if (!this.family) throw new Error("measurePair requires a family");
+    const pool = regionCells(this.family, region, this.cells).filter((i) => this.cells[i] !== 1);
+    if (pool.length === 0) throw new Error(`no open cells in region ${region}`);
+    const index = pool[(rand() * pool.length) | 0]!;
+    const x = index % SIZE;
+    const y = (index / SIZE) | 0;
+    const obs = new Float32Array(OBS);
+    const blank = new Float32Array(this.scent.length);
+    senseGrid(this.cells, blank, x, y, SIZE, R, obs, this.family.glow);
+    const action = (rand() * ACTS) | 0;
+    const body: GridBody = {
+      cells: this.cells.slice(),
+      scent: blank.slice(),
+      x,
+      y,
+      energy: 100,
+      pulseClock: 0,
+    };
+    const family = cloneFamily(this.family);
+    stepGrid(body, this.worldKind, action, SIZE, mulberry32((rand() * 0x100000000) >>> 0), this.envParams, family);
+    const next = new Float32Array(OBS);
+    senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow);
+    const flipped = negate ? flipOpenGlow(next, body.cells, body.x, body.y) : 0;
+    return { obs, action, next, flipped };
+  }
+
+  /**
    * Mean squared error of the current weights on `samples` states inside a
    * region. Each sample is simulated on a copy, so the episode does not move.
    * Wall and food channels only, matching the frozen probe.
@@ -530,6 +632,50 @@ export class Kernel {
       senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
       for (let i = 0; i < OBS; i++) {
         if (i % CH === 2) continue;
+        const d = into[i]! - next[i]!;
+        sum += d * d;
+        n += 1;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  /**
+   * Same states as `liveProbeError`, scored only on open-cell glow taps.
+   * The denominator is those taps, not the full window.
+   */
+  glowProbeError(region: 0 | 1, samples = 48, probeSeed = 20261015) {
+    if (!this.family) return 0;
+    const pool = regionCells(this.family, region, this.cells);
+    if (!pool.length) return 0;
+    const rand = mulberry32(probeSeed + region * 17 + this.age);
+    const into = new Float32Array(OBS);
+    const obs = new Float32Array(OBS);
+    let sum = 0;
+    let n = 0;
+    for (let s = 0; s < samples; s++) {
+      const index = pool[(rand() * pool.length) | 0]!;
+      const x = index % SIZE;
+      const y = (index / SIZE) | 0;
+      const action = (rand() * ACTS) | 0;
+      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow, this.glowGain(), this.family.decoy);
+      this.loop.imagine(this.encode(obs, action, false, 100), into);
+      const body: GridBody = {
+        cells: this.cells.slice(),
+        scent: this.scent.slice(),
+        x,
+        y,
+        energy: 100,
+        pulseClock: 0,
+      };
+      const family = cloneFamily(this.family);
+      const stepRand = mulberry32((probeSeed + s * 997 + region * 13) >>> 0);
+      stepGrid(body, this.worldKind, action, SIZE, stepRand, this.envParams, family);
+      const next = new Float32Array(OBS);
+      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
+      const mask = openGlowMask(body.cells, body.x, body.y);
+      for (let i = 0; i < OBS; i += CH) {
+        if (!mask[i]) continue;
         const d = into[i]! - next[i]!;
         sum += d * d;
         n += 1;
@@ -956,6 +1102,7 @@ export class Kernel {
   }
 
   step() {
+    if (this.negateReplay && this.family && this.regionAt() === 0) this.replayNegated();
     const raw = this.sense();
     this.lastObs = raw;
     const obs = this.adaptObs(raw);
