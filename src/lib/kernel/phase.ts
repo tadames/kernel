@@ -2,7 +2,7 @@
  * Phase-profile calls. The rules are the preregistration in JOURNAL.md.
  * A CI that includes zero does not locate a peak and does not confirm a sign.
  */
-import { CYCLE_TAU } from "./cycle.ts";
+import { CYCLE_TAU, MAX_EPISODE, TARGET_CYCLES } from "./cycle.ts";
 import { phasePrefix } from "./period.ts";
 import { mulberry32 } from "./presets.ts";
 import type { Ends } from "./noise.ts";
@@ -622,4 +622,151 @@ export function usablePeak(peakAt: number | null, boutSteps: number) {
 /** Fewer uncensored seeds than a majority blocks that window's peak. */
 export function peakMajority(nSeeds: number, nUncensored: number) {
   return nUncensored * 2 > nSeeds;
+}
+
+/**
+ * Finer window grid around the shipped 50. The interior points 35 and 70
+ * separate a smooth lag from a bump that exists only at 50.
+ */
+export const TRACK_WINDOWS = [25, 35, 50, 70, 100] as const;
+
+/**
+ * Relearning bout for the finer grid. 400 is the away endpoint and is longer
+ * than twice the longest window, so a peak near 2W is not the final sample.
+ */
+export const TRACK_BOUT_STEPS = 400;
+
+/** Complete forgetting cycles in the occupancy episode. Nine was the old episode. */
+export const TRACK_CYCLES = 27;
+
+/**
+ * Template steps smaller than this are predicted flat. The square-wave
+ * contrast runs from −1 to 1, so 0.05 is a small shape change.
+ */
+export const TEMPLATE_FLAT = 0.05;
+
+/**
+ * Longest episode of complete cycles that still fits under `MAX_EPISODE`.
+ * Null when the period cannot hold the historical minimum of eight cycles.
+ */
+export function trackEpisodeSteps(period: number) {
+  if (!Number.isInteger(period) || period < 2) return null;
+  const cap = Math.floor(MAX_EPISODE / period);
+  const cycles = Math.min(TRACK_CYCLES, cap);
+  if (cycles < TARGET_CYCLES) return null;
+  return cycles * period;
+}
+
+/**
+ * First-half minus second-half for a 50% square whose high half starts at
+ * `onset`. The contrast is +1 at onset 0 and −1 at half a period. Past half
+ * a period it rises again, because the high half wraps into the first half.
+ */
+export function squareHalfContrast(onset: number, period: number) {
+  const half = Math.floor(period / 2);
+  if (half < 1 || !(period > 0)) return 0;
+  const o = wrapUnit(onset, period);
+  if (o <= half) return (half - 2 * o) / half;
+  return (2 * o - 3 * half) / half;
+}
+
+/**
+ * Adjacent steps, short to long. Same labels as `scalePrediction`, for a
+ * chain of more than two windows. A censored endpoint blocks the call.
+ */
+export function chainPrediction(moves: readonly MoveCall[], censored: boolean): ScalePrediction {
+  if (censored || moves.length < 2) return "censored";
+  if (moves.every((move) => move === "later")) return "scales";
+  if (moves.every((move) => move === "same")) return "fixed";
+  if (moves.some((move) => move === "sooner")) return "reversed";
+  return "partial";
+}
+
+export type TemplateStep = "matched" | "mismatched" | "unresolved" | "flat";
+
+/**
+ * One adjacent contrast step. `templateDelta` is the longer window's square
+ * template minus the shorter one's. Positive means the half-contrast should
+ * rise (become less negative, or more positive).
+ */
+export function templateStep(templateDelta: number, observed: Ends, flat = TEMPLATE_FLAT): TemplateStep {
+  if (Math.abs(templateDelta) < flat) {
+    if (observed.lo > 0 || observed.hi < 0) return "mismatched";
+    return "flat";
+  }
+  const rise = templateDelta > 0;
+  if (rise ? observed.lo > 0 : observed.hi < 0) return "matched";
+  if (rise ? observed.hi < 0 : observed.lo > 0) return "mismatched";
+  return "unresolved";
+}
+
+export type ContrastTrack = "tracks" | "reversed" | "partial" | "flat";
+
+/** The contrast follows the peak's square template across the window chain. */
+export function contrastTrack(steps: readonly TemplateStep[]): ContrastTrack {
+  if (steps.some((step) => step === "mismatched")) return "reversed";
+  const informative = steps.filter((step) => step !== "flat");
+  if (informative.length === 0) return "flat";
+  if (informative.every((step) => step === "matched")) return "tracks";
+  return "partial";
+}
+
+export type TrackVerdict = "confirmed" | "refuted" | "inconclusive";
+
+export type TrackReason =
+  | "confirmed"
+  | "no-period"
+  | "instrument-blind"
+  | "bout-censored"
+  | "bout-not-scaling"
+  | "onset-not-scaling"
+  | "contrast-not-tracking"
+  | "shared"
+  | "confounded";
+
+/**
+ * Window tracking is confirmed only when the peak, the onset, and the
+ * template-shaped contrast all move, and the pattern is rho's. A blind
+ * instrument or a censored peak does not close the thread. Every other
+ * outcome refutes the window-tracked account, including an onset that is
+ * still too wide to locate.
+ */
+export function trackReason(input: {
+  curveRun: boolean;
+  instrument: "confirmed" | "refuted" | "inconclusive";
+  bout: ScalePrediction;
+  onset: ScalePrediction;
+  contrast: ContrastTrack;
+  specificity: SpecificityCall;
+}): { verdict: TrackVerdict; reason: TrackReason } {
+  if (!input.curveRun) return { verdict: "inconclusive", reason: "no-period" };
+  if (input.instrument !== "confirmed") return { verdict: "inconclusive", reason: "instrument-blind" };
+  if (input.bout === "censored") return { verdict: "inconclusive", reason: "bout-censored" };
+  const tracked = input.bout === "scales" && input.onset === "scales" && input.contrast === "tracks";
+  if (!tracked) {
+    if (input.bout !== "scales") return { verdict: "refuted", reason: "bout-not-scaling" };
+    if (input.onset !== "scales") return { verdict: "refuted", reason: "onset-not-scaling" };
+    return { verdict: "refuted", reason: "contrast-not-tracking" };
+  }
+  if (input.specificity === "confounded") return { verdict: "refuted", reason: "confounded" };
+  if (input.specificity === "shared") return { verdict: "refuted", reason: "shared" };
+  return { verdict: "confirmed", reason: "confirmed" };
+}
+
+/**
+ * Specificity gate. The shipped window is the historical comparison.
+ * A late pattern that repeats on another explorer, or a random sign that
+ * repeats off that window, is not rho's.
+ */
+export function gridSpecificity(input: {
+  shipped: SpecificityCall;
+  /** Windows, other than a single shipped miss, where random's sign is not null. */
+  randomNonNull: number;
+  /** How many windows each other directed explorer is late in. */
+  lateCounts: readonly number[];
+}): SpecificityCall {
+  if (input.shipped === "confounded" || input.randomNonNull >= 2) return "confounded";
+  if (input.shipped === "shared") return "shared";
+  if (input.lateCounts.some((count) => count >= 2)) return "shared";
+  return input.shipped;
 }
