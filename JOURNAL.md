@@ -1,5 +1,92 @@
 # Journal
 
+## 2026-11-04 ceiling (UTC)
+
+Written before `npm run ceiling`. No logit, class, dose band, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The drift-ladder entry's next hypothesis is one rate faster than 0.3003, on the same door, drift minus held. It forbids another pass over the five-rate ladder and forbids more seeds on the contrast of 1/τ against 0.3003. The unmixed progress term at 0.3003 does not fall, so splitting that term is not this run. Noise and the erased room stay closed. No curiosity term is added. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+The adaptation-timescale account said rho's attraction would peak near 1/τ and fail once the room turned over too fast to learn. The ladder left rho a sensitive null at a quarter of 1/τ, attracted from 1/τ through 16×, and the paired gap of 1/τ minus 16× inside (−δ, δ). Sixteen times 1/τ is a pattern that still lasts about three steps. The next factor of four is 64×, which is above 1, and the door refuses a rate at or above 0.95. That geometric step is not a legal cell. The one rate the door can still score, far enough that a remaining attraction closes the account, is one hundredth under that refusal.
+
+### Preregister ceiling
+
+Hypothesis. On the shipped door logit, a matched room that redraws with probability 0.94 does not attract rho. The class is repelled or a sensitive null. Surprise at that same rate is attracted. The predicted summary is `fallen`.
+
+The call is the logit, the same object as the atlas and the ladder. The gap is drift minus held. The 16× cell is the checksum. It is not a new contrast against 1/τ. Ceiling minus 16× is reported and does not flip the summary. The unmixed bonus is reported and is not a call. Realized error is reported and is not a gate.
+
+The progress-channel dose of rho's unmixed bonus is 0.55 times that bonus, the weight already in the score. The interval is that weight times the bonus interval, the same resamples, not a second bootstrap. It is placed on the PR #11 curve. Below 0.0169 is under every directed detection dose. The rho-blind band is under 0.05 and not entirely under 0.0169. At or above 0.05 is the dose where rho's occupancy first cleared. The band does not flip the summary. The dose axis of the figure runs from −0.02 to 0.08. The lines are 0.0169 and 0.05. They are not remeasured.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. `forgettingRate` stays 0. The stream is the atlas stream, `seed * 10007 + 41011`. The train stream is `seed ^ 0x41a6` on both arms of a rate. 400 steps. The two arms of a rate share a weight init. The two rates of a seed share that init. The rate is not in it. Count's unmixed bonus gap is 0 on both rates. Random's logit is 0. A meal or a death aborts. Fewer than 200 seeds aborts. A non-finite door aborts.
+
+Rates, locked, not searched. 0.3003 is the published fast cell. 0.94 is the claim. No rate between them is a cell. Expected pattern lifetime at 0.94 is 1/0.94 steps. The probability a pattern survives one further step is 0.06. The held arm keeps `EAST_HOLD_LATENT` and burns the same coin. The drifting arm redraws it. The rooms match in geometry.
+
+The fast cell must match the published means within 1e-9: rho logit 0.06867696205154061, surprise logit 0.27239973679184915, RND logit 0.04574953872710466, count logit −0.38972927927970885, realized error −0.20304700671425796, rho bonus 0.01940108576051468, surprise bonus 0.07297489142045378, RND bonus −0.005818616191390902. A miss aborts. These numbers are the previous cell. They are not this claim. The fast salts are the published ladder salts, so a matching sample reproduces that cell's intervals. The ceiling salts are new.
+
+δ is the published plant lower end, 0.05422156393527985. It is not remeasured. Sign comes before the null. `phaseCellClass` is the class. `notAttractedCall` is the ceiling call for rho.
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. Confirmed when the interval lies entirely above 0. Refuted when it lies entirely below 0. Otherwise inconclusive.
+
+Calls. Level index is fast 0, ceiling 1, and only for the salts that the fast cell does not already own. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+- Fast logit, bonus, raw, and baseline salts are the published ladder salts for level fast. They do not flip the summary.
+- Ceiling logit uses salt `43000 + explorer`.
+- Ceiling unmixed bonus uses salt `43100 + explorer`. It does not flip a class.
+- Ceiling realized error uses salt `43200`.
+- Ceiling rho logit minus a baseline's logit uses salt `43300 + baseline`. Baseline index stops at RND. It does not flip the summary.
+- Ceiling logit minus the fast logit uses salt `43400 + explorer`. It does not flip the summary.
+- Ceiling rho bonus minus the fast rho bonus uses salt `43600`. It does not flip the summary.
+- Ceiling realized error minus the fast realized error uses salt `43700`. It does not flip the summary.
+- The dose has no salt of its own. It is 0.55 times the rho bonus interval.
+
+Summary, `ceilingSummary`, first match. `plateau` when rho at 0.94 is attracted. `inconclusive` when rho's not-attracted call does not resolve. `fallen` when that call is confirmed and surprise is attracted. `tracked` when that call is confirmed and surprise is repelled or a sensitive null. `inconclusive` when surprise does not resolve.
+
+Verdict, `ceilingVerdict`. Confirmed when the summary is `fallen`. Refuted when it is `plateau` or `tracked`. Otherwise inconclusive.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the rate, δ, the dose lines, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. `fallen`: rho's attraction is gone when a redraw almost never leaves the pattern in place for a second step, and surprise is still attracted. `plateau`: rho is still attracted at 0.94. The adaptation-timescale account of this door is done. An intermediate rate is not licensed. `tracked`: rho leaves and surprise leaves with it, so the miss is not rho's alone. `inconclusive`: the ceiling class does not resolve, or surprise does not resolve once rho has left. A confirmed headline is not a license for a mechanism. No second look with more seeds in this run. No rate between 0.3003 and 0.94 is run.
+
+Figure: `bench/ceiling/ceiling.png`. Columns are the published fast cell and 0.94. Rows are the five explorers. Color is the logit gap and saturates at ±0.30, the ladder's clamp, so a 0.25 surprise gap is the same red as on that figure. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. Rho's class is printed in the cell. Under the grid, rho's progress-channel dose is a bar on an axis from −0.02 to 0.08, with lines at 0.0169 and 0.05. Source: `bench/ceiling/ceiling.json`. Tables: `bench/ceiling/ceiling.csv` and `bench/ceiling/ceiling.md`. The sweep is `npm run ceiling`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the ladder learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is refuted. The summary is `plateau`. Rho's logit at redraw probability 0.94 is attracted, and the whole interval lies above the plant. The paired gap against the published 16× cell is positive. The progress-channel dose of that attraction lies entirely below 0.0169. No term was added.
+
+200 seeds, 4 workers, 6.2 seconds. Source: `bench/ceiling/ceiling.json`. The fast-cell means match the published ladder within 1e-9. Count's unmixed bonus gap is 0 on both rates. Random's logit is 0 on both rates. The harness does not fail.
+
+#### Summary. Refuted.
+
+`ceilingSummary` is plateau. `ceilingVerdict` is refuted. Rho's not-attracted call is refuted, and that match comes before surprise. Surprise is attracted. That class would have been read only if rho had left.
+
+The gap is drift minus held. n = 200 on every row. δ is 0.0542, the published plant. Sign comes before the null. The dose is 0.55 times the unmixed rho bonus. The dose lines are 0.0169 and 0.05, the PR #11 curve.
+
+| rate | realized-error door | rho logit | class | surprise logit | rho dose |
+|---|---|---|---|---|---|
+| 0.3003 | −0.2030 [−0.2058, −0.2003] | 0.0687 [0.0526, 0.0851] | attracted | 0.2724 [0.2510, 0.2943] | 0.0107 [0.0080, 0.0135] |
+| 0.94 | −0.1910 [−0.1938, −0.1882] | 0.0788 [0.0633, 0.0944] | attracted | 0.2983 [0.2786, 0.3185] | 0.0124 [0.0100, 0.0149] |
+
+Rho at 0.94 is 0.0788 [0.0633, 0.0944]. The lower end sits above δ. The class is attracted. Surprise is 0.2983 [0.2786, 0.3185], attracted. Rho minus surprise is −0.2196 [−0.2385, −0.2010]. Rho minus RND is 0.0302 [0.0112, 0.0476]. Count's logit is −0.4250 [−0.4522, −0.3974].
+
+Ceiling minus the published fast cell is 0.0101 [0.0008, 0.0198] for rho's logit. The interval lies entirely above 0 and entirely below δ. The estimate is higher at 0.94 than at 0.3003. The locked rule does not use this contrast for the summary. The class already says the attraction remains, and the contrast says it did not shrink. Surprise's ceiling minus fast is 0.0259 [0.0145, 0.0371], entirely above 0. RND's is 0.0028 [−0.0017, 0.0072] and includes 0. Count's is −0.0353 [−0.0618, −0.0064].
+
+The unmixed rho bonus is 0.0226 [0.0183, 0.0271] at 0.94 and 0.0194 [0.0146, 0.0245] at 0.3003. The paired difference is 0.0032 [0.0012, 0.0052], entirely above 0. The progress term rose with the logit. The progress-channel dose is 0.0124 [0.0100, 0.0149] at 0.94 and 0.0107 [0.0080, 0.0135] at 0.3003. Both lie entirely below 0.0169, and both lie entirely below 0.05. `rhoGapBand` is below-undetectable on both. The door calls the logit attracted. The PR #11 curve places the same bonus under every directed detection dose. The band does not flip the class.
+
+The realized-error door at 0.94 is −0.1910 [−0.1938, −0.1882]. The drifting arm's east action is still the more accurate one. Ceiling minus fast on that door is 0.0120 [0.0095, 0.0143], so the accuracy advantage is smaller than at 0.3003. Rho's logit is larger on the same pair.
+
+A pattern at 0.94 lasts 1/0.94 steps, and the chance it survives one further step is 0.06. The attraction that starts at 1/τ is still there. The progress term that was flat from 1/τ through 16× is higher here, and its dose is still under 0.0169. The measurement does not say which coordinates of a one-step redraw still compress. It does say the bonus moved up.
+
+Figure: `bench/ceiling/ceiling.png`. Both rho cells are red and marked attracted. Surprise is darker on the ceiling cell. Count is blue on both. The dose bars sit between zero and the 0.0169 line, both labeled below 0.0169. The 0.05 line is to their right. Tables: `bench/ceiling/ceiling.csv` and `bench/ceiling/ceiling.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on. The rate is the room's redraw probability. It is not on the step path of the default agent.
+
+Five-seed bench, seeds 1–5, sha `5d32074`, run before the sweep. The default row matches the ladder learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. No kernel mechanism file changed, so the probe gate is not required. The score path is the shipped score: the five-seed row matches, and the 16× door matches the published means.
+
+### Next hypothesis
+
+Do not add a rate between 0.3003 and 0.94, and do not add a rate at or above 0.95. Rho at 0.94 is attracted, 0.0788 [0.0633, 0.0944], and ceiling minus 0.3003 is 0.0101 [0.0008, 0.0198]. The falloff is not on this door. Do not split the progress term. The bonus rose, 0.0032 [0.0012, 0.0052]. Do not run an occupancy episode from this gap. The progress-channel dose is 0.0124 [0.0100, 0.0149], entirely below 0.0169, so the PR #11 curve does not feed one. Noise and the erased room stay closed. The adaptation-timescale account of this door is done. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-04 drift ladder (UTC)
 
 Written before `npm run rate`. No logit, class, or peak from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
