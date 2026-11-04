@@ -1,5 +1,96 @@
 # Journal
 
+## 2026-11-04 drift ladder (UTC)
+
+Written before `npm run rate`. No logit, class, or peak from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The door-phase entry's next hypothesis forbids another cut of stationary noise and of the erased room. It does not license a split of the progress term, and it does not license a new curiosity term. The refutation it records is one cell: at drift 0.01877, rho's door logit is attracted, 0.0615 [0.0431, 0.0790], while surprise is attracted more, 0.2499 [0.2266, 0.2739]. The fast rate was not run on that door. The occupancy ladder and the walking doorway, both from before this instrument, are not this measurement. They stay closed. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed. No term is added.
+
+The question this map left open is whether that attraction is the adaptation timescale. Learning progress should be largest when the room turns over near τ and should fail when the turnover is much faster, where the pattern is not learnable on the adaptation window and raw surprise keeps growing. One cell cannot show a peak or a falloff.
+
+### Preregister rate
+
+Hypothesis. On the shipped door logit, rho's attraction to a matched drifting room peaks at the adaptation rate and is gone at 16× that rate, where surprise is still attracted. The peak is rho at 1/τ minus rho at 16× below, and rho at 1/τ minus rho at 16× above. Both lie entirely above 0. The fast rate does not attract rho. Surprise at the fast rate is attracted. The predicted summary is `banded`.
+
+The call is the logit, the same object as the atlas. The gap is drift minus held. The 4× rates are on the ladder so the figure can say where a sign changes. They do not flip the summary. The rise of surprise, of RND, and of count from 1/τ to the fast rate is reported and does not flip the summary. The unmixed bonus is reported and is not a call. Realized error is reported and is not a gate.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. `forgettingRate` stays 0. The stream is the atlas stream, `seed * 10007 + 41011`. The train stream is `seed ^ 0x41a6` on both arms. 400 steps. The two arms of a rate share a weight init. The rate is not in that init. Count's unmixed bonus gap is 0 on every rate. Random's logit is 0. A meal or a death aborts. Fewer than 200 seeds aborts.
+
+Rates, locked, not searched. The nonzero cells of `driftRatesFromTau` at τ = 53.28471423768756. Zero is the closed noise room and is not a cell.
+
+| level | factor | rate |
+|---|---|---|
+| slow | 1/16 | 0.001173 |
+| below | 1/4 | 0.004692 |
+| at | 1 | 0.01877 |
+| above | 4 | 0.07507 |
+| fast | 16 | 0.3003 |
+
+The `at` cell is the published atlas drift cell. A runner that does not get these five rates throws before any seed. The means must match within 1e-9: rho logit 0.061450635716319084, surprise logit 0.24986666545271874, RND logit 0.03987037252634764, count logit −0.33158675611019134, realized error −0.1660314184533794, rho bonus 0.01840890091524244, surprise bonus 0.06833567010238767, RND bonus −0.006656389080453664. A miss aborts. These numbers are the previous cell. They are not this claim.
+
+δ is the published plant lower end, 0.05422156393527985. It is not remeasured. Sign comes before the null. `phaseCellClass` is the class. `notAttractedCall` is the fast-rate call for rho.
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. Confirmed when the interval lies entirely above 0. Refuted when it lies entirely below 0. Otherwise inconclusive.
+
+Calls. Level index is slow 0, below 1, at 2, above 3, fast 4. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+- Logit gap uses salt `42000 + 10 × level + explorer`.
+- Unmixed bonus uses salt `42100 + 10 × level + explorer`. It does not flip a class.
+- Realized error uses salt `42200 + level`.
+- Rho's logit minus a baseline's logit uses salt `42300 + 10 × level + baseline`. Baseline index stops at RND. It does not flip the summary.
+- Rho at 1/τ minus rho at another level uses salt `42400 + level`. Slow is 42400. Fast is 42404. Slow and fast are the peak. Below and above are not.
+- A baseline's fast logit minus its adaptation-rate logit uses salt `42410 + index`, count 1, surprise 2, RND 3. It does not flip the summary.
+
+Summary, `rateSummary`, first match. `unreproduced` when rho at 1/τ is not attracted. `trough` when both peak calls are refuted. `rising` when the fast peak is refuted. `no-peak` when the slow peak is refuted. `inconclusive` when either peak includes 0. `open` when both peaks are confirmed and the fast rate still attracts rho. `inconclusive` when the fast rate's not-attracted call does not resolve. `banded` when both peaks are confirmed, the fast rate does not attract rho, and surprise at the fast rate is attracted. `tracked` when both peaks are confirmed, the fast rate does not attract rho, and surprise there is repelled or a sensitive null. `inconclusive` when surprise at the fast rate does not resolve.
+
+Verdict, `rateVerdict`. Confirmed when the summary is `banded`. Refuted when it is `trough`, `rising`, `no-peak`, or `tracked`. Otherwise inconclusive.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the rates, δ, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. `banded`: rho's logit peaks at 1/τ against both 16× extremes, the fast room does not attract rho, and it still attracts surprise. `rising`: the fast room pulls rho harder than 1/τ. `no-peak`: the slow room pulls rho harder than 1/τ. `trough`: both extremes pull harder. `tracked`: rho and surprise both leave the fast room. `open`: the peak is real and the fast room still attracts rho, so this ladder does not contain the end of the band. `inconclusive`: a peak interval includes 0, or the fast class does not resolve. A confirmed headline is not a license for a mechanism. No second look with more seeds in this run.
+
+Figure: `bench/rate/rate.png`. Columns are the five rates. Rows are the five explorers. Color is the logit gap and saturates at ±0.30, wider than the atlas clamp of ±0.04, so a 0.25 surprise gap is not the same red as a 0.06 rho gap. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. Rho's class is printed in the cell. The `at` column is the atlas drift cell. Source: `bench/rate/rate.json`. Tables: `bench/rate/rate.csv` and `bench/rate/rate.md`. The sweep is `npm run rate`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the atlas learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is not confirmed and not refuted. The summary is `inconclusive`. Rho's logit at 1/τ lies entirely above the 16×-slower rate, and the fast rate is still attracted. The paired gap between 1/τ and 16× includes 0. No term was added.
+
+200 seeds, 4 workers, 14.7 seconds. Source: `bench/rate/rate.json`. The adaptation-rate means match the published atlas drift cell within 1e-9. Count's unmixed bonus gap is 0 on every rate. Random's logit is 0 on every rate. The harness does not fail.
+
+#### Summary. Inconclusive.
+
+`rateSummary` is inconclusive. `rateVerdict` is inconclusive. The slow peak is confirmed. The fast peak includes 0, and that match comes before the fast-rate class. The fast rate would have been `open` only if the peak had cleared.
+
+The gap is drift minus held. A peak is rho at 1/τ minus rho at that rate. n = 200 on every row. δ is 0.0542, the published plant. Sign comes before the null.
+
+| rate | realized-error door | rho logit | class | surprise logit |
+|---|---|---|---|---|
+| 0.001173 | −0.0484 [−0.0590, −0.0381] | −0.0023 [−0.0135, 0.0086] | null-with-sensitivity | 0.0490 [0.0297, 0.0701] |
+| 0.004692 | −0.1358 [−0.1451, −0.1256] | 0.0062 [−0.0155, 0.0276] | null-with-sensitivity | 0.1414 [0.1132, 0.1713] |
+| 0.01877 | −0.1660 [−0.1722, −0.1599] | 0.0615 [0.0432, 0.0797] | attracted | 0.2499 [0.2257, 0.2744] |
+| 0.07507 | −0.1728 [−0.1771, −0.1685] | 0.0660 [0.0497, 0.0833] | attracted | 0.2620 [0.2399, 0.2837] |
+| 0.3003 | −0.2030 [−0.2058, −0.2003] | 0.0687 [0.0526, 0.0851] | attracted | 0.2724 [0.2510, 0.2943] |
+
+Rho at 1/τ minus rho at 0.001173 is 0.0638 [0.0463, 0.0804]. The same contrast against 0.004692 is 0.0552 [0.0356, 0.0738]. Both lie entirely above 0. The 4× rate is not the peak call. It places the onset: the logit is a sensitive null at a quarter of 1/τ and attracted at 1/τ. Against 0.07507 the contrast is −0.0045 [−0.0176, 0.0078]. Against 0.3003 it is −0.0072 [−0.0216, 0.0056]. Both include 0, and both sit inside (−δ, δ). The point estimates sit slightly above the adaptation rate. The locked rule does not call that a rise and does not call it a fall. The attraction that starts at 1/τ is still there at 16×, and the difference is smaller than the door can separate from zero.
+
+Surprise is attracted at every rate, including both rates where rho is a sensitive null. Rho minus surprise at 0.001173 is −0.0513 [−0.0693, −0.0344]. At 0.3003 it is −0.2037 [−0.2225, −0.1845]. Surprise's fast rate minus its adaptation rate is 0.0225 [0.0046, 0.0405], entirely above 0. Surprise keeps rising after rho has flattened. RND is attracted at every rate. Its rise from 1/τ to 16× is 0.0059 [−0.0015, 0.0137] and includes 0. Rho minus RND is negative on the two nulls, −0.0142 [−0.0255, −0.0032] at 0.001173, and positive once rho is attracted, 0.0229 [0.0038, 0.0418] at 0.3003. Count's logit is repelled at every rate, from −0.0900 [−0.1142, −0.0662] at the slow rate to −0.3897 [−0.4222, −0.3580] at the fast rate. The fast rate minus the adaptation rate for count is −0.0581 [−0.0911, −0.0253].
+
+The unmixed progress bonus is not the call. It is a sensitive reading of the same door. Rho's bonus includes 0 at 0.001173, 0.0005 [−0.0026, 0.0037], and lies entirely above 0 at 0.004692, 0.0061 [0.0005, 0.0116], one cell before the logit does. From 1/τ on it is 0.0184 [0.0135, 0.0233], 0.0189 [0.0139, 0.0238], and 0.0194 [0.0146, 0.0245]. It does not fall at the fast rate. The flat logit is not an uncertainty weight covering a falling progress term. Surprise's bonus rises through the ladder, 0.0158 [0.0115, 0.0207] to 0.0730 [0.0691, 0.0770]. RND's bonus is negative from 0.004692 up. Count's bonus is 0.
+
+The realized-error door is negative at every rate and grows with the rate, from −0.0484 to −0.2030. The drifting arm's east action is the more accurate one on every cell, and the gap widens as the turnover gets faster. Rho's logit does not follow that widening past 1/τ.
+
+Figure: `bench/rate/rate.png`. The slow and below rho cells are pale and marked null. The at, above, and fast rho cells are red and marked attracted. Surprise darkens across the row. Count is blue on every cell. Random is the zero line. Tables: `bench/rate/rate.csv` and `bench/rate/rate.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on. The rate is the room's redraw probability. It is not on the step path of the default agent.
+
+Five-seed bench, seeds 1–5, sha `964e311`, run before the sweep. The default row matches the atlas learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. No kernel mechanism file changed, so the probe gate is not required. The score path is the shipped score: the five-seed row matches, and the adaptation-rate door matches the published atlas means.
+
+### Next hypothesis
+
+Do not add a curiosity term, and do not rerun this ladder. Do not add seeds to the fast contrast. Rho at 1/τ minus rho at 0.3003 is −0.0072 [−0.0216, 0.0056], inside (−δ, δ). The onset is resolved: a sensitive null at 0.004692, attracted at 0.01877, paired difference 0.0552 [0.0356, 0.0738]. The falloff is not on the locked ladder. Surprise is attracted at every rate and rises from 1/τ to 16× by 0.0225 [0.0046, 0.0405]. The unmixed progress term does not fall either, 0.0194 [0.0146, 0.0245] at the fast rate, so splitting it is still not licensed. The one cell that can still show the predicted failure is a single rate faster than 0.3003, on this same door, drift minus held. One locked rate, not a grid. If that cell is still attracted, the adaptation-timescale account of this door is done. Noise and the erased room stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-04 door phase (UTC)
 
 Written before `npm run atlas`. No doorway gap, planted-dose gap, or class from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

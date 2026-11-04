@@ -109,10 +109,11 @@ export function noiseSpec(seed: number, content: "noise" | "static"): EnvSpec {
   });
 }
 
-export function driftSpec(arm: "drift" | "held"): EnvSpec {
+export function driftSpec(arm: "drift" | "held", driftRate = ATLAS_DRIFT): EnvSpec {
+  if (!(driftRate > 0) || driftRate >= 0.95) throw new Error(`drift door rate ${driftRate} is outside the ladder`);
   return distractorSpec({
     learnability: 1,
-    driftRate: ATLAS_DRIFT,
+    driftRate,
     distractorRelevance: 0,
     cycleWorld: true,
     matchedPattern: arm,
@@ -213,33 +214,55 @@ function trainLive(k: Kernel, rand: () => number, steps: number) {
   if (k.foods !== 0 || k.lives !== 0) throw new Error(`atlas content world recorded a meal or a death, foods ${k.foods} lives ${k.lives}`);
 }
 
-function trainPair(seed: number, kind: "noise" | "drift"): AtlasGaps {
-  const randSalt = kind === "noise" ? 0x41a5 : 0x41a6;
-  const left =
-    kind === "noise" ? freshKernel(seed, ATLAS_STREAM, noiseSpec(seed, "noise")) : freshKernel(seed, ATLAS_STREAM, driftSpec("drift"));
-  const right =
-    kind === "noise" ? freshKernel(seed, ATLAS_STREAM, noiseSpec(seed, "static")) : freshKernel(seed, ATLAS_STREAM, driftSpec("held"));
-  if (weightSum(left) !== weightSum(right)) throw new Error(`atlas ${kind} arms did not share a weight init`);
-  if (kind === "noise") {
-    applyNoiseMode(left);
-    applyNoiseMode(right);
-  } else if (left.family?.mode !== "drift" || right.family?.mode !== "hold") {
-    throw new Error(`atlas drift arms are ${left.family?.mode} and ${right.family?.mode}`);
+/**
+ * The atlas drift cell, at any positive rate on the locked ladder.
+ * The omitted rate is 0.01877, and that path is the published cell.
+ * Both arms share the atlas weight stream. The train stream is
+ * `seed ^ 0x41a6` on both arms. The gap is drift minus held.
+ */
+export function runDriftDoor(seed: number, driftRate = ATLAS_DRIFT): AtlasGaps {
+  const left = freshKernel(seed, ATLAS_STREAM, driftSpec("drift", driftRate));
+  const right = freshKernel(seed, ATLAS_STREAM, driftSpec("held", driftRate));
+  if (weightSum(left) !== weightSum(right)) throw new Error("drift door arms did not share a weight init");
+  if (left.family?.mode !== "drift" || right.family?.mode !== "hold") {
+    throw new Error(`drift door arms are ${left.family?.mode} and ${right.family?.mode}`);
   }
-  const randLeft = mulberry32((seed ^ randSalt) >>> 0);
-  const randRight = mulberry32((seed ^ randSalt) >>> 0);
-  if (kind === "noise") {
-    applyFamily(left.cells, left.family!, left.envParams, randLeft);
-    applyFamily(right.cells, right.family!, right.envParams, randRight);
+  if (left.envParams.driftRate !== driftRate || right.envParams.driftRate !== driftRate) {
+    throw new Error(`drift door rate drifted to ${left.envParams.driftRate}`);
   }
+  const randLeft = mulberry32((seed ^ 0x41a6) >>> 0);
+  const randRight = mulberry32((seed ^ 0x41a6) >>> 0);
   trainLive(left, randLeft, ATLAS_CONTENT_STEPS);
   trainLive(right, randRight, ATLAS_CONTENT_STEPS);
   const target = scoreDoor(left);
   const control = scoreDoor(right);
   const bonus = sub(target.bonus, control.bonus);
-  if (bonus.count !== 0) throw new Error(`atlas ${kind} count bonus gap is ${bonus.count}`);
+  if (bonus.count !== 0) throw new Error(`drift door count bonus gap is ${bonus.count}`);
   if (bonus.random !== 0 || target.logit.random !== 0 || control.logit.random !== 0) {
-    throw new Error(`atlas ${kind} random score moved`);
+    throw new Error("drift door random score moved");
+  }
+  return { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw };
+}
+
+function trainPair(seed: number, kind: "noise" | "drift"): AtlasGaps {
+  if (kind === "drift") return runDriftDoor(seed, ATLAS_DRIFT);
+  const left = freshKernel(seed, ATLAS_STREAM, noiseSpec(seed, "noise"));
+  const right = freshKernel(seed, ATLAS_STREAM, noiseSpec(seed, "static"));
+  if (weightSum(left) !== weightSum(right)) throw new Error("atlas noise arms did not share a weight init");
+  applyNoiseMode(left);
+  applyNoiseMode(right);
+  const randLeft = mulberry32((seed ^ 0x41a5) >>> 0);
+  const randRight = mulberry32((seed ^ 0x41a5) >>> 0);
+  applyFamily(left.cells, left.family!, left.envParams, randLeft);
+  applyFamily(right.cells, right.family!, right.envParams, randRight);
+  trainLive(left, randLeft, ATLAS_CONTENT_STEPS);
+  trainLive(right, randRight, ATLAS_CONTENT_STEPS);
+  const target = scoreDoor(left);
+  const control = scoreDoor(right);
+  const bonus = sub(target.bonus, control.bonus);
+  if (bonus.count !== 0) throw new Error(`atlas noise count bonus gap is ${bonus.count}`);
+  if (bonus.random !== 0 || target.logit.random !== 0 || control.logit.random !== 0) {
+    throw new Error("atlas noise random score moved");
   }
   return { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw };
 }
