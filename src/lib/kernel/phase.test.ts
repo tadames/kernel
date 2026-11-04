@@ -3,10 +3,14 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { periodicBoostOn } from "./kernel.ts";
 import { fundamental, onsetOf, phaseBinMeans } from "./phase.ts";
+import { phaseContrast } from "./period.ts";
 import {
   boutCall,
   bootstrapOnsetDiff,
+  chainPrediction,
+  contrastTrack,
   excessCall,
+  gridSpecificity,
   hunchCall,
   hunchVerdict,
   latePattern,
@@ -21,6 +25,13 @@ import {
   scalePrediction,
   signCall,
   specificityCall,
+  squareHalfContrast,
+  templateStep,
+  TRACK_BOUT_STEPS,
+  TRACK_CYCLES,
+  TRACK_WINDOWS,
+  trackEpisodeSteps,
+  trackReason,
   usablePeak,
   WINDOW_BOUT_STEPS,
   WINDOW_GRID,
@@ -169,6 +180,7 @@ test("CI does not run the phase-profile sweep", () => {
   const yml = readFileSync(".github/workflows/ci.yml", "utf8");
   assert.equal(yml.includes("phase-profile"), false);
   assert.equal(yml.includes("window-sweep"), false);
+  assert.equal(yml.includes("window-track"), false);
 });
 
 test("the window grid is half, one, and twice the shipped 50, and the bout can hold the long one", () => {
@@ -228,4 +240,91 @@ test("window scaling confirms only when the bout, the onset, and the contrast al
   assert.equal(usablePeak(null, 240), false);
   assert.equal(peakMajority(200, 101), true);
   assert.equal(peakMajority(200, 100), false);
+});
+
+test("the track grid puts points around 50, and the bout and the episode can hold the long window", () => {
+  assert.deepEqual([...TRACK_WINDOWS], [25, 35, 50, 70, 100]);
+  assert.equal(TRACK_BOUT_STEPS, 400);
+  assert.ok(TRACK_BOUT_STEPS > 2 * 100);
+  assert.equal(TRACK_CYCLES, 27);
+  assert.equal(trackEpisodeSteps(172), 27 * 172);
+  assert.ok(trackEpisodeSteps(172)! <= 4800);
+  assert.ok(trackEpisodeSteps(172)! > 1600);
+  assert.equal(trackEpisodeSteps(1), null);
+});
+
+test("square-wave half contrast falls until half a period and then rises", () => {
+  const period = 172;
+  assert.ok(Math.abs(squareHalfContrast(0, period) - 1) < 1e-12);
+  assert.ok(Math.abs(squareHalfContrast(86, period) - -1) < 1e-12);
+  assert.ok(Math.abs(squareHalfContrast(43, period)) < 1e-12);
+  assert.ok(Math.abs(squareHalfContrast(129, period)) < 1e-12);
+  assert.ok(squareHalfContrast(133, period) > 0);
+  assert.ok(squareHalfContrast(92, period) < squareHalfContrast(60, period));
+  assert.ok(squareHalfContrast(133, period) > squareHalfContrast(92, period));
+  for (const offset of [0, 43, 86, 129]) {
+    const contrast = phaseContrast(square(period, offset, 4), period);
+    assert.ok(Math.abs(contrast - squareHalfContrast(offset, period)) < 1e-9, `offset ${offset}`);
+  }
+});
+
+test("a window chain tracks only when every step is later and the contrast follows the template", () => {
+  const later = { lo: 2, hi: 8 };
+  const same = { lo: -1, hi: 1 };
+  const sooner = { lo: -8, hi: -2 };
+  assert.equal(chainPrediction([moveCall(later), moveCall(later), moveCall(later), moveCall(later)], false), "scales");
+  assert.equal(chainPrediction([moveCall(same), moveCall(same), moveCall(same), moveCall(same)], false), "fixed");
+  assert.equal(chainPrediction([moveCall(later), moveCall(same), moveCall(later), moveCall(later)], false), "partial");
+  assert.equal(chainPrediction([moveCall(sooner), moveCall(later), moveCall(later), moveCall(later)], false), "reversed");
+  assert.equal(chainPrediction([moveCall(later), moveCall(later)], true), "censored");
+  assert.equal(templateStep(-0.4, { lo: -0.03, hi: -0.01 }), "matched");
+  assert.equal(templateStep(-0.4, { lo: 0.01, hi: 0.03 }), "mismatched");
+  assert.equal(templateStep(-0.4, { lo: -0.02, hi: 0.01 }), "unresolved");
+  assert.equal(templateStep(0.02, { lo: -0.01, hi: 0.01 }), "flat");
+  assert.equal(templateStep(0.02, { lo: 0.01, hi: 0.03 }), "mismatched");
+  assert.equal(contrastTrack(["matched", "flat", "matched"]), "tracks");
+  assert.equal(contrastTrack(["matched", "unresolved"]), "partial");
+  assert.equal(contrastTrack(["mismatched", "matched"]), "reversed");
+  assert.equal(contrastTrack(["flat", "flat"]), "flat");
+  const tracked = {
+    curveRun: true,
+    instrument: "confirmed" as const,
+    bout: "scales" as const,
+    onset: "scales" as const,
+    contrast: "tracks" as const,
+    specificity: "specific" as const,
+  };
+  assert.deepEqual(trackReason(tracked), { verdict: "confirmed", reason: "confirmed" });
+  assert.deepEqual(trackReason({ ...tracked, instrument: "inconclusive" }), {
+    verdict: "inconclusive",
+    reason: "instrument-blind",
+  });
+  assert.deepEqual(trackReason({ ...tracked, bout: "censored" }), {
+    verdict: "inconclusive",
+    reason: "bout-censored",
+  });
+  assert.deepEqual(trackReason({ ...tracked, onset: "censored" }), {
+    verdict: "refuted",
+    reason: "onset-not-scaling",
+  });
+  assert.deepEqual(trackReason({ ...tracked, onset: "partial" }), {
+    verdict: "refuted",
+    reason: "onset-not-scaling",
+  });
+  assert.deepEqual(trackReason({ ...tracked, contrast: "partial" }), {
+    verdict: "refuted",
+    reason: "contrast-not-tracking",
+  });
+  assert.deepEqual(trackReason({ ...tracked, bout: "fixed" }), {
+    verdict: "refuted",
+    reason: "bout-not-scaling",
+  });
+  assert.deepEqual(trackReason({ ...tracked, specificity: "shared" }), {
+    verdict: "refuted",
+    reason: "shared",
+  });
+  assert.equal(gridSpecificity({ shipped: "specific", randomNonNull: 1, lateCounts: [0, 1, 0] }), "specific");
+  assert.equal(gridSpecificity({ shipped: "specific", randomNonNull: 2, lateCounts: [0, 0, 0] }), "confounded");
+  assert.equal(gridSpecificity({ shipped: "specific", randomNonNull: 0, lateCounts: [0, 2, 0] }), "shared");
+  assert.equal(gridSpecificity({ shipped: "shared", randomNonNull: 0, lateCounts: [0, 0, 0] }), "shared");
 });
