@@ -1,5 +1,91 @@
 # Journal
 
+## 2026-11-04 door phase (UTC)
+
+Written before `npm run atlas`. No doorway gap, planted-dose gap, or class from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The relearn entry's next hypothesis forbids the period-594 occupancy episode, an ema pin, `negateReplay`, and a realized-error bonus. The doorway logit does not prefer the erased room, so that episode is not fed. The last ten runs did not move Field probe late, and another cut of the noise-preference null is not this run. Drift, dose, and the east-bit split stay closed. No curiosity term is added. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+The phase diagram the occupancy grid drew on 2026-10-19 is the wrong figure for the question that is left. Its forget axis is weight decay. Its cells are mostly inconclusive because the occupancy intervals were wider than δ = 0.0167. It predates `option` as the default, and it does not contain the negated-target room. The journal already refused a rerun of that grid. Pasting the published occupancy fractions, the in-room progress gaps, and the doorway logits onto one heatmap would invent a common scale. The numbers that can sit on one scale are the ones this door already resolves to about 0.003. That door is the instrument. Noise and drift have not been scored on it. The forget cell has, and it is the checksum.
+
+### Preregister atlas
+
+Hypothesis. On the shipped 32-unit net, at the west lip of the door, rho's logit does not move toward a stationary-noise room, a room that drifts at 1/τ, or a room erased by negated targets. A planted progress-channel dose of 0.0085 on the mastered brain does move that logit. The predicted summary is `mapped`.
+
+The call is the logit, the same object for every explorer: the mean score of the action into region 1 minus the mean score of the other four. The gap is the manipulated arm minus the matched control. Rho's published forget call was already this logit. Count, surprise, and RND were published as unmixed bonuses, because the logit multiplies those bonuses by the imagined residual. Those bonuses stay the checksum. Their logits are reported and are not a second definition of the published cell. The class uses the logit, so a column is one unit.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. The logit is the score before the softmax, so 0.15 is not a multiplier on it. The dose 0.0085 is the occupancy threshold at that temperature, measured here as a score gap. `forgettingRate` stays 0.
+
+Forget. The published relearn sample, stream `seed * 10007 + 9201`. The gap is the erased brain minus the mastered brain, scored before either true return. The learn drop, the overwrite, the held and erased raw returns, both 20-step drops, the rho logit, the surprise bonus, the RND bonus, the count bonus, and the realized-error gap must match the published means within 1e-9. A miss aborts. Count's unmixed gap must be 0 on every seed. Idle absence must not move the probe by more than 1e-9. These numbers are the previous curve. They are not this claim.
+
+Plant. The same 200 true learn steps on the cycle map. The flat rho logit must match that seed's mastered relearn logit within 1e-9. A miss aborts. The boosted score is that same kernel with `intrinsicBoost` set to 0.0085 on region 1. It is not a second kernel: the scent head is not in the brain dump, and a copy would change rho-hat. The gap is boosted minus flat. The boost is the progress channel. It does not enter the unmixed bonus. An unmixed gap or a realized-error gap larger than 1e-4 in absolute value aborts, and so does a nonzero random logit. The 1e-4 floor is float noise in the horizon residual, under a hundredth of 0.0085. A gap the size of the dose would abort. Imagined follow-ups do not receive the boost. The off path of the default agent does not pass the boost.
+
+Noise. Fresh weights, stream `seed * 10007 + 41011`. The shell is the cycle map, so the door has no meal. Cycle-world construction would force hold mode, which repaints a block and would wipe a frozen picture, so both arms set the east mode to noise after the shell is built. That assignment is the room. It is not a Loop flag and it is not on the step path of the default agent. The target redraws the east glow. The control freezes one fair-bit picture, `staticSeed` equal to the episode seed. One generative step clears the block paint, then both arms train region 1 for 400 steps, the phase-diagram episode length, stream `seed ^ 0x41a5`. The 400 steps accumulate on the live family. Count and RND train on the true input window. The gap is noise minus static.
+
+Drift. The same fresh stream and the same 400 steps, stream `seed ^ 0x41a6`. The matched pattern pair on the cycle map. The rate is the locked adaptation cell, 0.01877. The fast rate is not run. The drifting arm redraws `EAST_HOLD_LATENT`. The held arm keeps it and burns the coin. The gap is drift minus held. A runner that does not get 0.01877 throws before any seed.
+
+Harness, not a call. The two arms of a content pair must share a weight init. A meal or a death on a content arm aborts. Random's logit is 0. Count's unmixed bonus gap is 0 on every cell. A nonzero value aborts. Fewer than 200 seeds aborts.
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. Confirmed when the interval lies entirely above 0. Refuted when it lies entirely below 0. Otherwise inconclusive.
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. Cell index is noise 0, drift 1, forget 2.
+
+- Logit gap uses salt `41000 + 10 × cell + explorer`.
+- Unmixed bonus uses salt `41100 + 10 × cell + explorer`. It does not flip a class.
+- Realized error uses salt `41200 + cell`. Noise is separated when that call is confirmed. Drift's error is reported and is not a gate. Forget's error is the checksum.
+- The plant uses salt `41300 + explorer` on the logit and `41400 + explorer` on the bonus.
+- Rho's logit minus a baseline's logit uses salt `41500 + 10 × cell + baseline` on the grid and `41600 + baseline` on the plant. Baseline index stops at RND.
+
+Instrument. `instrumentDelta` on the plant's rho logit. Confirmed when that interval lies entirely above 0. δ is the lower end, and only then. Otherwise δ is unavailable and no cell may be labeled null-with-sensitivity.
+
+Class, `phaseCellClass`, on each logit. Attracted when the interval lies entirely above 0. Repelled when it lies entirely below 0. Null-with-sensitivity when δ is available and the interval lies strictly inside (−δ, δ). Otherwise inconclusive. Sign comes before the null. `notAttractedCall` is confirmed for repelled or null-with-sensitivity, refuted for attracted, inconclusive otherwise. Random excluding 0 aborts before a class is issued, so no cell is labeled confounded.
+
+Summary, `atlasSummary`. `attracted` when any of rho's three not-attracted calls is refuted. That comes first, so a blind plant does not hide an attraction. `instrument-blind` when the plant is not confirmed. `inconclusive` when noise's realized error is not confirmed, or any not-attracted call is inconclusive. `mapped` when the plant is confirmed, noise is separated, and all three not-attracted calls are confirmed.
+
+Verdict, `atlasVerdict`. Confirmed when the summary is `mapped`. Refuted when it is `attracted`. Otherwise inconclusive. A baseline that seeks a room rho misses is a contrast, `rho-lower` or `rho-higher` or `no-difference`. It does not flip the summary. The unmixed bonuses do not flip it.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the dose, the rate, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. `mapped`: rho's logit is not attracted to noise, to drift at 1/τ, or to the erased room, on a door that sees 0.0085, and the noise room is actually the harder window. `attracted`: rho seeks at least one of those rooms. That cell is the result. It is not a license for a mechanism. `instrument-blind`: the planted dose did not move the door, and a sensitive null is not claimed. `inconclusive`: the door still cannot separate 0.0085 from the room, or the noise window was not harder. No second look with more seeds in this run.
+
+Figure: `bench/atlas/atlas.png`. Columns are noise, drift, erase, and the plant. Rows are the five explorers. Color is the logit gap and saturates at ±0.04. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. Rho's class is printed in the cell. Source: `bench/atlas/atlas.json`. Tables: `bench/atlas/atlas.csv` and `bench/atlas/atlas.md`. The sweep is `npm run atlas`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the relearn learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is refuted. The summary is `attracted`. The plant is visible, noise is the harder door, and rho's logit is repelled by that noise and a sensitive null on the erased room. The drift cell is attracted. No term was added. `negateReplay` stays off.
+
+200 seeds, 4 workers, 14.1 seconds. Source: `bench/atlas/atlas.json`. The learn drop, the negation overwrite, the held and erased raw returns, both 20-step drops, the rho logit, the surprise bonus, the RND bonus, and the realized-error door match the published relearn curve within 1e-9. Count's unmixed bonus gap is 0 on every cell. Idle absence does not move the probe. The plant does not move the unmixed bonus or the realized error. The harness does not fail.
+
+#### Summary. Refuted.
+
+`atlasSummary` is attracted. `atlasVerdict` is refuted. The plant's rho logit is 0.0544 [0.0542, 0.0547]. δ is the lower end, 0.0542. Count, surprise, and RND move by the same logit. The dose is on the shared progress channel. It is not a rho-only instrument. Random stays 0.
+
+The logit gap is the manipulated door minus the matched door. n = 200 on every row. Sign comes before the null, so a repulsion whose magnitude sits under δ is still a repulsion.
+
+| cell | realized-error door | rho logit | class |
+|---|---|---|---|
+| noise | 0.0037 [0.0005, 0.0071] | −0.0198 [−0.0320, −0.0076] | repelled |
+| drift at 0.01877 | −0.1660 [−0.1722, −0.1597] | 0.0615 [0.0431, 0.0790] | attracted |
+| erase | 0.0787 [0.0756, 0.0817] | −0.0035 [−0.0102, 0.0030] | null-with-sensitivity |
+
+Noise is separated: the noise brain's east-minus-other realized error sits above the frozen picture's. Rho's logit goes the other way. The interval lies entirely below 0. Count's logit is also repelled, −0.0617 [−0.0877, −0.0367], and more so: rho minus count is 0.0419 [0.0157, 0.0676]. Surprise's logit includes 0, 0.0069 [−0.0081, 0.0226], and so does RND's, 0.0027 [−0.0028, 0.0081]. Rho minus surprise is −0.0268 [−0.0376, −0.0164]. Rho avoids the noise room. Surprise and RND do not resolve.
+
+Drift refutes the map. Rho's logit prefers the drifting room by 0.0615 [0.0431, 0.0790]. The lower end is under δ and the interval excludes 0, so the class is attracted. Surprise prefers it more, 0.2499 [0.2266, 0.2739]. Rho minus surprise is −0.1884 [−0.2081, −0.1689]. RND prefers it too, 0.0399 [0.0281, 0.0509], and rho minus RND is 0.0216 [0.0036, 0.0404]. Count's logit is repelled, −0.3316 [−0.3620, −0.3012]. The unmixed bonuses have the same signs and are smaller: rho 0.0184 [0.0134, 0.0233], surprise 0.0683 [0.0637, 0.0727], RND −0.0067 [−0.0094, −0.0042], count 0. The progress term itself prefers the drifting room. It is not only the uncertainty weight. The realized-error door goes the other way, −0.1660 [−0.1722, −0.1597]. Rho is attracted to the arm whose east action is the more accurate one.
+
+The erased room is the published cell, now classified. Realized error still prefers it, 0.0787 [0.0756, 0.0817]. Rho's logit is −0.0035 [−0.0102, 0.0030], inside (−δ, δ). The unmixed surprise bonus is −0.0026 [−0.0042, −0.0010] and the RND bonus is −0.0020 [−0.0035, −0.0005], the published doorway. Count's unmixed bonus is 0. Count's logit is not 0: 0.1509 [0.1395, 0.1620], attracted. Rho minus count is −0.1544 [−0.1651, −0.1439]. The same visit counts, scored through the erased world model, prefer the room. The count term does not. Surprise's logit includes 0, −0.0083 [−0.0174, 0.0007]. RND's logit is repelled, −0.0066 [−0.0117, −0.0016]. Rho minus surprise is 0.0048 [0.0006, 0.0088], a small rho-higher that does not clear δ and does not flip the class. The erased room is not a room rho seeks, and it is not a room rho uniquely misses among the curiosity terms. Count's policy logit is the one that clears δ.
+
+Figure: `bench/atlas/atlas.png`. Noise rho is blue and marked repelled. Drift rho is red and marked attracted. Erase rho is pale and marked null. The plant column is the same red bar on count, surprise, RND, and rho. Tables: `bench/atlas/atlas.csv` and `bench/atlas/atlas.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on. The noise-mode assignment is the measurement's room. It is not on the step path.
+
+Five-seed bench, seeds 1–5, sha `95d38a4`, run before the sweep. The default row matches the relearn learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. No kernel mechanism file changed, so the probe gate is not required. The score path is the shipped score: the five-seed row matches.
+
+### Next hypothesis
+
+Do not add a curiosity term, and do not rerun noise or the erased room. Rho's logit is repelled by stationary noise, −0.0198 [−0.0320, −0.0076], and it is a sensitive null on the room whose realized error rose by 0.0787 [0.0756, 0.0817]. The refutation is drift at 1/τ. Rho prefers that room, 0.0615 [0.0431, 0.0790], surprise prefers it more, 0.2499 [0.2266, 0.2739], and the realized-error door goes the other way, −0.1660 [−0.1722, −0.1597]. The unmixed progress term is already positive there, 0.0184 [0.0134, 0.0233], so the attraction is not only the uncertainty weight. Splitting that term is a new cut. It is not licensed by this map, and it is not a license to change the score. Count's logit on the erased room, 0.1509 [0.1395, 0.1620], is the residual scaling a bonus whose own gap is 0. It does not reopen the count signal. Drift, dose, and the east-bit split stay closed as occupancy questions. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-03 relearn (UTC)
 
 Written before `npm run relearn`. No slope, arrival, or doorway number from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

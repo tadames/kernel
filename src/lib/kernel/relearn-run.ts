@@ -41,6 +41,16 @@ export type RelearnDoors = {
   rhoGlobal: number;
   rhoUncertainty: number;
   progressEma: number;
+  /**
+   * Full logit of the non-rho signals. Rho's logit is `rho`. Random is 0
+   * and is not scored: a call would not move the published path. These
+   * fields are the policy score. They do not replace the unmixed bonuses.
+   */
+  logitCount: number;
+  logitSurprise: number;
+  logitRnd: number;
+  /** Unmixed rho-hat at the same door. The rho call stays the logit. */
+  bonusRho: number;
 };
 
 export type RelearnSample = {
@@ -148,18 +158,22 @@ function scoreDoors(k: Kernel): RelearnDoors {
   for (let a = 0; a < ACTS; a++) errors[a] = k.actionTrueError(a);
   const raw = doorDelta(k, errors);
   const scores = {} as Record<DoorSignal, number>;
+  const logitsOf = {} as Record<Exclude<DoorSignal, "rho">, number>;
   let rhoGlobal = 0;
   let rhoUncertainty = 0;
+  let bonusRho = 0;
   for (const signal of DOOR_SIGNALS) {
     const logits = k.scoreActions(signal);
     if (!k.scoreParts) throw new Error("relearn doorway requires the score split");
     if (signal === "rho") {
       scores.rho = doorDelta(k, logits);
+      bonusRho = doorDelta(k, k.scoreParts.rhoHat);
       rhoGlobal = doorDelta(k, k.scoreParts.global);
       rhoUncertainty = doorDelta(k, k.scoreParts.uncertainty);
     } else {
       // Unmixed bonus. The logit scales every signal by the imagined residual.
       scores[signal] = doorDelta(k, k.scoreParts.rhoHat);
+      logitsOf[signal] = doorDelta(k, logits);
     }
   }
   if (!k.loop.importBrain(brain)) throw new Error("relearn could not restore the brain");
@@ -177,6 +191,10 @@ function scoreDoors(k: Kernel): RelearnDoors {
     rhoGlobal,
     rhoUncertainty,
     progressEma,
+    logitCount: logitsOf.count,
+    logitSurprise: logitsOf.surprise,
+    logitRnd: logitsOf.rnd,
+    bonusRho,
   };
 }
 
