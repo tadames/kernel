@@ -1,0 +1,373 @@
+{
+  "temperature": 0.45,
+  "steps": 400,
+  "seeds": 800,
+  "delta": 0.03072727272727272,
+  "summary": "cancelled",
+  "verdict": "refuted",
+  "pieces": {
+    "door": {
+      "bonus": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 731,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": 0.0013056199002258418,
+          "lo": -0.003622110963576605,
+          "hi": 0.00605483347412445,
+          "n": 798,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": 0.00025736714031820247,
+          "lo": -0.0004298629080138091,
+          "hi": 0.0009122866214635368,
+          "n": 773,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rnd": {
+          "mean": -0.00026372315404619095,
+          "lo": -0.0005540938619320378,
+          "hi": 0.000016365565217099202,
+          "n": 762,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": -0.00010277803870843419,
+          "lo": -0.00017745012641892614,
+          "hi": -0.000030695926177685845,
+          "n": 766,
+          "klass": "repelled",
+          "carry": false
+        }
+      },
+      "drop2": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 731,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 798,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 773,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 762,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": 0.0009445834179562911,
+          "lo": 0.0003892291449914215,
+          "hi": 0.0014628999881445676,
+          "n": 766,
+          "klass": "attracted",
+          "carry": false
+        }
+      },
+      "drop3": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 731,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 798,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 773,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 762,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": -0.0006035446271640478,
+          "lo": -0.0007432501681170606,
+          "hi": -0.000478351320762041,
+          "n": 766,
+          "klass": "repelled",
+          "carry": false
+        }
+      },
+      "sum": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 731,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": 0.0013056199002258418,
+          "lo": -0.0038506171071344894,
+          "hi": 0.006203277260895557,
+          "n": 798,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": 0.00025736714031820247,
+          "lo": -0.0004317978508714478,
+          "hi": 0.0009734919204023557,
+          "n": 773,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rnd": {
+          "mean": -0.00026372315404619095,
+          "lo": -0.0005478501871777404,
+          "hi": 0.0000011737174832391516,
+          "n": 762,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": 0.0002382607482198441,
+          "lo": -0.00035924714906002933,
+          "hi": 0.0008395950742139654,
+          "n": 766,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        }
+      }
+    },
+    "room": {
+      "bonus": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 691,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": -0.0027322262080298177,
+          "lo": -0.007188859575879491,
+          "hi": 0.0021804927179534,
+          "n": 796,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": -0.057229123188845356,
+          "lo": -0.06251151237893798,
+          "hi": -0.05205981990252217,
+          "n": 762,
+          "klass": "repelled",
+          "carry": true
+        },
+        "rnd": {
+          "mean": -0.0000520423250714135,
+          "lo": -0.0018071059068936397,
+          "hi": 0.0017530924489382027,
+          "n": 743,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": -0.000020667246233933268,
+          "lo": -0.00006128061933494414,
+          "hi": 0.00001861340938359584,
+          "n": 745,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        }
+      },
+      "drop2": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 691,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 796,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 762,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 743,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": -0.017389538705750777,
+          "lo": -0.018575258067774096,
+          "hi": -0.01628763588135163,
+          "n": 745,
+          "klass": "repelled",
+          "carry": false
+        }
+      },
+      "drop3": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 691,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 796,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 762,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rnd": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 743,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": 0.0003012020187472406,
+          "lo": 0.00013238201328299396,
+          "hi": 0.0004584695858640284,
+          "n": 745,
+          "klass": "attracted",
+          "carry": false
+        }
+      },
+      "sum": {
+        "random": {
+          "mean": 0,
+          "lo": 0,
+          "hi": 0,
+          "n": 691,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "count": {
+          "mean": -0.0027322262080298177,
+          "lo": -0.007029906700198371,
+          "hi": 0.0019002826775952292,
+          "n": 796,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "surprise": {
+          "mean": -0.057229123188845356,
+          "lo": -0.06265890642394548,
+          "hi": -0.05216861591546645,
+          "n": 762,
+          "klass": "repelled",
+          "carry": true
+        },
+        "rnd": {
+          "mean": -0.0000520423250714135,
+          "lo": -0.001900331555771424,
+          "hi": 0.001734931801612142,
+          "n": 743,
+          "klass": "null-with-sensitivity",
+          "carry": false
+        },
+        "rho": {
+          "mean": -0.017109003933237478,
+          "lo": -0.01834794566671461,
+          "hi": -0.01600409079848644,
+          "n": 745,
+          "klass": "repelled",
+          "carry": false
+        }
+      }
+    }
+  },
+  "rectified": {
+    "mean": 0.021385533643288657,
+    "lo": 0.020584800349733586,
+    "hi": 0.022222900562580226,
+    "n": 703
+  },
+  "occupancy": {
+    "mean": 0.0023718750000000038,
+    "lo": -0.008018749999999995,
+    "hi": 0.012543750000000003,
+    "n": 800
+  },
+  "meanDoorSteps": {
+    "pattern": 14.6175,
+    "noise": 14.92125
+  },
+  "meanRoomSteps": {
+    "pattern": 48.98,
+    "noise": 48.48125
+  },
+  "harnessOk": true,
+  "elapsedSec": 223.913,
+  "workers": 4
+}
