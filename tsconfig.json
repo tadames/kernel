@@ -41,6 +41,8 @@
     "scripts/instrument.ts",
     "scripts/noise.ts",
     "scripts/noise-worker.ts",
-    "scripts/fed.ts"
+    "scripts/fed.ts",
+    "scripts/rate.ts",
+    "scripts/rate-worker.ts"
   ]
 }
