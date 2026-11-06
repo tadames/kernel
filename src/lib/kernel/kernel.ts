@@ -1,6 +1,18 @@
 import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
-import { imagineScores, softmaxSample } from "./policy.ts";
+import {
+  emptyExploreParts,
+  emptyRhoDropTrace,
+  emptyRhoHatParts,
+  emptyScoreParts,
+  imagineScores,
+  REPLAY_HARD_AT,
+  softmaxSample,
+  type ExploreParts,
+  type RhoDropTrace,
+  type RhoHatParts,
+  type ScoreParts,
+} from "./policy.ts";
 import { branching, edgeIndex, entropyNorm } from "./complexity.ts";
 import {
   generateWorld,
@@ -47,6 +59,13 @@ export const DIRS = [
 ] as const;
 export const DIR_NAMES = ["north", "east", "south", "west", "wait"] as const;
 
+/**
+ * Ticks a sampled direction is executed before the policy samples again.
+ * 2 is the locked option: the commitment tick plus one held tick.
+ * The probe gate is the test of that choice. It is not a searched length.
+ */
+export const OPTION_SPAN = 2;
+
 const HISTORY = 140;
 
 export type Params = {
@@ -71,6 +90,13 @@ export type KernelOptions = {
    * 0 keeps the weights. This is the forgetting-rate knob.
    */
   forgettingRate?: number;
+  /**
+   * Cell-net hidden width. Omitted is `HIDDEN` (32). A smaller integer is
+   * the capacity measurement: the same learner, with fewer units, so
+   * training one room can overwrite the other. Not a Loop flag. The
+   * default agent does not pass it.
+   */
+  cellHidden?: number;
   /**
    * Freeze one learnable pattern in the east room. Used to measure the
    * adaptation timescale. The phase sweep leaves this off, so drift 0 stays
@@ -124,6 +150,43 @@ export type KernelOptions = {
     /** Steps to delay the on-half. Omitted is 0, the first half of the period. */
     offset?: number;
   };
+  /**
+   * Measurement-only split of the action scores. Omitted does not allocate
+   * the buffers and does not pass them into imagination. Not a Loop feature
+   * flag. The default agent does not change. The split does not draw a
+   * random number and does not enter the bonus.
+   */
+  traceScores?: boolean;
+  /**
+   * Measurement-only split of ρ̂ into the bonus slot and the two horizon
+   * drops. Omitted does not allocate the buffers and does not pass them
+   * into imagination. Not a Loop feature flag. The default agent does not
+   * change. The split does not draw a random number and does not enter the
+   * bonus.
+   */
+  traceRho?: boolean;
+  /**
+   * Measurement-only residuals behind the horizon-2 drop. Omitted does not
+   * allocate the buffers and does not pass them into imagination. Not a
+   * Loop feature flag. The default agent does not change. The trace does
+   * not draw a random number and does not enter the bonus.
+   */
+  traceDrop?: boolean;
+  /**
+   * Measurement-only split of the uncertainty term into the residual
+   * weight and the novelty weight. Omitted does not allocate the buffers
+   * and does not pass them into imagination. Not a Loop feature flag.
+   * The default agent does not change. The split does not draw a random
+   * number and does not enter the bonus.
+   */
+  traceExplore?: boolean;
+  /**
+   * While the body is in region 0, take one extra cell step on an east-room
+   * transition whose open-cell glow targets are negated. Surprise stays on
+   * the true observation. The stream is not the policy RNG. Omitted is off.
+   * Not a Loop feature flag. The default agent does not pass it.
+   */
+  negateReplay?: boolean;
 };
 
 /**
@@ -137,6 +200,38 @@ export function periodicBoostOn(age: number, period: number, offset = 0) {
   let shifted = age - offset;
   shifted = ((shifted % cycle) + cycle) % cycle;
   return Math.floor(shifted / half) % 2 === 0;
+}
+
+/**
+ * Wall-channel taps whose world cell is open. True walls, food, and
+ * out-of-bounds stay 0. The stride is `CH`: wall, food, scent.
+ */
+export function openGlowMask(cells: Uint8Array, x: number, y: number, size = SIZE, radius = R) {
+  const mask = new Uint8Array((radius * 2 + 1) * (radius * 2 + 1) * CH);
+  let k = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const wx = x + dx;
+      const wy = y + dy;
+      const oob = wx < 0 || wy < 0 || wx >= size || wy >= size;
+      const idx = oob ? -1 : wy * size + wx;
+      mask[k] = !oob && cells[idx] !== 1 && cells[idx] !== 2 ? 1 : 0;
+      k += CH;
+    }
+  }
+  return mask;
+}
+
+/** Flip open-cell glow in the wall channel. Returns how many taps flipped. */
+export function flipOpenGlow(next: Float32Array, cells: Uint8Array, x: number, y: number, size = SIZE, radius = R) {
+  const mask = openGlowMask(cells, x, y, size, radius);
+  let flipped = 0;
+  for (let i = 0; i < next.length; i += CH) {
+    if (!mask[i]) continue;
+    next[i] = 1 - next[i]!;
+    flipped += 1;
+  }
+  return flipped;
 }
 
 export type Thought = { t: number; text: string };
@@ -184,6 +279,8 @@ export class Kernel {
   readonly envParams: EnvParams;
   /** Cell-net weight decay per step. 0 on Field and Rooms. */
   readonly forgettingRate: number;
+  /** Cell-net hidden width. `HIDDEN` unless a measurement passes `cellHidden`. */
+  readonly cellHidden: number;
   /** East-room state. Null on Field, Rooms, and the other static maps. */
   family: FamilyMemory | null = null;
   private readonly patternHold: boolean;
@@ -197,6 +294,34 @@ export class Kernel {
   readonly intrinsicBoost: { add: number; region: 0 | 1 } | null;
   /** Square-wave place bonus. Null is the shipped policy. */
   readonly periodicBoost: { add: number; region: 0 | 1; period: number; offset: number } | null;
+  /**
+   * Extra negated east step while the body is in the west room.
+   * Off on the default agent. The stream is not the policy RNG.
+   */
+  readonly negateReplay: boolean;
+  private readonly negateRand: (() => number) | null;
+  /**
+   * Additive split of the last sampled scores. Null unless `traceScores`.
+   * A held tick does not refresh it.
+   */
+  readonly scoreParts: ScoreParts | null;
+  /**
+   * Split of the last sampled ρ̂. Null unless `traceRho`. A held tick does
+   * not refresh it. The default agent does not allocate it.
+   */
+  readonly rhoHatParts: RhoHatParts | null;
+  /**
+   * Residuals behind the last sampled horizon-2 drop. Null unless
+   * `traceDrop`. A held tick does not refresh it. The default agent does
+   * not allocate it.
+   */
+  readonly rhoDrop: RhoDropTrace | null;
+  /**
+   * Residual and novelty weights inside the last sampled uncertainty term.
+   * Null unless `traceExplore`. A held tick does not refresh it. The
+   * default agent does not allocate it.
+   */
+  readonly exploreParts: ExploreParts | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -212,6 +337,31 @@ export class Kernel {
   lives = 0;
   history: number[] = [];
   lastAction = 4;
+  /** Ticks remaining in the current option, after the commitment tick. Zero when `option` is off. */
+  private optionLeft = 0;
+  /** Direction committed by the last sample. Unused when `option` is off. */
+  private heldAction = 4;
+  /**
+   * Steps that repeated a committed direction instead of sampling.
+   * Stays 0 when `option` is off, so the off path can be checked against it.
+   */
+  optionHeld = 0;
+  /** Horizon-2 follow-up per first action. Written only when `rollout` is on. */
+  private followBuf = new Int32Array(ACTS);
+  /** True after a commitment whose imagination wrote `followBuf`. */
+  private followReady = false;
+  /** Action stored for the option's second tick. The primitive when `rollout` is off. */
+  private rolloutAction = 4;
+  /**
+   * Follow-up from the last commitment. Stays at wait when `rollout` is off,
+   * so the off path can be checked against it.
+   */
+  rolloutFollow = 4;
+  /**
+   * Second ticks that executed a follow-up different from the committed primitive.
+   * Stays 0 when `rollout` is off.
+   */
+  rolloutSwitched = 0;
   lastObs: Float32Array = new Float32Array(OBS);
   scores: Float32Array = new Float32Array(ACTS);
   policyEntropy = 1;
@@ -225,6 +375,8 @@ export class Kernel {
   imagined: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   imagined2: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
   imagined3: Float32Array[] = Array.from({ length: ACTS }, () => new Float32Array(OBS));
+  /** Scratch for a hard replay. The score path does not read it. */
+  private replaySrc = new Float32Array(OBS);
   thoughts: Thought[] = [];
   thought = "I begin with no model of this place.";
   params: Params = { lr: 0.035, curiosity: 1, goal: 1, temperature: 0.45 };
@@ -238,6 +390,11 @@ export class Kernel {
     this.signal = options?.signal ?? "rho";
     this.envParams = options?.env?.params ?? { ...DEFAULT_ENV_PARAMS };
     this.forgettingRate = options?.forgettingRate ?? 0;
+    const hidden = options?.cellHidden ?? HIDDEN;
+    if (!Number.isInteger(hidden) || hidden < 1 || hidden > HIDDEN) {
+      throw new Error(`cellHidden must be an integer from 1 to ${HIDDEN}`);
+    }
+    this.cellHidden = hidden;
     this.patternHold = options?.patternHold ?? false;
     this.fixedLayout = options?.env ? options.env.layoutSeed : (options?.layoutSeed ?? null);
     if (options?.progressWindow != null && !(options.progressWindow > 0)) {
@@ -262,12 +419,17 @@ export class Kernel {
     this.periodicBoost = wave
       ? { add: wave.add, region: wave.region, period: wave.period, offset: wave.offset ?? 0 }
       : null;
+    this.negateReplay = options?.negateReplay === true;
+    this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
+    this.rhoHatParts = options?.traceRho ? emptyRhoHatParts(ACTS) : null;
+    this.rhoDrop = options?.traceDrop ? emptyRhoDropTrace(ACTS) : null;
+    this.exploreParts = options?.traceExplore ? emptyExploreParts(ACTS) : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
     if (options?.env) kind = options.env.kind;
     this.rand = mulberry32(seed);
-    this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
+    this.loop = new Loop(IN, this.cellHidden, OUT, ACTS, this.features);
     if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
     if (options?.policyTemperature != null) {
       this.params = { ...this.params, temperature: options.policyTemperature };
@@ -277,6 +439,7 @@ export class Kernel {
     this.visitCounts = new Uint32Array(SIZE * SIZE);
     this.rnd = new RndCuriosity(seed ^ 0x51ed, OBS);
     this.setWorld(kind, seed);
+    this.negateRand = this.negateReplay ? mulberry32((seed ^ 0x6e26) >>> 0) : null;
     this.applyProgress();
   }
 
@@ -329,6 +492,13 @@ export class Kernel {
     this.thinkCooldown = 0;
     this.burnIn = 0;
     this.obsMean.fill(0);
+    this.optionLeft = 0;
+    this.heldAction = 4;
+    this.optionHeld = 0;
+    this.followReady = false;
+    this.rolloutAction = 4;
+    this.rolloutFollow = 4;
+    this.rolloutSwitched = 0;
   }
 
   private placeAgent() {
@@ -389,6 +559,95 @@ export class Kernel {
   }
 
   /**
+   * One east-room transition with open-cell glow targets negated.
+   * Weights move. Surprise, the ema, and the policy RNG do not.
+   */
+  private replayNegated() {
+    if (!this.negateRand) return;
+    if (this.features.decode) throw new Error("negate replay does not combine with decode");
+    const pair = this.measurePair(1, this.negateRand, true);
+    this.trainWeights(pair.obs, pair.action, pair.next, TRANSITION_LR);
+  }
+
+  /**
+   * Gradient on one pair. Scent is stop-grad, matching `cellTrainTarget`.
+   * Does not score surprise and does not move the ema.
+   */
+  trainWeights(obs: Float32Array, action: number, next: Float32Array, lr: number) {
+    if (this.features.decode) throw new Error("trainWeights does not combine with decode");
+    const input = this.encode(obs, action, false, 100);
+    this.loop.net.forward(input, this.loop.lastPred);
+    const target = this.loop.cellTrainTarget(next);
+    this.loop.net.train(input, target, lr);
+  }
+
+  /**
+   * One transition drawn from a region, simulated on a copy. `negate` flips
+   * open-cell glow in the target only. The episode map does not move.
+   * `rand` is the caller's stream.
+   */
+  measurePair(region: 0 | 1, rand: () => number, negate: boolean) {
+    if (!this.family) throw new Error("measurePair requires a family");
+    const pool = regionCells(this.family, region, this.cells).filter((i) => this.cells[i] !== 1);
+    if (pool.length === 0) throw new Error(`no open cells in region ${region}`);
+    const index = pool[(rand() * pool.length) | 0]!;
+    const x = index % SIZE;
+    const y = (index / SIZE) | 0;
+    const obs = new Float32Array(OBS);
+    const blank = new Float32Array(this.scent.length);
+    senseGrid(this.cells, blank, x, y, SIZE, R, obs, this.family.glow);
+    const action = (rand() * ACTS) | 0;
+    const body: GridBody = {
+      cells: this.cells.slice(),
+      scent: blank.slice(),
+      x,
+      y,
+      energy: 100,
+      pulseClock: 0,
+    };
+    const family = cloneFamily(this.family);
+    stepGrid(body, this.worldKind, action, SIZE, mulberry32((rand() * 0x100000000) >>> 0), this.envParams, family);
+    const next = new Float32Array(OBS);
+    senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow);
+    const flipped = negate ? flipOpenGlow(next, body.cells, body.x, body.y) : 0;
+    return { obs, action, next, flipped, index };
+  }
+
+  /**
+   * Realized squared error of one imagined action against the true next
+   * window. Wall and food only, the same channels as the probe. The step
+   * is simulated on a copy. Does not learn and does not draw the policy RNG.
+   * The step path does not call it.
+   */
+  actionTrueError(action: number): number {
+    if (!this.family) return 0;
+    const obs = this.sense();
+    const into = new Float32Array(OBS);
+    this.loop.imagine(this.encode(obs, action, true), into);
+    const body: GridBody = {
+      cells: this.cells.slice(),
+      scent: this.scent.slice(),
+      x: this.x,
+      y: this.y,
+      energy: this.energy,
+      pulseClock: 0,
+    };
+    const family = cloneFamily(this.family);
+    stepGrid(body, this.worldKind, action, SIZE, mulberry32(0), this.envParams, family);
+    const next = new Float32Array(OBS);
+    senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
+    let s = 0;
+    let n = 0;
+    for (let i = 0; i < OBS; i++) {
+      if (i % CH === 2) continue;
+      const d = into[i]! - next[i]!;
+      s += d * d;
+      n += 1;
+    }
+    return n ? s / n : 0;
+  }
+
+  /**
    * Mean squared error of the current weights on `samples` states inside a
    * region. Each sample is simulated on a copy, so the episode does not move.
    * Wall and food channels only, matching the frozen probe.
@@ -424,6 +683,50 @@ export class Kernel {
       senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
       for (let i = 0; i < OBS; i++) {
         if (i % CH === 2) continue;
+        const d = into[i]! - next[i]!;
+        sum += d * d;
+        n += 1;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  /**
+   * Same states as `liveProbeError`, scored only on open-cell glow taps.
+   * The denominator is those taps, not the full window.
+   */
+  glowProbeError(region: 0 | 1, samples = 48, probeSeed = 20261015) {
+    if (!this.family) return 0;
+    const pool = regionCells(this.family, region, this.cells);
+    if (!pool.length) return 0;
+    const rand = mulberry32(probeSeed + region * 17 + this.age);
+    const into = new Float32Array(OBS);
+    const obs = new Float32Array(OBS);
+    let sum = 0;
+    let n = 0;
+    for (let s = 0; s < samples; s++) {
+      const index = pool[(rand() * pool.length) | 0]!;
+      const x = index % SIZE;
+      const y = (index / SIZE) | 0;
+      const action = (rand() * ACTS) | 0;
+      senseGrid(this.cells, this.scent, x, y, SIZE, R, obs, this.family.glow, this.glowGain(), this.family.decoy);
+      this.loop.imagine(this.encode(obs, action, false, 100), into);
+      const body: GridBody = {
+        cells: this.cells.slice(),
+        scent: this.scent.slice(),
+        x,
+        y,
+        energy: 100,
+        pulseClock: 0,
+      };
+      const family = cloneFamily(this.family);
+      const stepRand = mulberry32((probeSeed + s * 997 + region * 13) >>> 0);
+      stepGrid(body, this.worldKind, action, SIZE, stepRand, this.envParams, family);
+      const next = new Float32Array(OBS);
+      senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
+      const mask = openGlowMask(body.cells, body.x, body.y);
+      for (let i = 0; i < OBS; i += CH) {
+        if (!mask[i]) continue;
         const d = into[i]! - next[i]!;
         sum += d * d;
         n += 1;
@@ -485,7 +788,7 @@ export class Kernel {
   }
 
   resetBrain() {
-    this.loop = new Loop(IN, HIDDEN, OUT, ACTS, this.features);
+    this.loop = new Loop(IN, this.cellHidden, OUT, ACTS, this.features);
     if (this.features.transition) this.params = { ...this.params, lr: TRANSITION_LR };
     this.loop.commit(this.encode(this.sense()));
     if (this.features.transition) this.loop.prevInput = null;
@@ -503,6 +806,13 @@ export class Kernel {
     this.applyProgress();
     this.visitCounts.fill(0);
     this.rnd = new RndCuriosity(this.seed ^ 0x51ed, OBS);
+    this.optionLeft = 0;
+    this.heldAction = 4;
+    this.optionHeld = 0;
+    this.followReady = false;
+    this.rolloutAction = 4;
+    this.rolloutFollow = 4;
+    this.rolloutSwitched = 0;
   }
 
   get ema() {
@@ -562,6 +872,22 @@ export class Kernel {
 
   sense(into: Float32Array = new Float32Array(OBS), ox = this.x, oy = this.y): Float32Array {
     return senseGrid(this.cells, this.scent, ox, oy, SIZE, R, into, this.family?.glow ?? null, this.glowGain(), this.family?.decoy ?? null);
+  }
+
+  /**
+   * One imagined step from a stored prediction. Measurement only.
+   * `hard` thresholds every coordinate at one half before the forward.
+   * Scent is muted, the same as the score's second window. `energy` is
+   * the body's energy at the choose that wrote `pred`. Does not learn
+   * and does not draw a random number. The score path does not call it.
+   */
+  replayImagination(pred: Float32Array, action: number, hard: boolean, energy: number, into: Float32Array): Float32Array {
+    const src = hard ? this.replaySrc : pred;
+    if (hard) {
+      const n = Math.min(pred.length, src.length);
+      for (let i = 0; i < n; i++) src[i] = pred[i]! >= REPLAY_HARD_AT ? 1 : 0;
+    }
+    return this.loop.imagine(this.encode(src, action, true, energy), into);
   }
 
   private encode(obs: Float32Array, action = this.lastAction, muteNoise = false, energy = this.energy): Float32Array {
@@ -650,22 +976,88 @@ export class Kernel {
     else this.cells[i] = this.cells[i] === 2 ? 0 : 2;
   }
 
+  /**
+   * Sample, then either repeat that direction or execute the imagined
+   * follow-up, until `OPTION_SPAN` ticks have run. Called only when `option`
+   * is on. The off path never reaches this, so it draws no extra policy noise
+   * and does not read the hold counter. `rollout` off takes the repeat branch
+   * and does not read the follow-up.
+   */
+  private heldOrChoose(obs: Float32Array): number {
+    if (this.optionLeft > 0) {
+      this.optionLeft -= 1;
+      if (this.features.rollout) {
+        const action = this.rolloutAction;
+        if (action === this.heldAction) this.optionHeld += 1;
+        else this.rolloutSwitched += 1;
+        return action;
+      }
+      this.optionHeld += 1;
+      return this.heldAction;
+    }
+    const action = this.choose(obs);
+    this.heldAction = action;
+    if (this.features.rollout) {
+      this.rolloutAction = this.followReady ? this.followBuf[action]! : action;
+      this.rolloutFollow = this.rolloutAction;
+    }
+    this.optionLeft = OPTION_SPAN - 1;
+    return action;
+  }
+
+  /**
+   * Fill `scores` for `signal` at the current cell. Measurement only.
+   * Does not learn, does not sample, and does not draw the policy RNG.
+   * Does not revise temperature or curiosity. The step path does not call it.
+   */
+  scoreActions(signal: CuriositySignal): Float32Array {
+    const obs = this.sense();
+    if (signal === "random") {
+      this.scores.fill(0);
+      this.zeroScoreParts();
+      this.zeroRhoHatParts();
+      this.zeroRhoDrop();
+      this.zeroExploreParts();
+      return this.scores;
+    }
+    this.fillScores(signal, obs);
+    return this.scores;
+  }
+
   private choose(obs: Float32Array): number {
+    this.followReady = false;
     if (this.signal === "random") {
       this.scores.fill(0);
+      this.zeroScoreParts();
+      this.zeroRhoHatParts();
+      this.zeroRhoDrop();
+      this.zeroExploreParts();
       this.policyEntropy = 1;
       this.branching = ACTS;
       this.edge = edgeIndex(1);
       return (this.rand() * ACTS) | 0;
     }
+    this.fillScores(this.signal, obs);
+    if (this.features.rollout) this.followReady = true;
+    let temp = this.loop.policyTemperature(this.params.temperature);
+    if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
+    this.policyEntropy = entropyNorm(this.scores, temp);
+    this.branching = branching(this.scores);
+    this.edge = edgeIndex(this.policyEntropy);
+    this.loop.reviseEdge(this.branching);
+    return softmaxSample(this.scores, temp, this.rand);
+  }
+
+  /** The imagination inside `choose`, for one signal, with no sample. */
+  private fillScores(signal: CuriositySignal, obs: Float32Array) {
     const hunger = Math.max(0, 1 - this.energy / 100);
     const view = this.signalView();
     imagineScores({
       acts: ACTS,
-      curiosity: this.params.curiosity,
+      curiosity: this.loop.curiosityWeight(this.params.curiosity),
       goal: this.params.goal,
-      progressEma: signalProgressEma(this.signal, view),
-      horizonRho: this.signal === "rho" && this.scoreHorizonDrop,
+      progressEma: signalProgressEma(signal, view),
+      horizonRho: signal === "rho" && this.scoreHorizonDrop,
       uncertainty: this.scoreUncertainty,
       ema: this.loop.ema,
       imagined: this.imagined,
@@ -719,18 +1111,55 @@ export class Kernel {
           novelty: (1 - destScent) * scentW,
         };
       },
-      progressBonus: (a, pred) => signalActionBonus(this.signal, view, a, pred),
+      progressBonus: (a, pred) => signalActionBonus(signal, view, a, pred),
       progExtra:
         this.intrinsicBoost || this.periodicBoost
           ? (a) => this.progressExtra(view.destGrid, a)
           : undefined,
+      follow: this.features.rollout ? this.followBuf : undefined,
+      parts: this.scoreParts ?? undefined,
+      explore: this.exploreParts ?? undefined,
+      hatParts: this.rhoHatParts ?? undefined,
+      hatTrace: this.rhoDrop ?? undefined,
     });
-    let temp = this.params.temperature;
-    if (this.burnIn > 0) temp = Math.min(1.2, temp * 1.55);
-    this.policyEntropy = entropyNorm(this.scores, temp);
-    this.branching = branching(this.scores);
-    this.edge = edgeIndex(this.policyEntropy);
-    return softmaxSample(this.scores, temp, this.rand);
+  }
+
+  private zeroScoreParts() {
+    const parts = this.scoreParts;
+    if (!parts) return;
+    parts.rho.fill(0);
+    parts.global.fill(0);
+    parts.uncertainty.fill(0);
+    parts.extra.fill(0);
+    parts.extrinsic.fill(0);
+    parts.follow.fill(0);
+    parts.rhoHat.fill(0);
+  }
+
+  private zeroRhoHatParts() {
+    const parts = this.rhoHatParts;
+    if (!parts) return;
+    parts.bonus.fill(0);
+    parts.drop2.fill(0);
+    parts.drop3.fill(0);
+  }
+
+  private zeroExploreParts() {
+    const explore = this.exploreParts;
+    if (!explore) return;
+    explore.residual.fill(0);
+    explore.novelty.fill(0);
+  }
+
+  private zeroRhoDrop() {
+    const trace = this.rhoDrop;
+    if (!trace) return;
+    trace.res1.fill(0);
+    trace.best.fill(0);
+    trace.mean.fill(0);
+    trace.min.fill(0);
+    trace.max.fill(0);
+    trace.follow.fill(0);
   }
 
   private note(text: string) {
@@ -757,6 +1186,7 @@ export class Kernel {
   }
 
   step() {
+    if (this.negateReplay && this.family && this.regionAt() === 0) this.replayNegated();
     const raw = this.sense();
     this.lastObs = raw;
     const obs = this.adaptObs(raw);
@@ -769,8 +1199,10 @@ export class Kernel {
     if (this.forgettingRate > 0) this.loop.net.decay(this.forgettingRate);
     this.history.push(this.loop.surprise);
     if (this.history.length > HISTORY) this.history.shift();
-    const action = this.choose(obs);
+    const action = this.features.option ? this.heldOrChoose(obs) : this.choose(obs);
     this.lastAction = action;
+    // The action already used the gain from before. Revise it for the next sample.
+    this.loop.reviseCuriosity();
     // Held-out probe and imagination both ask M(window, action) for the next window.
     // Commit that pair before the body moves. The historical commit stored the
     // window after the move, so the loss was reconstruction and the probe could not fall.
