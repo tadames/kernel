@@ -1,5 +1,93 @@
 # Journal
 
+## 2026-11-06 score pieces (UTC)
+
+Written before `npm run parts`. No piece gap, channel class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The matched-dose entry's next hypothesis forbids another plant, more seeds on the gap, an occupancy episode, a split of ρ̂, and another rate. Drift minus plant is 0.0213 [0.0156, 0.0270], entirely above 0 and entirely below δ. The dose buys 0.0575 [0.0458, 0.0694] of the logit. Those two numbers are the previous cell. They are not remeasured. The question they leave open is which additive piece of the score carries the remainder. The pieces already sum to the logit: the explore-weighted ρ̂, global progress, uncertainty, the follow-up, and the extrinsic term. One contrast, drift minus held, of those pieces on this same door, says whether the remainder is inside the progress channel or outside it. Noise and the erased room stay closed. No curiosity term is added. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+The progress channel on the first action is the explore-weighted ρ̂ plus global progress. The plant was a constant on that channel. Uncertainty, the follow-up, and the extrinsic term are outside it. Rho's follow-up is scored with global progress and the other explorers' follow-ups are not, so a leak through the follow-up would show up in the outside sum. The prediction is that the leak is not there.
+
+### Preregister parts
+
+Hypothesis. On the shipped door, at redraw probability 0.94, rho's drift-minus-held logit is the progress channel. The sum of the explore-weighted ρ̂ and global progress is attracted. The sum of uncertainty, the follow-up, and the extrinsic term is a sensitive null. The predicted summary is `inside`.
+
+The call is those two sums. The logit is the checksum: it has to stay the published attraction. The five pieces are reported and do not flip the summary. Other explorers are reported and do not flip the summary. The unmixed bonus is the checksum and is not a call. Realized error is the checksum and is not a gate. The plant is not rerun. ρ̂ is not split. Occupancy is not run.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. `forgettingRate` stays 0. The stream is the atlas stream, `seed * 10007 + 41011`. The train stream is `seed ^ 0x41a6` on both arms. 400 steps. The two arms share a weight init. The rate is 0.94 and is not in that init. The drifting arm redraws `EAST_HOLD_LATENT`. The held arm keeps it and burns the same coin. Count's unmixed bonus gap is 0. Random's logit is 0. A meal or a death aborts. Fewer than 200 seeds aborts. A non-finite door aborts.
+
+The pieces are the ones the score already adds. Explore-weighted ρ̂ is `curiosity * explore * 0.75 * 12 * 0.55 * max(0, ρ̂)`. Global progress is the same product with `max(0, learning)` in place of the weighted ρ̂. Uncertainty is `curiosity * (0.75 * explore * 0.35 + 0.2 * explore)`. The follow-up is the discounted remainder of the logit. The extrinsic term is goal minus cost. The place-bonus piece is not a column. A nonzero place bonus, on either arm or on the gap, aborts. The five pieces plus that bonus sum to the logit. A miss larger than 1e-6 aborts. Random's pieces are 0. A nonzero random piece aborts. Global progress is zero for every explorer except rho. A nonzero gap aborts. Uncertainty and the extrinsic term are the same function of one brain for count, surprise, RND, and rho. A gap that separates those four by more than 1e-6 aborts.
+
+The ceiling means must match within 1e-9: rho logit 0.07877570550888777, surprise logit 0.29832686215639115, RND logit 0.04852886945009231, count logit −0.4250148528814316, realized error −0.19100396591506477, rho bonus 0.02258083738292072, surprise bonus 0.07840519232675433, RND bonus −0.006153701646253467. A miss aborts. These numbers are the previous cell. They are not this claim. The logit, bonus, and realized-error salts are the published ceiling salts, so a matching sample reproduces that cell's intervals.
+
+δ is the published plant lower end, 0.05422156393527985. It is not remeasured. Sign comes before the null. `phaseCellClass` is the class.
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. The class is attracted when the interval lies entirely above 0, repelled when it lies entirely below 0, and null-with-sensitivity when it lies strictly inside (−δ, δ).
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4. Piece index is rho 0, global 1, uncertainty 2, extrinsic 3, follow 4.
+
+- Logit, bonus, and realized error use the published ceiling salts. They do not flip the summary except through rho's logit class, which has to stay attracted.
+- A piece uses salt `45000 + 10 × explorer + piece`. It does not flip the summary.
+- Progress, the explore-weighted ρ̂ plus global progress, uses salt `45100 + explorer`. Rho's class enters the summary.
+- Outside, uncertainty plus the follow-up plus the extrinsic term, uses salt `45200 + explorer`. Rho's class enters the summary.
+
+Summary, `partsSummary`, first match. `unreproduced` when the drift logit is not attracted. `shared` when progress and outside are both attracted. `opposed` when progress is attracted and outside is repelled. `inside` when progress is attracted and outside is a sensitive null. `outside` when outside is attracted and progress is a sensitive null or repelled. `inconclusive` otherwise.
+
+Verdict, `partsVerdict`. Confirmed when the summary is `inside`. Refuted when it is `shared`, `opposed`, or `outside`. Otherwise inconclusive.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the rate, δ, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. The plant is not rerun. ρ̂ is not split. No occupancy episode is run. No rate other than 0.94 is run. `inside`: the remainder is in the progress channel, and the constant dose understated that channel. Which of the two progress pieces is larger is reported and is not a second claim. `shared`: both channels move the door, so the remainder is not placed on one of them. `opposed`: the progress channel carries the attraction and the outside channel pushes the other way. `outside`: the progress channel is not the attraction. `unreproduced`: the ceiling cell did not come back attracted. `inconclusive`: a channel interval includes 0 and does not fit inside (−δ, δ), or the progress channel is not attracted while the logit is. A confirmed headline is not a license for a mechanism. No second look with more seeds in this run.
+
+Figure: `bench/parts/parts.png`. Columns are the explore-weighted ρ̂, global progress, uncertainty, the extrinsic term, the follow-up, then the progress sum and the outside sum. Rows are the five explorers. Color is the drift-minus-held gap and saturates at ±0.30, the ceiling clamp, so a 0.25 surprise gap is the same red as on that figure. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. Rho's class is printed in the cell. The caption prints rho's logit. Source: `bench/parts/parts.json`. Tables: `bench/parts/parts.csv` and `bench/parts/parts.md`. The sweep is `npm run parts`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the matched-dose learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is refuted. The summary is `shared`. Rho's logit at redraw probability 0.94 stays the published attraction. The progress channel is attracted, and the outside sum is attracted too. The outside interval lies inside the published excess. No term was added.
+
+200 seeds, 4 workers, 3.5 seconds. Source: `bench/parts/parts.json`. The ceiling means match the published cell within 1e-9. Count's unmixed bonus gap is 0. Random's logit is 0 and every random piece is 0. The place bonus is 0. Global progress is 0 for count, surprise, and RND. Uncertainty and the extrinsic term agree across those three and rho, within the harness floor of 1e-6. The five pieces plus the place bonus sum to the logit on every seed. The harness does not fail.
+
+#### Summary. Refuted.
+
+`partsSummary` is shared. `partsVerdict` is refuted. Progress and outside are both attracted, and that match comes before the sensitive null. The drift logit is attracted.
+
+The gap is drift minus held. n = 200. δ is 0.0542, the published plant. Sign comes before the null. The plant is not rerun. The published plant logit is 0.0575 [0.0458, 0.0694]. The published excess, drift minus that plant, is 0.0213 [0.0156, 0.0270]. Those two intervals are the previous cell.
+
+| piece | rho gap | class |
+|---|---|---|
+| explore-weighted ρ̂ | 0.0528 [0.0376, 0.0684] | attracted |
+| global progress | 0.0021 [0.0017, 0.0026] | attracted |
+| uncertainty | 0.0254 [0.0241, 0.0266] | attracted |
+| follow-up | 0.0068 [0.0057, 0.0080] | attracted |
+| extrinsic | −0.0084 [−0.0085, −0.0082] | repelled |
+| progress | 0.0549 [0.0398, 0.0696] | attracted |
+| outside | 0.0238 [0.0217, 0.0260] | attracted |
+| logit | 0.0788 [0.0633, 0.0944] | attracted |
+
+The logit interval is the published ceiling interval. Progress is the explore-weighted ρ̂ plus global progress. Outside is uncertainty plus the follow-up plus the extrinsic term. The printed means of progress and outside sum to 0.0787, one digit of rounding away from the logit. The per-seed identity holds within 1e-6.
+
+The progress interval contains the published plant mean, and the plant interval contains the progress mean. The outside interval lies entirely inside the published excess. Neither comparison is a paired bootstrap against the plant, and neither flips the summary. The locked rule already stopped at `shared`, because both channels exclude 0.
+
+Global progress is attracted and its upper end is 0.0026, under the excess. The follow-up is attracted and its upper end is 0.0080, under the excess. The extrinsic term is a small repulsion. The piece whose whole interval sits inside the excess is uncertainty, 0.0254 [0.0241, 0.0266]. That class does not flip the summary. It is the outside piece large enough to be the remainder. The explore-weighted ρ̂ is 0.0528 [0.0376, 0.0684], the bulk of the progress channel, at the scale of the dose the plant already bought.
+
+The same uncertainty mean, 0.0254, is on count, surprise, and RND. Their outside sums are 0.0232 [0.0212, 0.0252], 0.0232 [0.0212, 0.0252], and 0.0232 [0.0213, 0.0253]. Rho's outside sum is 0.0006 higher because rho's follow-up is 0.0068 [0.0057, 0.0080] and the other three follow-ups are 0.0062. That is the progress term inside the follow-up. It is not the excess. The extrinsic term is −0.0084 on all four.
+
+RND's logit stays the published 0.0485 [0.0391, 0.0579]. Its progress piece, the explore-weighted RND error, is 0.0253 [0.0165, 0.0337]. That piece plus the shared outside sum is the logit. The previous sensitive null of RND against the plant is not remeasured. The shared uncertainty gap is inside RND's logit as well as rho's. Rho's progress channel is already the size of the plant, so the same gap sits on top of it. RND's progress piece is smaller, so the same gap does not stick out past the plant. This run does not recompute that plant.
+
+The unmixed rho bonus is 0.0226 [0.0183, 0.0271], the published ceiling bonus. Surprise's bonus is 0.0784 [0.0745, 0.0822]. RND's bonus is −0.0062 [−0.0086, −0.0039]. Count's bonus is 0. The realized-error door is −0.1910 [−0.1938, −0.1882]. The drifting arm's east action is still the more accurate one. Uncertainty prefers that same door. The imagined Bernoulli residual and the realized squared error do not have the same sign.
+
+Figure: `bench/parts/parts.png`. Rho's progress cell and outside cell are both edged and marked attracted. Uncertainty is the same pale red on count, surprise, RND, and rho. Global progress is near zero and edged. The extrinsic column is blue. Surprise's explore-weighted column is the dark red. Count's is blue. The caption reads summary shared, rho logit 0.0788 attracted. Tables: `bench/parts/parts.csv` and `bench/parts/parts.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. No Loop flag was added, and none was turned on. The rate is the room's redraw probability. It is not on the step path of the default agent.
+
+Five-seed bench, seeds 1–5, sha `d058296`, run before the sweep. The default row matches the matched-dose learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. No kernel mechanism file changed, so the probe gate is not required. The score path is the shipped score: the five-seed row matches, and the ceiling door matches the published means.
+
+### Next hypothesis
+
+Do not rerun this split, and do not add seeds. Progress is 0.0549 [0.0398, 0.0696] and outside is 0.0238 [0.0217, 0.0260]. Both are attracted, so the remainder is not confined to the progress channel. The outside interval lies inside the published excess 0.0213 [0.0156, 0.0270]. Uncertainty is 0.0254 [0.0241, 0.0266]. Global progress and the follow-up sit under that excess. Do not split ρ̂. Do not rerun the plant. Uncertainty is `curiosity * explore * 0.4625`, and explore is `0.7 * residual + 0.3 * novelty`. The question this leaves open is which of those two weights carries the 0.0254. One contrast, drift minus held, of the residual piece and the novelty piece on this same door. Noise and the erased room stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-06 matched dose (UTC)
 
 Written before `npm run match`. No plant logit, gap, class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

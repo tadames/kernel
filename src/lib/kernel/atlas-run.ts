@@ -30,6 +30,15 @@ export type AtlasGaps = {
   raw: number;
 };
 
+/**
+ * Additive pieces of one explorer's doorway score. They sum to the logit.
+ * `extra` is the place bonus and is zero on the shipped door.
+ */
+export const SCORE_PIECE_NAMES = ["rho", "global", "uncertainty", "extrinsic", "follow", "extra"] as const;
+export type ScorePieceName = (typeof SCORE_PIECE_NAMES)[number];
+export type ScorePieceGaps = Record<ScorePieceName, number>;
+export type ExplorerPieces = Record<PhaseExplorer, ScorePieceGaps>;
+
 export type AtlasSample = {
   id: number;
   seed: number;
@@ -139,7 +148,19 @@ function doorDelta(k: Kernel, values: ArrayLike<number>) {
   return delta;
 }
 
-function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: number } {
+function emptyPieces(): ScorePieceGaps {
+  return { rho: 0, global: 0, uncertainty: 0, extrinsic: 0, follow: 0, extra: 0 };
+}
+
+function readPieces(k: Kernel): ScorePieceGaps {
+  const parts = k.scoreParts;
+  if (!parts) throw new Error("atlas doorway requires the score split");
+  const out = emptyPieces();
+  for (const name of SCORE_PIECE_NAMES) out[name] = doorDelta(k, parts[name]);
+  return out;
+}
+
+function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: number; pieces: ExplorerPieces } {
   const brain = k.loop.exportBrain();
   const counts = k.visitCounts.slice();
   const predW = k.rnd.predW.slice();
@@ -153,11 +174,18 @@ function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: numb
   const raw = doorDelta(k, errors);
   const logit = zeros();
   const bonus = zeros();
+  const pieces = {} as ExplorerPieces;
   for (const signal of PHASE_EXPLORERS) {
     const scores = k.scoreActions(signal);
     if (!k.scoreParts) throw new Error("atlas doorway requires the score split");
     logit[signal] = doorDelta(k, scores);
     bonus[signal] = signal === "random" ? 0 : doorDelta(k, k.scoreParts.rhoHat);
+    pieces[signal] = readPieces(k);
+    let total = 0;
+    for (const name of SCORE_PIECE_NAMES) total += pieces[signal][name];
+    if (Math.abs(total - logit[signal]) > 1e-6) {
+      throw new Error(`door pieces ${total} do not match logit ${logit[signal]}`);
+    }
   }
   if (!k.loop.importBrain(brain)) throw new Error("atlas could not restore the brain");
   k.visitCounts.set(counts);
@@ -165,7 +193,7 @@ function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: numb
   k.rnd.predB.set(predB);
   k.x = x;
   k.y = y;
-  return { logit, bonus, raw };
+  return { logit, bonus, raw, pieces };
 }
 
 /** The published 200-step learn. Targets stay true. Counts and RND train. */
@@ -221,7 +249,19 @@ function trainLive(k: Kernel, rand: () => number, steps: number) {
  * Both arms share the atlas weight stream. The train stream is
  * `seed ^ 0x41a6` on both arms. The gap is drift minus held.
  */
-export function runDriftDoor(seed: number, driftRate = ATLAS_DRIFT): AtlasGaps {
+type DriftScored = {
+  door: AtlasGaps;
+  /** Drift arm, then held arm. The gap is drift minus held. */
+  driftPieces: ExplorerPieces;
+  heldPieces: ExplorerPieces;
+};
+
+/**
+ * Train the matched drift pair and score the door. The omitted rate is
+ * 0.01877. The piece buffers are the same score the logit already used.
+ * They do not draw a random number and they do not enter the bonus.
+ */
+function scoreDriftPair(seed: number, driftRate: number): DriftScored {
   const left = freshKernel(seed, ATLAS_STREAM, driftSpec("drift", driftRate));
   const right = freshKernel(seed, ATLAS_STREAM, driftSpec("held", driftRate));
   if (weightSum(left) !== weightSum(right)) throw new Error("drift door arms did not share a weight init");
@@ -242,7 +282,20 @@ export function runDriftDoor(seed: number, driftRate = ATLAS_DRIFT): AtlasGaps {
   if (bonus.random !== 0 || target.logit.random !== 0 || control.logit.random !== 0) {
     throw new Error("drift door random score moved");
   }
-  return { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw };
+  return {
+    door: { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw },
+    driftPieces: target.pieces,
+    heldPieces: control.pieces,
+  };
+}
+
+export function runDriftDoor(seed: number, driftRate = ATLAS_DRIFT): AtlasGaps {
+  return scoreDriftPair(seed, driftRate).door;
+}
+
+/** The drift door plus the additive pieces of each explorer's logit. */
+export function runDriftPieceDoor(seed: number, driftRate = ATLAS_DRIFT): DriftScored {
+  return scoreDriftPair(seed, driftRate);
 }
 
 export type DoseMatch = {
