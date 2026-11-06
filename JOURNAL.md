@@ -1,5 +1,85 @@
 # Journal
 
+## 2026-11-06 uncertainty weights (UTC)
+
+Written before `npm run weights`. No residual gap, novelty gap, class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The score-piece entry's next hypothesis forbids another split of the five pieces, more seeds on that split, a split of ρ̂, another plant, and another rate. Progress is 0.0549 [0.0398, 0.0696] and outside is 0.0238 [0.0217, 0.0260]. Both are attracted. Uncertainty is 0.0254 [0.0241, 0.0266], the outside piece whose whole interval sits inside the published excess 0.0213 [0.0156, 0.0270]. Global progress and the follow-up sit under that excess. Those numbers are the previous cell. They are not remeasured. Uncertainty is `curiosity * explore * 0.4625`, and explore is `0.7 * residual + 0.3 * novelty`. The question they leave open is which of those two weights carries the 0.0254. One contrast, drift minus held, of the residual piece and the novelty piece on this same door. Noise and the erased room stay closed. No curiosity term is added. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+The residual piece is the uncertainty term's weight on `0.7 * residual`. The novelty piece is its weight on `0.3 * novelty`. The same linear map that writes the uncertainty term writes both, so they sum to it. The prediction is that the Bernoulli weight carries the gap and visit-scent does not. The realized-error door stays negative. That accuracy is the checksum and is not a gate.
+
+### Preregister weights
+
+Hypothesis. On the shipped door, at redraw probability 0.94, the shared uncertainty gap is the residual weight. The residual piece is attracted. The novelty piece is a sensitive null. The drift logit stays attracted. The uncertainty gap stays attracted. The predicted summary is `residual`.
+
+The call is those two weights. The uncertainty gap is the checksum: it has to stay the published attraction, and the two weights sum to it. The logit is the checksum: it has to stay the published attraction. Other explorers share the uncertainty term. They are not a second call. The unmixed bonus is the checksum and is not a call. Realized error is the checksum and is not a gate. The plant is not rerun. ρ̂ is not split. Occupancy is not run.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. `forgettingRate` stays 0. The stream is the atlas stream, `seed * 10007 + 41011`. The train stream is `seed ^ 0x41a6` on both arms. 400 steps. The two arms share a weight init. The rate is 0.94 and is not in that init. The drifting arm redraws `EAST_HOLD_LATENT`. The held arm keeps it and burns the same coin. Count's unmixed bonus gap is 0. Random's logit is 0. A meal or a death aborts. Fewer than 200 seeds aborts. A non-finite door aborts.
+
+The weights are the ones the uncertainty term already adds. Residual is `curiosity * (0.75 * (0.7 * residual) * 0.35 + 0.2 * (0.7 * residual))`. Novelty is the same map on `0.3 * novelty`. Their sum is the uncertainty term. A miss larger than 1e-6, on an action or on the door, aborts. Random's pieces are 0. A nonzero random piece aborts. Uncertainty is the same function of one brain for count, surprise, RND, and rho. A gap that separates those four by more than 1e-6 aborts. The two weights are that same function, so they are recorded once. A place bonus, on either arm or on the gap, aborts. Global progress is zero for every explorer except rho. A nonzero gap aborts.
+
+The ceiling means must match within 1e-9: rho logit 0.07877570550888777, surprise logit 0.29832686215639115, RND logit 0.04852886945009231, count logit −0.4250148528814316, realized error −0.19100396591506477, rho bonus 0.02258083738292072, surprise bonus 0.07840519232675433, RND bonus −0.006153701646253467, uncertainty 0.025383679792284966. A miss aborts. These numbers are the previous cell. They are not this claim. The logit, bonus, realized-error, and uncertainty salts are the published salts, so a matching sample reproduces that cell's intervals.
+
+δ is the published plant lower end, 0.05422156393527985. It is not remeasured. Sign comes before the null. `phaseCellClass` is the class. A weight whose interval excludes 0 is attracted or repelled even when it sits inside (−δ, δ). A sensitive null is an interval that includes 0 and lies strictly inside (−δ, δ).
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. The class is attracted when the interval lies entirely above 0, repelled when it lies entirely below 0, and null-with-sensitivity when it lies strictly inside (−δ, δ).
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+- Logit, bonus, and realized error use the published ceiling salts. They do not flip the summary except through rho's logit class, which has to stay attracted.
+- Uncertainty uses the published piece salt `45042`, rho's uncertainty column. Its class has to stay attracted. It does not otherwise flip the summary.
+- Residual uses salt `46000 + explorer`. Rho's class enters the summary. The recorded weight is the shared door, so the salt is rho's.
+- Novelty uses salt `46100 + explorer`. Rho's class enters the summary.
+
+Summary, `weightsSummary`, first match. `unreproduced` when the drift logit is not attracted or the uncertainty gap is not attracted. `shared` when residual and novelty are both attracted. `opposed` when residual is attracted and novelty is repelled. `residual` when residual is attracted and novelty is a sensitive null. `counter` when novelty is attracted and residual is repelled. `novelty` when novelty is attracted and residual is a sensitive null. `inconclusive` otherwise.
+
+Verdict, `weightsVerdict`. Confirmed when the summary is `residual`. Refuted when it is `shared`, `opposed`, `counter`, or `novelty`. Otherwise inconclusive.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the rate, δ, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. The plant is not rerun. ρ̂ is not split. No occupancy episode is run. No rate other than 0.94 is run. The five score pieces are not split again. `residual`: the shared gap is the Bernoulli weight, and visit-scent does not move this door. `novelty`: visit-scent carries the gap and the Bernoulli weight does not. `shared`: both weights move the door, so the 0.0254 is not one of them. `opposed`: the Bernoulli weight carries an attraction and visit-scent pushes the other way. `counter`: visit-scent carries an attraction and the Bernoulli weight pushes the other way. `unreproduced`: the ceiling cell did not come back attracted. `inconclusive`: a weight interval includes 0 and does not fit inside (−δ, δ), or neither weight is attracted while the gap is. A confirmed headline is not a license for a mechanism. No second look with more seeds in this run.
+
+Figure: `bench/weights/weights.png`. Columns are the residual weight, the novelty weight, and their sum. Color is the drift-minus-held gap and saturates at ±0.05, because these pieces live under the published uncertainty gap and the ceiling clamp of 0.30 would wash them. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. The class is printed in the cell. The caption prints the summary, the uncertainty mean, and rho's logit. Source: `bench/weights/weights.json`. Tables: `bench/weights/weights.csv` and `bench/weights/weights.md`. The sweep is `npm run weights`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the score-piece learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is confirmed. The summary is `residual`. The shared uncertainty gap at redraw probability 0.94 is the residual weight. The novelty weight is 0 on every seed. The drift logit stays the published attraction. No term was added.
+
+200 seeds, 4 workers, 3.3 seconds. Source: `bench/weights/weights.json`. The ceiling means match the published cell within 1e-9, including the uncertainty mean 0.025383679792284966. Count's unmixed bonus gap is 0. Random's logit is 0. The place bonus is 0. The two weights sum to the uncertainty term on every seed. The largest miss is 3.7e-8, under the 1e-6 abort. The harness does not fail.
+
+#### Summary. Confirmed.
+
+`weightsSummary` is residual. `weightsVerdict` is confirmed. The residual weight is attracted and the novelty weight is a sensitive null. The drift logit is attracted. The uncertainty gap is attracted.
+
+The gap is drift minus held. n = 200. δ is 0.0542, the published plant. Sign comes before the null. The plant is not rerun. The published uncertainty gap is 0.0254 [0.0241, 0.0266]. The published excess, drift minus the plant, is 0.0213 [0.0156, 0.0270]. Those intervals are the previous cell.
+
+| weight | gap | class |
+|---|---|---|
+| residual | 0.0254 [0.0242, 0.0266] | attracted |
+| novelty | 0.0000 [0.0000, 0.0000] | null-with-sensitivity |
+| uncertainty | 0.0254 [0.0241, 0.0266] | attracted |
+| logit | 0.0788 [0.0633, 0.0944] | attracted |
+
+The uncertainty interval is the published piece interval. The logit interval is the published ceiling interval. The novelty gap is 0 on all 200 seeds, so the interval is [0, 0]. It includes 0 and lies inside (−δ, δ). The class is a sensitive null. A doorway contrast of a weight that does not differ between the east actions and the others is 0. This run records that contrast. It does not record the level of the weight.
+
+The residual mean is 0.025383680881932377. The uncertainty mean is 0.025383679792284966. They differ by 1.09e-9, the second evaluation of the same linear map. The residual salt is new, so its endpoints are not a reprint of the uncertainty endpoints. The per-seed identity is the check, and it holds. The residual interval sits on the published uncertainty gap. Visit-scent contributes none of it.
+
+The realized-error door is −0.1910 [−0.1938, −0.1882], the published ceiling door. The drifting arm's east action is still the more accurate one. The residual weight prefers that same door. The imagined Bernoulli residual and the realized squared error do not have the same sign, and the split says the sign belongs to the residual weight. The novelty weight is not the disagreement.
+
+The unmixed rho bonus is 0.0226 [0.0183, 0.0271], the published ceiling bonus. Surprise's bonus is 0.0784 [0.0745, 0.0822]. RND's bonus is −0.0062 [−0.0086, −0.0039]. Count's bonus is 0. Surprise's logit is 0.2983 [0.2786, 0.3185]. RND's logit is 0.0485 [0.0391, 0.0579]. Count's logit is −0.4250 [−0.4522, −0.3974].
+
+Figure: `bench/weights/weights.png`. The residual cell and the sum cell are edged and marked attracted. The novelty cell is unmarked and marked null. The caption reads summary residual, uncertainty 0.0254, rho logit 0.0788. Tables: `bench/weights/weights.csv` and `bench/weights/weights.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. `traceExplore` is off on the default agent. It allocates only when a measurement asks, and the split does not enter the bonus. No Loop flag was added, and none was turned on. The rate is the room's redraw probability. It is not on the step path of the default agent.
+
+Five-seed bench, seeds 1–5, sha `7ff4909`, run before the sweep. The default row matches the score-piece learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. `policy.ts` and `kernel.ts` grew a measurement trace that the default agent does not allocate. The score path with the trace omitted is the shipped score: the five-seed row matches, and the ceiling door matches the published means. Probe gate, seeds 1–20, after the trace. Option off minus on is 0.0107 [0.0032, 0.0179]. Transition off minus on is 0.1347 [0.1255, 0.1416]. Both pass. The gate is not this claim.
+
+### Next hypothesis
+
+Do not rerun this split, and do not add seeds. The residual weight is 0.0254 [0.0242, 0.0266] and the novelty weight is 0 on every seed. The shared gap is the Bernoulli weight. Visit-scent does not move this door. The realized-error door stays −0.1910 [−0.1938, −0.1882]. The two doors have opposite signs. Do not ablate the term. Do not run an occupancy episode. The question this leaves open is why the imagined Bernoulli residual is higher on the east actions of the arm whose realized squared error is lower. One contrast, on this same door, of that residual against the squared error of the same predicted window. Noise and the erased room stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-06 score pieces (UTC)
 
 Written before `npm run parts`. No piece gap, channel class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

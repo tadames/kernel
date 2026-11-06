@@ -1,12 +1,14 @@
 import { Loop, TRANSITION_LR, resolveLoopFeatures, type LoopFeatures } from "./loop.ts";
 import "./scent-rho-hat.ts";
 import {
+  emptyExploreParts,
   emptyRhoDropTrace,
   emptyRhoHatParts,
   emptyScoreParts,
   imagineScores,
   REPLAY_HARD_AT,
   softmaxSample,
+  type ExploreParts,
   type RhoDropTrace,
   type RhoHatParts,
   type ScoreParts,
@@ -171,6 +173,14 @@ export type KernelOptions = {
    */
   traceDrop?: boolean;
   /**
+   * Measurement-only split of the uncertainty term into the residual
+   * weight and the novelty weight. Omitted does not allocate the buffers
+   * and does not pass them into imagination. Not a Loop feature flag.
+   * The default agent does not change. The split does not draw a random
+   * number and does not enter the bonus.
+   */
+  traceExplore?: boolean;
+  /**
    * While the body is in region 0, take one extra cell step on an east-room
    * transition whose open-cell glow targets are negated. Surprise stays on
    * the true observation. The stream is not the policy RNG. Omitted is off.
@@ -306,6 +316,12 @@ export class Kernel {
    * not allocate it.
    */
   readonly rhoDrop: RhoDropTrace | null;
+  /**
+   * Residual and novelty weights inside the last sampled uncertainty term.
+   * Null unless `traceExplore`. A held tick does not refresh it. The
+   * default agent does not allocate it.
+   */
+  readonly exploreParts: ExploreParts | null;
   /** Visit counts for the count-based baseline. Not used by rho. */
   readonly visitCounts: Uint32Array;
   /** RND target and predictor. The target stays fixed for the episode. */
@@ -407,6 +423,7 @@ export class Kernel {
     this.scoreParts = options?.traceScores ? emptyScoreParts(ACTS) : null;
     this.rhoHatParts = options?.traceRho ? emptyRhoHatParts(ACTS) : null;
     this.rhoDrop = options?.traceDrop ? emptyRhoDropTrace(ACTS) : null;
+    this.exploreParts = options?.traceExplore ? emptyExploreParts(ACTS) : null;
     if (options?.policyTemperature != null && !(Number.isFinite(options.policyTemperature) && options.policyTemperature >= 0.05)) {
       throw new Error("policyTemperature must be finite and at least 0.05");
     }
@@ -1000,6 +1017,7 @@ export class Kernel {
       this.zeroScoreParts();
       this.zeroRhoHatParts();
       this.zeroRhoDrop();
+      this.zeroExploreParts();
       return this.scores;
     }
     this.fillScores(signal, obs);
@@ -1013,6 +1031,7 @@ export class Kernel {
       this.zeroScoreParts();
       this.zeroRhoHatParts();
       this.zeroRhoDrop();
+      this.zeroExploreParts();
       this.policyEntropy = 1;
       this.branching = ACTS;
       this.edge = edgeIndex(1);
@@ -1099,6 +1118,7 @@ export class Kernel {
           : undefined,
       follow: this.features.rollout ? this.followBuf : undefined,
       parts: this.scoreParts ?? undefined,
+      explore: this.exploreParts ?? undefined,
       hatParts: this.rhoHatParts ?? undefined,
       hatTrace: this.rhoDrop ?? undefined,
     });
@@ -1122,6 +1142,13 @@ export class Kernel {
     parts.bonus.fill(0);
     parts.drop2.fill(0);
     parts.drop3.fill(0);
+  }
+
+  private zeroExploreParts() {
+    const explore = this.exploreParts;
+    if (!explore) return;
+    explore.residual.fill(0);
+    explore.novelty.fill(0);
   }
 
   private zeroRhoDrop() {

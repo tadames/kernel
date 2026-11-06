@@ -95,13 +95,14 @@ function weightSum(k: Kernel) {
   return s;
 }
 
-function freshKernel(seed: number, stream: number, env: EnvSpec) {
+function freshKernel(seed: number, stream: number, env: EnvSpec, traceExplore = false) {
   return withSeed(seed * 10007 + stream, () => {
     const options: KernelOptions = {
       env,
       signal: "rho",
       cellHidden: RELEARN_HIDDEN,
       traceScores: true,
+      traceExplore,
     };
     return new Kernel("distractor", seed, undefined, options);
   });
@@ -160,7 +161,24 @@ function readPieces(k: Kernel): ScorePieceGaps {
   return out;
 }
 
-function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: number; pieces: ExplorerPieces } {
+function readExplore(k: Kernel): ExploreDoor | null {
+  const explore = k.exploreParts;
+  const parts = k.scoreParts;
+  if (!explore) return null;
+  if (!parts) throw new Error("explore split requires the score split");
+  for (let a = 0; a < ACTS; a++) {
+    const sum = explore.residual[a]! + explore.novelty[a]!;
+    if (Math.abs(sum - parts.uncertainty[a]!) > 1e-6) {
+      throw new Error(`explore split ${sum} left uncertainty ${parts.uncertainty[a]}`);
+    }
+  }
+  return {
+    residual: doorDelta(k, explore.residual),
+    novelty: doorDelta(k, explore.novelty),
+  };
+}
+
+function scoreDoor(k: Kernel): ScoredDoor {
   const brain = k.loop.exportBrain();
   const counts = k.visitCounts.slice();
   const predW = k.rnd.predW.slice();
@@ -175,6 +193,7 @@ function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: numb
   const logit = zeros();
   const bonus = zeros();
   const pieces = {} as ExplorerPieces;
+  let mix: ExploreDoor | null = null;
   for (const signal of PHASE_EXPLORERS) {
     const scores = k.scoreActions(signal);
     if (!k.scoreParts) throw new Error("atlas doorway requires the score split");
@@ -186,6 +205,17 @@ function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: numb
     if (Math.abs(total - logit[signal]) > 1e-6) {
       throw new Error(`door pieces ${total} do not match logit ${logit[signal]}`);
     }
+    if (signal !== "random" && k.exploreParts) {
+      const door = readExplore(k);
+      if (!door) throw new Error("explore split disappeared during the door");
+      if (Math.abs(door.residual + door.novelty - pieces[signal].uncertainty) > 1e-6) {
+        throw new Error(`${signal} explore door left the uncertainty piece`);
+      }
+      if (!mix) mix = door;
+      else if (Math.abs(mix.residual - door.residual) > 1e-6 || Math.abs(mix.novelty - door.novelty) > 1e-6) {
+        throw new Error(`${signal} explore split left the shared door`);
+      }
+    }
   }
   if (!k.loop.importBrain(brain)) throw new Error("atlas could not restore the brain");
   k.visitCounts.set(counts);
@@ -193,7 +223,7 @@ function scoreDoor(k: Kernel): { logit: SignalGaps; bonus: SignalGaps; raw: numb
   k.rnd.predB.set(predB);
   k.x = x;
   k.y = y;
-  return { logit, bonus, raw, pieces };
+  return { logit, bonus, raw, pieces, mix };
 }
 
 /** The published 200-step learn. Targets stay true. Counts and RND train. */
@@ -256,14 +286,29 @@ type DriftScored = {
   heldPieces: ExplorerPieces;
 };
 
+/** Uncertainty term split into the residual weight and the novelty weight. */
+export type ExploreDoor = { residual: number; novelty: number };
+
+type ScoredDoor = {
+  logit: SignalGaps;
+  bonus: SignalGaps;
+  raw: number;
+  pieces: ExplorerPieces;
+  /** Null unless the kernel was built with `traceExplore`. */
+  mix: ExploreDoor | null;
+};
+
 /**
  * Train the matched drift pair and score the door. The omitted rate is
  * 0.01877. The piece buffers are the same score the logit already used.
  * They do not draw a random number and they do not enter the bonus.
  */
-function scoreDriftPair(seed: number, driftRate: number): DriftScored {
-  const left = freshKernel(seed, ATLAS_STREAM, driftSpec("drift", driftRate));
-  const right = freshKernel(seed, ATLAS_STREAM, driftSpec("held", driftRate));
+function scoreDriftPair(seed: number, driftRate: number, traceExplore = false): DriftScored & {
+  driftMix: ExploreDoor | null;
+  heldMix: ExploreDoor | null;
+} {
+  const left = freshKernel(seed, ATLAS_STREAM, driftSpec("drift", driftRate), traceExplore);
+  const right = freshKernel(seed, ATLAS_STREAM, driftSpec("held", driftRate), traceExplore);
   if (weightSum(left) !== weightSum(right)) throw new Error("drift door arms did not share a weight init");
   if (left.family?.mode !== "drift" || right.family?.mode !== "hold") {
     throw new Error(`drift door arms are ${left.family?.mode} and ${right.family?.mode}`);
@@ -282,10 +327,14 @@ function scoreDriftPair(seed: number, driftRate: number): DriftScored {
   if (bonus.random !== 0 || target.logit.random !== 0 || control.logit.random !== 0) {
     throw new Error("drift door random score moved");
   }
+  if (traceExplore && (!target.mix || !control.mix)) throw new Error("weight door did not record the explore split");
+  if (!traceExplore && (target.mix || control.mix)) throw new Error("drift door recorded an explore split it did not ask for");
   return {
     door: { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw },
     driftPieces: target.pieces,
     heldPieces: control.pieces,
+    driftMix: target.mix,
+    heldMix: control.mix,
   };
 }
 
@@ -296,6 +345,29 @@ export function runDriftDoor(seed: number, driftRate = ATLAS_DRIFT): AtlasGaps {
 /** The drift door plus the additive pieces of each explorer's logit. */
 export function runDriftPieceDoor(seed: number, driftRate = ATLAS_DRIFT): DriftScored {
   return scoreDriftPair(seed, driftRate);
+}
+
+export type DriftWeightDoor = DriftScored & {
+  /** Drift minus held. The two weights sum to the shared uncertainty gap. */
+  residual: number;
+  novelty: number;
+};
+
+/**
+ * The drift door, with the uncertainty term split into the residual weight
+ * and the novelty weight. The split is not a second training. It does not
+ * enter the bonus. The omitted rate is 0.01877.
+ */
+export function runDriftWeightDoor(seed: number, driftRate = ATLAS_DRIFT): DriftWeightDoor {
+  const scored = scoreDriftPair(seed, driftRate, true);
+  if (!scored.driftMix || !scored.heldMix) throw new Error("weight door missing the explore split");
+  const residual = scored.driftMix.residual - scored.heldMix.residual;
+  const novelty = scored.driftMix.novelty - scored.heldMix.novelty;
+  const uncertainty = scored.driftPieces.rho.uncertainty - scored.heldPieces.rho.uncertainty;
+  if (Math.abs(residual + novelty - uncertainty) > 1e-6) {
+    throw new Error(`weight door ${residual + novelty} left uncertainty ${uncertainty}`);
+  }
+  return { ...scored, residual, novelty };
 }
 
 export type DoseMatch = {

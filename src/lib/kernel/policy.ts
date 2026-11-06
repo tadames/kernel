@@ -167,6 +167,24 @@ export function emptyScoreParts(acts: number): ScoreParts {
   };
 }
 
+/**
+ * The uncertainty term split by the two weights inside explore.
+ * `residual` is the weight on `0.7 * residual`. `novelty` is the weight
+ * on `0.3 * novelty`. They sum to `uncertainty`. Omitted from the score
+ * path unless a sweep asks.
+ */
+export type ExploreParts = {
+  residual: Float32Array;
+  novelty: Float32Array;
+};
+
+export function emptyExploreParts(acts: number): ExploreParts {
+  return {
+    residual: new Float32Array(acts),
+    novelty: new Float32Array(acts),
+  };
+}
+
 function valueOf(
   v: PredRead,
   pred: Float32Array,
@@ -178,7 +196,7 @@ function valueOf(
   residualWeight?: (i: number) => number,
   uncertainty = true,
   progExtra = 0,
-  sink?: { parts: ScoreParts; action: number },
+  sink?: { parts?: ScoreParts; action: number; explore?: ExploreParts },
 ): number {
   // Uncertainty is the Bernoulli residual. Off leaves visit-scent as the only explore term.
   const residual = uncertainty ? expectedResidual(pred, residualWeight) : 0;
@@ -191,17 +209,25 @@ function valueOf(
     curiosity * (0.75 * explore * (0.35 + 12 * prog) + 0.2 * explore);
   const g = goal * v.reward * (0.2 + 0.8 * confidence);
   const cost = v.cost * (0.15 + 0.85 * confidence);
-  if (sink) {
+  if (sink?.parts || sink?.explore) {
     const c = curiosity;
     const e = explore;
-    const parts = sink.parts;
     const action = sink.action;
-    parts.rho[action] = c * e * 0.75 * 12 * RHO_HAT_PROG_WEIGHT * hat;
-    parts.global[action] = c * e * 0.75 * 12 * learned;
-    parts.uncertainty[action] = c * (0.75 * e * 0.35 + 0.2 * e);
-    parts.extra[action] = c * e * 0.75 * 12 * progExtra;
-    parts.extrinsic[action] = g - cost;
-    parts.rhoHat[action] = hat;
+    if (sink.parts) {
+      const parts = sink.parts;
+      parts.rho[action] = c * e * 0.75 * 12 * RHO_HAT_PROG_WEIGHT * hat;
+      parts.global[action] = c * e * 0.75 * 12 * learned;
+      parts.uncertainty[action] = c * (0.75 * e * 0.35 + 0.2 * e);
+      parts.extra[action] = c * e * 0.75 * 12 * progExtra;
+      parts.extrinsic[action] = g - cost;
+      parts.rhoHat[action] = hat;
+    }
+    // Same linear map as the uncertainty line. The two weights sum to it.
+    if (sink.explore) {
+      const weight = (x: number) => c * (0.75 * x * 0.35 + 0.2 * x);
+      sink.explore.residual[action] = weight(0.7 * residual);
+      sink.explore.novelty[action] = weight(0.3 * v.novelty);
+    }
   }
   return curious + g - cost;
 }
@@ -254,6 +280,13 @@ export function imagineScores(opts: {
    * the score path unchanged. The pieces sum to `scores`.
    */
   parts?: ScoreParts;
+  /**
+   * Split of the uncertainty term into the residual weight and the novelty
+   * weight. Omitted writes nothing and leaves the score path unchanged.
+   * The two sum to `parts.uncertainty` when both are recorded. The split
+   * does not draw a random number and does not enter the bonus.
+   */
+  explore?: ExploreParts;
   /**
    * Split of ρ̂ into the bonus slot and the two horizon drops. Omitted
    * writes nothing. The three are already rectified and sum to the ρ̂ that
@@ -361,7 +394,7 @@ export function imagineScores(opts: {
         opts.residualWeight,
         uncertainty,
         extra,
-        opts.parts ? { parts: opts.parts, action: a } : undefined,
+        opts.parts || opts.explore ? { parts: opts.parts, action: a, explore: opts.explore } : undefined,
       );
       opts.scores[a] = score1 + disc * confidence * best2 + disc * disc * confidence * best3;
       if (opts.parts) opts.parts.follow[a] = opts.scores[a] - score1;
@@ -377,7 +410,7 @@ export function imagineScores(opts: {
         opts.residualWeight,
         uncertainty,
         extra,
-        opts.parts ? { parts: opts.parts, action: a } : undefined,
+        opts.parts || opts.explore ? { parts: opts.parts, action: a, explore: opts.explore } : undefined,
       );
       if (opts.parts) opts.parts.follow[a] = 0;
     }
