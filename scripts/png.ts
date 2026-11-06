@@ -99,6 +99,9 @@ const FONT: Record<string, number[]> = {
   ":": [0, 12, 12, 0, 12, 12, 0],
   "+": [0, 4, 4, 31, 4, 4, 0],
   "/": [1, 1, 2, 4, 8, 16, 16],
+  "[": [30, 16, 16, 16, 16, 16, 30],
+  "]": [15, 1, 1, 1, 1, 1, 15],
+  ",": [0, 0, 0, 0, 12, 8, 16],
 };
 
 export function drawText(rgba: Uint8Array, width: number, x: number, y: number, text: string, rgb: [number, number, number]) {
