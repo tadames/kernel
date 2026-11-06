@@ -9,6 +9,7 @@
  * is built. That is the room, not a Loop flag.
  */
 import { TRANSITION_LR } from "./loop.ts";
+import { RHO_HAT_PROG_WEIGHT } from "./policy.ts";
 import { ACTS, Kernel, OBS, R, SIZE, type KernelOptions } from "./kernel.ts";
 import { senseGrid, stepGrid, type EnvSpec, type GridBody } from "./env.ts";
 import { applyFamily, distractorSpec, regionCells } from "./family.ts";
@@ -242,6 +243,66 @@ export function runDriftDoor(seed: number, driftRate = ATLAS_DRIFT): AtlasGaps {
     throw new Error("drift door random score moved");
   }
   return { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw };
+}
+
+export type DoseMatch = {
+  /** Drift minus held. The published ceiling door when the rate is 0.94. */
+  door: AtlasGaps;
+  /** Boosted held door minus the flat held door. The boost is this seed's dose. */
+  plant: AtlasGaps;
+  /** Progress-channel dose, 0.55 times the unmixed rho bonus gap. */
+  dose: number;
+};
+
+/**
+ * The drift door, then a constant progress-channel plant of that seed's own
+ * dose on the held brain. The plant is not a second training and not a copy
+ * of the weights. The scent head stays. A zero dose leaves the boost off and
+ * the plant gap at zero. The door path is `runDriftDoor`.
+ */
+export function runDoseMatch(seed: number, driftRate: number): DoseMatch {
+  const left = freshKernel(seed, ATLAS_STREAM, driftSpec("drift", driftRate));
+  const right = freshKernel(seed, ATLAS_STREAM, driftSpec("held", driftRate));
+  if (weightSum(left) !== weightSum(right)) throw new Error("matched door arms did not share a weight init");
+  if (left.family?.mode !== "drift" || right.family?.mode !== "hold") {
+    throw new Error(`matched door arms are ${left.family?.mode} and ${right.family?.mode}`);
+  }
+  if (left.envParams.driftRate !== driftRate || right.envParams.driftRate !== driftRate) {
+    throw new Error(`matched door rate drifted to ${left.envParams.driftRate}`);
+  }
+  const randLeft = mulberry32((seed ^ 0x41a6) >>> 0);
+  const randRight = mulberry32((seed ^ 0x41a6) >>> 0);
+  trainLive(left, randLeft, ATLAS_CONTENT_STEPS);
+  trainLive(right, randRight, ATLAS_CONTENT_STEPS);
+  const target = scoreDoor(left);
+  const control = scoreDoor(right);
+  const bonus = sub(target.bonus, control.bonus);
+  if (bonus.count !== 0) throw new Error(`matched door count bonus gap is ${bonus.count}`);
+  if (bonus.random !== 0 || target.logit.random !== 0 || control.logit.random !== 0) {
+    throw new Error("matched door random score moved");
+  }
+  const door: AtlasGaps = { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw };
+  const dose = RHO_HAT_PROG_WEIGHT * door.bonus.rho;
+  if (!Number.isFinite(dose)) throw new Error(`matched dose is not finite on seed ${seed}`);
+  if (dose === 0) return { door, plant: { logit: zeros(), bonus: zeros(), raw: 0 }, dose };
+  (right as { intrinsicBoost: { add: number; region: 0 | 1 } | null }).intrinsicBoost = {
+    add: dose,
+    region: 1,
+  };
+  const high = scoreDoor(right);
+  const plantBonus = sub(high.bonus, control.bonus);
+  if (maxAbs(plantBonus) > 1e-4) throw new Error(`matched plant changed the unmixed bonus by ${maxAbs(plantBonus)}`);
+  if (high.logit.random !== 0 || control.logit.random !== 0) throw new Error("matched plant moved the random logit");
+  const rawGap = high.raw - control.raw;
+  if (Math.abs(rawGap) > 1e-4) throw new Error(`matched plant moved the realized error by ${rawGap}`);
+  const plantLogit = sub(high.logit, control.logit);
+  for (const signal of PHASE_EXPLORERS) {
+    if (signal === "random" || signal === "rho") continue;
+    if (Math.abs(plantLogit[signal]! - plantLogit.rho) > 1e-4) {
+      throw new Error(`matched plant ${signal} logit ${plantLogit[signal]} left rho ${plantLogit.rho}`);
+    }
+  }
+  return { door, plant: { logit: plantLogit, bonus: plantBonus, raw: rawGap }, dose };
 }
 
 function trainPair(seed: number, kind: "noise" | "drift"): AtlasGaps {

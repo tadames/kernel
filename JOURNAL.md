@@ -1,5 +1,86 @@
 # Journal
 
+## 2026-11-06 matched dose (UTC)
+
+Written before `npm run match`. No plant logit, gap, class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The ceiling entry's next hypothesis forbids another rate, a split of the progress term, and an occupancy episode. Rho at redraw probability 0.94 is attracted, 0.0788 [0.0633, 0.0944], and the progress-channel dose of that attraction is 0.0124 [0.0100, 0.0149], entirely below 0.0169. The PR #11 curve is an occupancy curve. It does not say what a dose of that size does to this door's logit. The atlas plant, on a different brain, moved the logit by 0.0544 for a dose of 0.0085. That is a gain near 6.4. The same gain times 0.0124 is the published logit. This run asks whether that arithmetic is the paired fact, on the brain that produced the ceiling door.
+
+The score adds the progress-channel dose with weight `curiosity * explore * 9`. A constant plant of a seed's own dose, on the held brain, is the counterfactual the occupancy threshold does not supply. The drift logit minus that plant logit is the part of the attraction the mean dose does not buy. No curiosity term is added. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+### Preregister match
+
+Hypothesis. On the shipped door, at redraw probability 0.94, rho's logit gap equals the logit gap from planting that seed's own progress-channel dose on the held brain. Drift logit minus plant logit lies strictly inside (−δ, δ). The drift logit stays attracted. The plant logit is attracted. The predicted summary is `accounted`.
+
+The call is that gap, drift logit minus plant logit. The drift logit is the published ceiling cell. The plant logit is boosted held minus flat held, on the same held brain, with no second training. The dose band is reported and does not flip the summary. Other explorers are reported and do not flip the summary. Realized error is the checksum and is not a gate. The progress term is not split. Occupancy is not run.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. `forgettingRate` stays 0. The stream is the atlas stream, `seed * 10007 + 41011`. The train stream is `seed ^ 0x41a6` on both arms. 400 steps. The two arms share a weight init. The rate is 0.94 and is not in that init. The drifting arm redraws `EAST_HOLD_LATENT`. The held arm keeps it and burns the same coin. Count's unmixed bonus gap is 0. Random's logit is 0. A meal or a death aborts. Fewer than 200 seeds aborts. A non-finite door aborts.
+
+The dose is 0.55 times that seed's unmixed rho bonus gap, the weight already in the score. It is added on region 1 of the held brain only. A zero dose leaves the boost off and the plant gap at 0. Imagined follow-ups do not receive it. The boost does not enter the unmixed bonus. An unmixed plant gap or a realized-error plant gap larger than 1e-4 in absolute value aborts. A plant logit that moves count, surprise, or RND away from rho's plant logit by more than 1e-4 aborts, because the boost is the shared progress channel. A nonzero plant random logit aborts.
+
+The ceiling means must match within 1e-9: rho logit 0.07877570550888777, surprise logit 0.29832686215639115, RND logit 0.04852886945009231, count logit −0.4250148528814316, realized error −0.19100396591506477, rho bonus 0.02258083738292072, surprise bonus 0.07840519232675433, RND bonus −0.006153701646253467. The mean dose must match 0.55 times that rho bonus. A miss aborts. These numbers are the previous cell. They are not this claim. The drift salts are the published ceiling salts, so a matching sample reproduces that cell's intervals.
+
+δ is the published plant lower end, 0.05422156393527985. It is not remeasured. Sign comes before the null. `phaseCellClass` is the class.
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. The class is attracted when the interval lies entirely above 0, repelled when it lies entirely below 0, and null-with-sensitivity when it lies strictly inside (−δ, δ).
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+- Drift logit, bonus, and realized error use the published ceiling salts. They do not flip the summary except through rho's class, which has to stay attracted.
+- Plant logit uses salt `44100 + explorer`. Rho's class enters the summary. The others do not.
+- Drift logit minus plant logit uses salt `44200 + explorer`. Rho's gap is the call.
+- The dose has no salt of its own. It is 0.55 times the rho bonus interval, the same resamples. It does not flip the summary.
+
+Summary, `matchSummary`, first match. `unreproduced` when the drift logit is not attracted. `excess` when the gap is attracted. `short` when the gap is repelled. `blind` when the plant logit is not attracted. `accounted` when the gap is a sensitive null and the plant logit is attracted. `inconclusive` when the gap includes 0 and does not fit inside (−δ, δ).
+
+Verdict, `matchVerdict`. Confirmed when the summary is `accounted`. Refuted when it is `excess`, `short`, or `blind`. Otherwise inconclusive.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the rate, δ, the dose lines, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. The progress term is not split. No occupancy episode is run. No rate other than 0.94 is run. `accounted`: the door logit is the mean dose, and the occupancy threshold was a different instrument. `excess`: the drift logit is larger than the dose buys on the held brain. `short`: the dose buys a larger logit than the drift door shows. `blind`: the dose does not attract on this door, so it cannot account for the attraction. `unreproduced`: the ceiling cell did not come back attracted. `inconclusive`: the gap does not resolve. A confirmed headline is not a license for a mechanism. No second look with more seeds in this run.
+
+Figure: `bench/match/match.png`. Columns are the published drift cell, the plant, and drift minus plant. Rows are the five explorers. Color is the logit and saturates at ±0.30, the ceiling clamp, so a 0.25 surprise gap is the same red as on that figure. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. Rho's class is printed in the cell. Under the grid, rho's progress-channel dose is a bar on an axis from −0.02 to 0.08, with lines at 0.0169 and 0.05. Source: `bench/match/match.json`. Tables: `bench/match/match.csv` and `bench/match/match.md`. The sweep is `npm run match`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the ceiling learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is refuted. The summary is `excess`. Rho's logit at redraw probability 0.94 stays the published attraction, and the plant of that seed's own dose is attracted too. The paired gap, drift minus plant, lies entirely above 0. The dose remains entirely below 0.0169. No term was added.
+
+200 seeds, 4 workers, 4.0 seconds. Source: `bench/match/match.json`. The ceiling means match the published cell within 1e-9. Count's unmixed bonus gap is 0. Random's logit is 0 on the drift door and on the plant. The plant does not move the unmixed bonus or the realized error. Count, surprise, and RND take the same plant logit as rho, to the harness floor. The harness does not fail.
+
+#### Summary. Refuted.
+
+`matchSummary` is excess. `matchVerdict` is refuted. The gap is attracted, and that match comes before the sensitive null. The plant is attracted. The drift cell is attracted.
+
+The drift logit is the published ceiling door, drift minus held. The plant logit is boosted held minus flat held. The gap is drift minus plant. n = 200. δ is 0.0542, the published plant. Sign comes before the null. The dose is 0.55 times the unmixed rho bonus. The dose lines are 0.0169 and 0.05.
+
+| column | rho logit | class |
+|---|---|---|
+| drift | 0.0788 [0.0633, 0.0944] | attracted |
+| plant | 0.0575 [0.0458, 0.0694] | attracted |
+| drift − plant | 0.0213 [0.0156, 0.0270] | attracted |
+
+The drift interval is the published ceiling interval. The lower end sits above δ. The plant's lower end is 0.0458, under δ, and the interval excludes 0, so the class is attracted by the sign. The dose does move this door. It does not clear δ. The gap's upper end is 0.0270, under δ, and the interval excludes 0. The locked rule reads that sign. A sensitive null would have required the gap to sit inside (−δ, δ) without a sign. It has a sign.
+
+The dose is 0.0124 [0.0100, 0.0149], entirely below 0.0169 and entirely below 0.05. `rhoGapBand` is below-undetectable. The band does not flip the summary. The ratio of the means, plant logit over dose, is 4.63. The same ratio for the drift logit is 6.34. The atlas plant on the mastered brain was a gain near 6.4. These ratios are not a bootstrap and they are not a call. They say the held brain at 0.94 turns a dose into less logit than the mastered brain did, and the drift door turns it into more than the held brain's plant.
+
+The same plant is the shared progress channel, so count, surprise, and RND move by the same 0.0575. Their gaps against their own drift logits do not flip the summary. RND's gap is −0.0090 [−0.0241, 0.0063], a sensitive null: the dose accounts for RND and does not account for rho. Surprise's gap is 0.2408 [0.2211, 0.2618]. Count's gap is −0.4825 [−0.5102, −0.4538]. Random stays 0.
+
+The unmixed rho bonus is 0.0226 [0.0183, 0.0271], the published ceiling bonus. Surprise's bonus is 0.0784 [0.0745, 0.0822]. RND's bonus is −0.0062 [−0.0086, −0.0039]. Count's bonus is 0. The realized-error door is −0.1910 [−0.1938, −0.1882]. The drifting arm's east action is still the more accurate one. That accuracy does not keep the logit inside the plant.
+
+Most of the published attraction is the mean dose: the plant is 0.0575 of the drift's 0.0788. The remainder, 0.0213 [0.0156, 0.0270], is a rho excess the dose on the held brain does not buy. The occupancy curve is still the wrong ruler for the part the dose does buy, and it is not a ruler for the excess. The measurement does not say which score channel carries the remainder.
+
+Figure: `bench/match/match.png`. Drift rho and plant rho are both red and marked attracted. The gap cell is paler, edged, and marked attracted. Surprise is darker on the drift cell than on the plant. Count is blue on the drift cell and on the gap. The dose bar sits between zero and the 0.0169 line, labeled below 0.0169. The 0.05 line is to its right. Tables: `bench/match/match.csv` and `bench/match/match.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off on the default path. The plant is a field the score reads during the measurement. It is not on the step path of the default agent. No Loop flag was added, and none was turned on. The rate is the room's redraw probability. It is not on the step path of the default agent.
+
+Five-seed bench, seeds 1–5, sha `089ce62`, run before the sweep. The default row matches the ceiling learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. No kernel mechanism file changed, so the probe gate is not required. The score path is the shipped score: the five-seed row matches, and the ceiling door matches the published means.
+
+### Next hypothesis
+
+Do not rerun this plant, and do not add seeds to the gap. Drift minus plant is 0.0213 [0.0156, 0.0270], entirely above 0 and entirely below δ. The dose buys 0.0575 [0.0458, 0.0694] of the logit and leaves that remainder. Do not run an occupancy episode. The dose is 0.0124 [0.0100, 0.0149], entirely below 0.0169. Do not split ρ̂. The bonus is the published ceiling bonus, and the excess is not a falling piece of it. Do not add a rate. The question the excess leaves open is which additive piece of the score carries the 0.0213. Those pieces already sum to the logit: the explore-weighted ρ̂, global progress, uncertainty, the follow-up, and the extrinsic term. One contrast, drift minus held, of those pieces on this same door, can say whether the remainder is inside the progress channel or outside it. Noise and the erased room stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-04 ceiling (UTC)
 
 Written before `npm run ceiling`. No logit, class, dose band, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
