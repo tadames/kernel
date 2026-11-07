@@ -193,6 +193,8 @@ test("the shipped progress window matches an omitted window, and the other explo
   assert.deepEqual(explicit.positiveSum, shipped.positiveSum);
   assert.deepEqual(explicit.peakAt80, shipped.peakAt);
   assert.equal(explicit.trace.length, 80);
+  const fresh = runProgressBout(1, 3, CYCLE_LAMBDA, 50, 80, 16101);
+  assert.notDeepEqual(fresh.positiveSum, shipped.positiveSum);
 });
 
 test("CI does not run the cycle sweep", () => {
