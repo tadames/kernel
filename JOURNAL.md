@@ -1,5 +1,89 @@
 # Journal
 
+## 2026-11-07 predicted window (UTC)
+
+Written before `npm run window`. No residual gap, squared gap, alignment, class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.
+
+The weight entry's next hypothesis forbids another split of the two weights, more seeds on that split, an ablation of the term, and an occupancy episode. The residual weight is 0.0254 [0.0242, 0.0266] and the novelty weight is 0 on every seed. The realized-error door stays −0.1910 [−0.1938, −0.1882]. Those two doors have opposite signs. The question they leave open is why the imagined Bernoulli residual is higher on the east actions of the arm whose realized squared error is lower. One contrast, on this same door, of that residual against the squared error of the same predicted window. Noise and the erased room stay closed. No curiosity term is added. `cellHidden` omitted stays 32. `negateReplay` stays off. The ema is not pinned. `option` stays on. `transition` stays on. `echo`, `edge`, `shape`, `wonder`, `revise`, `rollout`, `discard`, and `decode` stay off. Open problems 1 through 6 stay closed.
+
+The residual the score uses is `4 · mean(p(1−p))` on the wall and food channels of the first imagined window. The residual weight is that number times `curiosity * (0.75 * 0.7 * 0.35 + 0.2 * 0.7)`. Curiosity is 1 and wonder is off, so the gain is that product. For a bit that is 0 or 1, the squared error of the same window is `0.5 − residual / 4 − 2 · mean((p−0.5)(y−0.5))`. The constant cancels in the doorway contrast. The gap `squared + residual / 4` is therefore `−2` times the alignment. The published weight divided by the gain is 0.07840518854759836, and one quarter of that is 0.01960129713689959. Added to the published realized-error door, the implied gap is −0.17140266877816518. That arithmetic is the previous cell. It is not this claim. It is what the gap equals when the window the weight read is the window the realized error scored. The complement is about one tenth of the realized-error door. The prediction is that the rest is alignment: the same window points at the realized bits, and the Bernoulli complement does not account for the door.
+
+### Preregister window
+
+Hypothesis. On the shipped door, at redraw probability 0.94, the squared error of the predicted window is lower than the Bernoulli complement of that same window. The gap, squared plus one quarter of the residual, is repelled. The drift logit stays attracted. The squared-error door stays repelled. The uncertainty weight stays attracted. The predicted summary is `aligned`.
+
+The call is that gap. The residual is reported and does not flip the summary except through the match. The alignment is the same gap divided by −2 and does not flip the summary on its own. The logit, the squared error, and the uncertainty weight are checksums: each has to keep the published class, or the ceiling cell did not come back. Other explorers are checksums and do not flip the summary. The unmixed bonus is a checksum and is not a call. The plant is not rerun. The two weights are not split again as a claim. Occupancy is not run.
+
+World. The cycle map, layout seed 3000, the wide door, region 1 on the east, learnability 1, relevance 0, no food, no mirror. The door is (9, 7). Width 32. Temperature is not passed. `forgettingRate` stays 0. The stream is the atlas stream, `seed * 10007 + 41011`. The train stream is `seed ^ 0x41a6` on both arms. 400 steps. The two arms share a weight init. The rate is 0.94 and is not in that init. The drifting arm redraws `EAST_HOLD_LATENT`. The held arm keeps it and burns the same coin. Count's unmixed bonus gap is 0. Random's logit is 0. A meal or a death aborts. Fewer than 200 seeds aborts. A non-finite door aborts. Curiosity is 1. Wonder is off. A curiosity other than 1 aborts. Wonder on aborts.
+
+The window is the first imagined action at the door, the same imagine the realized error already uses. Residual is `expectedResidual` on wall and food, scent omitted. Squared is the mean `(p−y)²` on those channels, the realized error. Align is `mean((p−0.5)(y−0.5))` on those channels. The doorway contrast is east actions minus the others, then drift minus held. On every action the identity `squared = 0.5 − residual / 4 − 2 · align` has to hold within 1e-6, because a scored bit that is not 0 or 1 would make the gap a different decomposition. A miss aborts. The squared doorway has to match that seed's realized-error doorway within 1e-9. A miss aborts. The gap plus twice the alignment has to be within 1e-6. A miss aborts.
+
+A seed matches when the uncertainty weight equals the gain times the window residual, within 1e-6, and the squared doorway is the realized-error doorway. The gain is `0.75 * 0.7 * 0.35 + 0.2 * 0.7`. The place bonus is 0. A nonzero place bonus aborts. Random's pieces are 0. A nonzero random piece aborts. Uncertainty is the same function of one brain for count, surprise, RND, and rho. A gap that separates those four by more than 1e-6 aborts.
+
+The ceiling means must match within 1e-9: rho logit 0.07877570550888777, surprise logit 0.29832686215639115, RND logit 0.04852886945009231, count logit −0.4250148528814316, realized error −0.19100396591506477, rho bonus 0.02258083738292072, surprise bonus 0.07840519232675433, RND bonus −0.006153701646253467, uncertainty 0.025383679792284966. A miss aborts. These numbers are the previous cell. They are not this claim. The logit, bonus, realized-error, and uncertainty salts are the published salts, so a matching sample reproduces those intervals. When every seed matches, the residual mean has to land within 1e-6 of 0.07840518854759836 and the gap mean within 1e-6 of −0.17140266877816518. A miss aborts. Those two quotients are the arithmetic above. They are not a second measurement.
+
+δ is the published plant lower end, 0.05422156393527985. It is not remeasured. Sign comes before the null. `phaseCellClass` is the class. A gap whose interval excludes 0 is repelled or attracted even when it sits inside (−δ, δ). A sensitive null is an interval that includes 0 and lies strictly inside (−δ, δ).
+
+Metric. One number per seed. Paired 95% percentile bootstrap, 2000 resamples. `greaterCall` is the sign. The class is attracted when the interval lies entirely above 0, repelled when it lies entirely below 0, and null-with-sensitivity when it lies strictly inside (−δ, δ).
+
+Calls. Explorer index is random 0, count 1, surprise 2, RND 3, rho 4.
+
+- Logit and bonus use the published ceiling salts. They do not flip the summary except through rho's logit class, which has to stay attracted.
+- Squared uses the published realized-error salt. Its class has to stay repelled.
+- Uncertainty uses the published piece salt `45042`. Its class has to stay attracted.
+- Residual uses salt `47000`. It does not flip the summary.
+- The gap uses salt `47100`. Its class is the call.
+- Alignment uses salt `47200`. It does not flip the summary.
+
+Summary, `windowSummary`, first match. `unreproduced` when the drift logit is not attracted, the squared-error door is not repelled, or the uncertainty weight is not attracted. `mismatch` when a seed's window residual is not the score's residual weight divided by the gain. `aligned` when every seed matches and the gap is repelled. `anti` when every seed matches and the gap is attracted. `identity` when every seed matches and the gap is a sensitive null. `inconclusive` otherwise.
+
+Verdict, `windowVerdict`. Confirmed when the summary is `aligned`. Refuted when it is `identity` or `anti`. Otherwise inconclusive.
+
+Decision, locked before the run. No outcome changes the temperature, the door, the rate, δ, the gain, or a flag. `cellHidden` omitted stays 32. `negateReplay` omitted stays off. No term is added. The plant is not rerun. The weights are not split again. No occupancy episode is run. No rate other than 0.94 is run. `aligned`: the realized-error advantage is not the Bernoulli complement. The same window matches the realized bits, and that alignment is the door. `identity`: the squared-error door is the complement, and sitting closer to one half is the whole accuracy advantage. `anti`: the window points away from the realized bits, and the complement is what makes the error door as low as it is. `mismatch`: the residual inside the score is not the residual of the window the realized error scored. `unreproduced`: the ceiling cell did not come back. `inconclusive`: the gap interval includes 0 and does not fit inside (−δ, δ). A confirmed headline is not a license for a mechanism. No second look with more seeds in this run.
+
+Figure: `bench/window/window.png`. Columns are the Bernoulli residual, the squared error, and the gap. Color is the drift-minus-held contrast and saturates at ±0.20, because the squared door is about 0.19 and the weight scale of 0.05 would paint every cell solid. A pale cell has a CI that includes 0. A dark edge means the CI excludes 0. The class is printed in the cell. The caption prints the summary, the gap, and rho's logit. Source: `bench/window/window.json`. Tables: `bench/window/window.csv` and `bench/window/window.md`. The sweep is `npm run window`. It is not part of CI.
+
+Field probe late from `npm run bench:json`, seeds 1–5, is reported in the results and is not a pass bit. G1 stays on the baseline-relative probe rule and is not this claim. A bench row that does not match the weight learner aborts the claim. That row is Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40, G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. The per-cell-mean floor on Field is 0.0979. Late error is above it.
+
+### Results
+
+The prediction is confirmed. The summary is `aligned`. The squared error of the predicted window is lower than the Bernoulli complement of that same window. The gap is the alignment. The complement does not account for the door. The drift logit, the squared-error door, and the uncertainty weight stay the published classes. Every seed matches: the residual inside the score is the residual of the window the realized error scored. No term was added.
+
+200 seeds, 4 workers, 6.5 seconds. Source: `bench/window/window.json`. The ceiling means match the published cell within 1e-9, including the uncertainty mean 0.025383679792284966 and the realized-error mean −0.19100396591506477. The squared interval is the published ceiling interval, because the samples and the salt are that cell. Count's unmixed bonus gap is 0. Random's logit is 0. The place bonus is 0. The identity `squared = 0.5 − residual / 4 − 2 · align` holds on every action. The largest miss on a doorway is 1.9e-16. The largest miss of the gain, uncertainty minus the gain times the window residual, is 2.7e-8, under the 1e-6 abort. The residual mean is 0.07840519014718163, within 1.6e-9 of the implied quotient. The gap mean is −0.17140266837826934, within 4.0e-10 of the implied sum. The harness does not fail.
+
+#### Summary. Confirmed.
+
+`windowSummary` is aligned. `windowVerdict` is confirmed. Every seed matches, and the gap is repelled. The drift logit is attracted. The squared-error door is repelled. The uncertainty weight is attracted.
+
+The gap is drift minus held. n = 200. δ is 0.0542, the published plant. Sign comes before the null. The plant is not rerun. The published uncertainty weight is 0.0254 [0.0241, 0.0266]. The published realized-error door is −0.1910 [−0.1938, −0.1882]. Those intervals are the previous cell, and this run reprints them.
+
+| quantity | gap | class |
+|---|---|---|
+| residual | 0.0784 [0.0745, 0.0823] | attracted |
+| squared | −0.1910 [−0.1938, −0.1882] | repelled |
+| gap | −0.1714 [−0.1746, −0.1682] | repelled |
+| align | 0.0857 [0.0842, 0.0874] | attracted |
+
+The squared row is the published ceiling door. The gap is squared plus one quarter of the residual, and it equals −2 times the alignment. The printed means agree at four digits. The per-seed identity holds. The gap lies entirely below 0 and entirely below −δ. It carries. The alignment interval lies entirely above 0 and entirely above δ. That class does not flip the summary. It is the same door with the sign turned over.
+
+The Bernoulli complement is minus one quarter of the residual, −0.0196 [−0.0206, −0.0186]. The interval is the residual interval scaled by −1/4, the same resamples. It lies entirely below 0 and strictly inside (−δ, δ). It does not carry. Sitting closer to one half buys about a tenth of the squared-error door. The other nine tenths are the window pointing at the realized bits.
+
+The residual is still higher on the east actions of the drifting arm, and the squared error is still lower there. They are not two readings of one fact. The complement would make a higher residual lower the squared error by 0.0196. The measured squared door is −0.1910. The difference is the alignment. On this door the drifting arm's predictions agree with the realized bits by more than the held arm's do. Confidence is the small term. Agreement with the bits is the door.
+
+The unmixed rho bonus is 0.0226 [0.0183, 0.0271], the published ceiling bonus. Surprise's bonus is 0.0784 [0.0745, 0.0822]. RND's bonus is −0.0062 [−0.0086, −0.0039]. Count's bonus is 0. Surprise's logit is 0.2983 [0.2786, 0.3185]. RND's logit is 0.0485 [0.0391, 0.0579]. Count's logit is −0.4250 [−0.4522, −0.3974].
+
+Figure: `bench/window/window.png`. The residual cell is edged and marked attracted. The squared cell and the gap cell are edged and marked repelled. The caption reads summary aligned, gap −0.1714, rho logit 0.0788. Tables: `bench/window/window.csv` and `bench/window/window.md`.
+
+`cellHidden` omitted is still 32. `negateReplay` omitted is still off. `forgettingRate` stays 0. `policyTemperature` omitted is still 0.45. `option` stays on. `transition` stays on. `echo` stays off. `edge` stays off. `shape` stays off. `wonder` stays off. `revise` stays off. `rollout` stays off. `discard` stays off. `decode` stays off. The place bonus stays off. `actionWindow` is off the step path. It runs only when a measurement asks for the predicted window, and the default door does not ask. The squared error it returns is the shipped realized error: the five-seed row matches, and the ceiling door matches the published means. No Loop flag was added, and none was turned on. The rate is the room's redraw probability. It is not on the step path of the default agent.
+
+`npm test` passes. `tsc --noEmit` passes. `loop.ts` is unchanged and is 74 KB. `kernel.ts` grew a measurement the step path does not call, and `atlas-run.ts` records the window only when the sweep asks. Probe gate, seeds 1–20, after that measurement. Option off minus on is 0.0107 [0.0032, 0.0179]. Transition off minus on is 0.1347 [0.1255, 0.1416]. Both pass. The gate is not this claim.
+
+Five-seed bench, seeds 1–5, sha `1c90f49`, run before the sweep. The default row matches the weight learner. Field probe early 0.1157, Field probe late 0.1102, Field on-policy ema 0.1654 → 0.0726, Field foods 8.20, Field lives 0.40, Rooms foods 7.40, Rooms lives 0.40. G1 1/5, G2 5/5, S1 4/5, S2 5/5, S3 5/5, C1 5/5, C2 5/5. G1 stays on the baseline-relative probe rule and is not this claim. The per-cell-mean floor on Field is 0.0979. Late error is above it. Source: `bench/latest.json`. Trend: `bench/history.csv`.
+
+### Next hypothesis
+
+Do not rerun this contrast, and do not add seeds. The gap is −0.1714 [−0.1746, −0.1682], entirely below −δ, and it is the alignment 0.0857 [0.0842, 0.0874]. The Bernoulli complement is −0.0196 [−0.0206, −0.0186], inside δ, so sitting closer to one half is not the accuracy. Do not ablate the term. Do not run an occupancy episode. The question this leaves open is which coordinates carry the alignment. One contrast, on this same door, of the east glow against the fixed channels, walls and food and the west pattern, inside that same predicted window. The realized step stays the one frozen redraw the error already uses. Do not replace it with an expectation over the coin. Noise and the erased room stay closed. Field probe late is still 0.1102. A new term still has to beat its own absence on that probe.
+
 ## 2026-11-06 uncertainty weights (UTC)
 
 Written before `npm run weights`. No residual gap, novelty gap, class, or verdict from that command is in this block. The results section is filled in after the run. The five-seed bench is descriptive and is not this claim.

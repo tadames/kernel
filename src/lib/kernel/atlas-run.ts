@@ -178,7 +178,7 @@ function readExplore(k: Kernel): ExploreDoor | null {
   };
 }
 
-function scoreDoor(k: Kernel): ScoredDoor {
+function scoreDoor(k: Kernel, traceWindow = false): ScoredDoor {
   const brain = k.loop.exportBrain();
   const counts = k.visitCounts.slice();
   const predW = k.rnd.predW.slice();
@@ -188,8 +188,28 @@ function scoreDoor(k: Kernel): ScoredDoor {
   k.x = DOOR_X;
   k.y = DOOR_Y;
   const errors = new Float64Array(ACTS);
-  for (let a = 0; a < ACTS; a++) errors[a] = k.actionTrueError(a);
+  const residuals = new Float64Array(ACTS);
+  const aligns = new Float64Array(ACTS);
+  for (let a = 0; a < ACTS; a++) {
+    if (!traceWindow) {
+      errors[a] = k.actionTrueError(a);
+      continue;
+    }
+    const window = k.actionWindow(a);
+    const err = k.actionTrueError(a);
+    if (Math.abs(window.squared - err) > 1e-9) {
+      throw new Error(`window squared ${window.squared} left realized error ${err}`);
+    }
+    const identity = window.squared - (0.5 - window.residual / 4 - 2 * window.align);
+    if (Math.abs(identity) > 1e-6) throw new Error(`window identity ${identity} on action ${a}`);
+    errors[a] = err;
+    residuals[a] = window.residual;
+    aligns[a] = window.align;
+  }
   const raw = doorDelta(k, errors);
+  const window = traceWindow
+    ? { residual: doorDelta(k, residuals), squared: doorDelta(k, errors), align: doorDelta(k, aligns) }
+    : null;
   const logit = zeros();
   const bonus = zeros();
   const pieces = {} as ExplorerPieces;
@@ -223,7 +243,7 @@ function scoreDoor(k: Kernel): ScoredDoor {
   k.rnd.predB.set(predB);
   k.x = x;
   k.y = y;
-  return { logit, bonus, raw, pieces, mix };
+  return { logit, bonus, raw, pieces, mix, window };
 }
 
 /** The published 200-step learn. Targets stay true. Counts and RND train. */
@@ -289,6 +309,16 @@ type DriftScored = {
 /** Uncertainty term split into the residual weight and the novelty weight. */
 export type ExploreDoor = { residual: number; novelty: number };
 
+/** Doorway contrast of one predicted window. Null unless the sweep asks. */
+export type PredictedWindow = {
+  /** Bernoulli residual, east actions minus the others. */
+  residual: number;
+  /** Realized squared error of that same window. */
+  squared: number;
+  /** Covariance of the prediction with the realized bits. */
+  align: number;
+};
+
 type ScoredDoor = {
   logit: SignalGaps;
   bonus: SignalGaps;
@@ -296,6 +326,8 @@ type ScoredDoor = {
   pieces: ExplorerPieces;
   /** Null unless the kernel was built with `traceExplore`. */
   mix: ExploreDoor | null;
+  /** Null unless this score asked for the predicted window. */
+  window: PredictedWindow | null;
 };
 
 /**
@@ -303,9 +335,11 @@ type ScoredDoor = {
  * 0.01877. The piece buffers are the same score the logit already used.
  * They do not draw a random number and they do not enter the bonus.
  */
-function scoreDriftPair(seed: number, driftRate: number, traceExplore = false): DriftScored & {
+function scoreDriftPair(seed: number, driftRate: number, traceExplore = false, traceWindow = false): DriftScored & {
   driftMix: ExploreDoor | null;
   heldMix: ExploreDoor | null;
+  driftWindow: PredictedWindow | null;
+  heldWindow: PredictedWindow | null;
 } {
   const left = freshKernel(seed, ATLAS_STREAM, driftSpec("drift", driftRate), traceExplore);
   const right = freshKernel(seed, ATLAS_STREAM, driftSpec("held", driftRate), traceExplore);
@@ -320,8 +354,14 @@ function scoreDriftPair(seed: number, driftRate: number, traceExplore = false): 
   const randRight = mulberry32((seed ^ 0x41a6) >>> 0);
   trainLive(left, randLeft, ATLAS_CONTENT_STEPS);
   trainLive(right, randRight, ATLAS_CONTENT_STEPS);
-  const target = scoreDoor(left);
-  const control = scoreDoor(right);
+  if (traceWindow && (left.params.curiosity !== 1 || right.params.curiosity !== 1)) {
+    throw new Error("window door curiosity is not 1");
+  }
+  if (traceWindow && (left.features.wonder || right.features.wonder)) {
+    throw new Error("window door revised curiosity");
+  }
+  const target = scoreDoor(left, traceWindow);
+  const control = scoreDoor(right, traceWindow);
   const bonus = sub(target.bonus, control.bonus);
   if (bonus.count !== 0) throw new Error(`drift door count bonus gap is ${bonus.count}`);
   if (bonus.random !== 0 || target.logit.random !== 0 || control.logit.random !== 0) {
@@ -329,12 +369,16 @@ function scoreDriftPair(seed: number, driftRate: number, traceExplore = false): 
   }
   if (traceExplore && (!target.mix || !control.mix)) throw new Error("weight door did not record the explore split");
   if (!traceExplore && (target.mix || control.mix)) throw new Error("drift door recorded an explore split it did not ask for");
+  if (traceWindow && (!target.window || !control.window)) throw new Error("window door did not record the predicted window");
+  if (!traceWindow && (target.window || control.window)) throw new Error("drift door recorded a window it did not ask for");
   return {
     door: { logit: sub(target.logit, control.logit), bonus, raw: target.raw - control.raw },
     driftPieces: target.pieces,
     heldPieces: control.pieces,
     driftMix: target.mix,
     heldMix: control.mix,
+    driftWindow: target.window,
+    heldWindow: control.window,
   };
 }
 
@@ -368,6 +412,42 @@ export function runDriftWeightDoor(seed: number, driftRate = ATLAS_DRIFT): Drift
     throw new Error(`weight door ${residual + novelty} left uncertainty ${uncertainty}`);
   }
   return { ...scored, residual, novelty };
+}
+
+export type DriftWindowDoor = DriftWeightDoor & {
+  /** Bernoulli residual of the predicted window, drift minus held. */
+  windowResidual: number;
+  /** Realized squared error of that same window, drift minus held. */
+  windowSquared: number;
+  /** Covariance of that window with the realized bits, drift minus held. */
+  align: number;
+};
+
+/**
+ * The weight door, plus the Bernoulli residual and the realized squared
+ * error of the same predicted window. The window is not a second training.
+ * It does not enter the bonus. The omitted rate is 0.01877.
+ */
+export function runDriftWindowDoor(seed: number, driftRate = ATLAS_DRIFT): DriftWindowDoor {
+  const scored = scoreDriftPair(seed, driftRate, true, true);
+  if (!scored.driftMix || !scored.heldMix) throw new Error("window door missing the explore split");
+  if (!scored.driftWindow || !scored.heldWindow) throw new Error("window door missing the predicted window");
+  const residual = scored.driftMix.residual - scored.heldMix.residual;
+  const novelty = scored.driftMix.novelty - scored.heldMix.novelty;
+  const uncertainty = scored.driftPieces.rho.uncertainty - scored.heldPieces.rho.uncertainty;
+  if (Math.abs(residual + novelty - uncertainty) > 1e-6) {
+    throw new Error(`window door ${residual + novelty} left uncertainty ${uncertainty}`);
+  }
+  const windowResidual = scored.driftWindow.residual - scored.heldWindow.residual;
+  const windowSquared = scored.driftWindow.squared - scored.heldWindow.squared;
+  const align = scored.driftWindow.align - scored.heldWindow.align;
+  if (Math.abs(windowSquared - scored.door.raw) > 1e-9) {
+    throw new Error(`window squared ${windowSquared} left realized error ${scored.door.raw}`);
+  }
+  if (Math.abs(windowSquared + windowResidual / 4 + 2 * align) > 1e-6) {
+    throw new Error(`window gap left alignment ${align}`);
+  }
+  return { ...scored, residual, novelty, windowResidual, windowSquared, align };
 }
 
 export type DoseMatch = {

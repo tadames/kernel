@@ -5,6 +5,7 @@ import {
   emptyRhoDropTrace,
   emptyRhoHatParts,
   emptyScoreParts,
+  expectedResidual,
   imagineScores,
   REPLAY_HARD_AT,
   softmaxSample,
@@ -38,6 +39,16 @@ import {
   type CuriositySignal,
   type SignalView,
 } from "./signals.ts";
+
+/** One imagined action, scored on the wall and food channels of one window. */
+export type ActionWindow = {
+  /** `4 · mean(p(1−p))`. The Bernoulli residual that enters explore. */
+  residual: number;
+  /** Mean `(p−y)²` of that same prediction against the true next window. */
+  squared: number;
+  /** `mean((p−0.5)(y−0.5))` on those same channels. */
+  align: number;
+};
 
 export const SIZE = 15;
 export const R = 2;
@@ -620,7 +631,18 @@ export class Kernel {
    * The step path does not call it.
    */
   actionTrueError(action: number): number {
-    if (!this.family) return 0;
+    return this.actionWindow(action).squared;
+  }
+
+  /**
+   * The predicted window behind `actionTrueError`, read three ways.
+   * `residual` is the Bernoulli residual that enters explore. `squared`
+   * is the realized squared error of that same buffer. `align` is its
+   * covariance with the realized bits. Measurement only. The step path
+   * does not call it, and it does not draw the policy RNG.
+   */
+  actionWindow(action: number): ActionWindow {
+    if (!this.family) return { residual: 0, squared: 0, align: 0 };
     const obs = this.sense();
     const into = new Float32Array(OBS);
     this.loop.imagine(this.encode(obs, action, true), into);
@@ -637,14 +659,19 @@ export class Kernel {
     const next = new Float32Array(OBS);
     senseGrid(body.cells, body.scent, body.x, body.y, SIZE, R, next, family.glow, this.glowGain(), family.decoy);
     let s = 0;
+    let align = 0;
     let n = 0;
     for (let i = 0; i < OBS; i++) {
       if (i % CH === 2) continue;
-      const d = into[i]! - next[i]!;
+      const p = into[i]!;
+      const y = next[i]!;
+      const d = p - y;
       s += d * d;
+      align += (p - 0.5) * (y - 0.5);
       n += 1;
     }
-    return n ? s / n : 0;
+    const residual = expectedResidual(into, (i) => (i % CH === 2 ? 0 : 1));
+    return { residual, squared: n ? s / n : 0, align: n ? align / n : 0 };
   }
 
   /**
